@@ -9,7 +9,7 @@ set -eu
 
 # --- locate binaries + the bro.js extension ---------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/js/bro/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)          # repo root
+_ROOT=$(cd "$_CASE/../.." && pwd)          # repo root
 # The native `bro` oracle: prefer $BIN (DOG_BIN_DIR under ctest), else PATH.
 BRO=${BRO:-${BIN:+$BIN/bro}}
 BRO=${BRO:-$(command -v bro || true)}

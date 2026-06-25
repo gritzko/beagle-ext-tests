@@ -8,8 +8,8 @@
 # store tip sha of a clone (via store.js, the same reader post.js uses).
 _tip() {
     cat > "$WORK/.tip.js" <<'EOF'
-const be=require(process.argv[3]+"/lib/be.js");
-const store=require(process.argv[3]+"/lib/store.js");
+const be=require(process.argv[3]+"/core/discover.js");
+const store=require(process.argv[3]+"/shared/store.js");
 const info=be.find(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const u=utf8.Encode((k.resolveRef("")||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
@@ -26,7 +26,7 @@ ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
 # --- empty commit: a clean clone with no staged change must POSTNONE -------
 mkdir "$WORK/e"; ( cd "$WORK/e" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
 E_TIP0=$(_tip "$WORK/e")
-if ( cd "$WORK/e" && "$JABC" "$POSTJS" '#noop' ) >"$WORK/e.out" 2>"$WORK/e.err"; then
+if ( cd "$WORK/e" && "$JABC" post '#noop' ) >"$WORK/e.out" 2>"$WORK/e.err"; then
     _fail "empty post did NOT refuse (expected POSTNONE): $(cat "$WORK/e.out")"
 fi
 grep -q POSTNONE "$WORK/e.err" || _fail "empty post refused but not via POSTNONE: $(cat "$WORK/e.err")"
@@ -42,7 +42,7 @@ mkdir "$WORK/y"; ( cd "$WORK/y" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2
 # the shared origin store tip is now y's commit; x's wtlog parent is still c1.
 X_TIP_BEFORE=$(_tip "$WORK/x")
 if ( cd "$WORK/x" && printf 'A3\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 && \
-     "$JABC" "$POSTJS" '#stale' ) >"$WORK/x.out" 2>"$WORK/x.err"; then
+     "$JABC" post '#stale' ) >"$WORK/x.out" 2>"$WORK/x.err"; then
     _fail "non-FF post did NOT refuse (expected POSTNOFF): $(cat "$WORK/x.out")"
 fi
 grep -q POSTNOFF "$WORK/x.err" || _fail "non-FF post refused but not via POSTNOFF: $(cat "$WORK/x.err")"

@@ -18,7 +18,7 @@ set -eu
 
 # --- locate binaries + the delete.js extension ------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/delete/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)           # repo root
+_ROOT=$(cd "$_CASE/../.." && pwd)           # repo root
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "deletecase: cannot locate be (set BIN=)" >&2; exit 2; }
@@ -26,8 +26,8 @@ _BIN=$(dirname "$BE")
 JABC=${JABC:-$_BIN/jab}
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
-DELJS="$_ROOT/../be/delete.js"
-[ -f "$DELJS" ] || { echo "deletecase: SKIP — no be/ submodule at $_ROOT/../be" >&2; exit 0; }
+BEDIR="${BEDIR:-$_ROOT/..}"
+[ -f "$BEDIR/main.js" ] || { echo "deletecase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "deletecase: no jab at $JABC" >&2; exit 2; }
 export BE JABC DELJS
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
@@ -35,12 +35,15 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops
 # `be`'s cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-delete/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -72,7 +75,7 @@ fork_pair() {
 # stdout + wtlog rows + file set + refs.  Mutate is the caller's job.
 delete_both() {
     ( cd "$NAT" && "$BE" delete "$@" ) >"$NAT.out" 2>"$NAT.err" || true
-    ( cd "$JS"  && "$JABC" "$DELJS" "$@" ) >"$JS.out" 2>"$JS.err" || true
+    ( cd "$JS"  && "$JABC" delete "$@" ) >"$JS.out" 2>"$JS.err" || true
     _assert_equiv
 }
 

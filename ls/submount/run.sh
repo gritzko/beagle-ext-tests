@@ -41,7 +41,7 @@ cd "$S/B1"
 rm -f "$PWD/.be/queue" 2>/dev/null || true
 
 # --- ls: root shows the mounted submodule as a navigable `dir` row ---------
-"$JABC" "$BEDIR/main.js" ls "ls:" > "$WORK/ls.out" 2>/dev/null
+"$JABC" ls "ls:" > "$WORK/ls.out" 2>/dev/null
 grep -q '^        dir chsub/$' "$WORK/ls.out" \
     || { echo "--- ls: ---"; cat -A "$WORK/ls.out"; _fail "ls: no 'dir chsub/' row"; }
 echo "ok   ls: submodule shown as navigable dir row"
@@ -49,7 +49,7 @@ echo "ok   ls: submodule shown as navigable dir row"
 # --- lsr: recurses INTO the submodule as its OWN hunk(s), across the store
 #     boundary — its files listed RELATIVE to the sub hunk (c.txt, lib/, …) ---
 rm -f "$PWD/.be/queue" 2>/dev/null || true
-"$JABC" "$BEDIR/main.js" lsr "lsr:" > "$WORK/lsr.out" 2>/dev/null
+"$JABC" lsr "lsr:" > "$WORK/lsr.out" 2>/dev/null
 for _need in '^lsr:chsub/$' ' eq  c.txt$' '        dir lib/$' \
              '^lsr:chsub/lib/$' ' eq  l.txt$'; do
     grep -q "$_need" "$WORK/lsr.out" \

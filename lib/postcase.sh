@@ -19,7 +19,7 @@
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/js/post/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)          # repo root
+_ROOT=$(cd "$_CASE/../.." && pwd)          # repo root
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "postcase: cannot locate be (set BIN=)" >&2; exit 2; }
@@ -27,21 +27,23 @@ _BIN=$(dirname "$BE")
 JABC=${JABC:-$_BIN/jab}
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
-BEDIR="$_ROOT/../be"
-POSTJS="$BEDIR/post.js"
-[ -f "$POSTJS" ] || { echo "postcase: SKIP — no be/ submodule at $BEDIR" >&2; exit 0; }
+BEDIR="$_ROOT/.."
+[ -f "$BEDIR/main.js" ] || { echo "postcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "postcase: no jab at $JABC" >&2; exit 2; }
 
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
-export BE JABC POSTJS BEDIR
+export BE JABC BEDIR
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/js-post/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -61,8 +63,8 @@ EOF
 }
 _seed_wtlog() {   # _seed_wtlog WTDIR SEEDRON
     cat > "$WORK/.seed.js" <<'EOF'
-const ulog = require(process.argv[3] + "/lib/ulog.js");
-const be   = require(process.argv[3] + "/lib/be.js");
+const ulog = require(process.argv[3] + "/shared/ulog.js");
+const be   = require(process.argv[3] + "/core/discover.js");
 const info = be.find(process.argv[2]);
 ulog.append(info.bePath, [{ verb:"mod", uri:"?/.seed", ts: BigInt(process.argv[4]) }]);
 EOF
@@ -72,8 +74,8 @@ EOF
 # --- commit/refs probes (read a worktree's tip + commit bytes) -------------
 _commit_dump() {  # _commit_dump WTDIR  → "tip=<sha>\n<commit bytes>"
     cat > "$WORK/.dump.js" <<'EOF'
-const be    = require(process.argv[3] + "/lib/be.js");
-const store = require(process.argv[3] + "/lib/store.js");
+const be    = require(process.argv[3] + "/core/discover.js");
+const store = require(process.argv[3] + "/shared/store.js");
 const info  = be.find(process.argv[2]);
 const k = store.open(info.storePath, info.project);
 const tip = k.resolveRef("");
@@ -120,7 +122,7 @@ post_parity() {
     ( cd "$WORK/nT" && "$_stage" )
     ( cd "$WORK/jT" && "$_stage" )
     ( cd "$WORK/nT" && "$BE" post "#$_msg" ) >"$WORK/nT.out" 2>"$WORK/nT.err" || _fail "native post failed: $(cat "$WORK/nT.err")"
-    ( cd "$WORK/jT" && "$JABC" "$POSTJS" "#$_msg" ) >"$WORK/jT.out" 2>"$WORK/jT.err" || _fail "JS post failed: $(cat "$WORK/jT.err")"
+    ( cd "$WORK/jT" && "$JABC" post "#$_msg" ) >"$WORK/jT.out" 2>"$WORK/jT.err" || _fail "JS post failed: $(cat "$WORK/jT.err")"
 
     # banner
     _norm <"$WORK/nT.out" >"$WORK/nT.norm"; _norm <"$WORK/jT.out" >"$WORK/jT.norm"

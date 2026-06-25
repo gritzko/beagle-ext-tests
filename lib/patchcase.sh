@@ -11,7 +11,7 @@
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)              # test/js/patch/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)            # repo root
+_ROOT=$(cd "$_CASE/../.." && pwd)            # repo root
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "patchcase: cannot locate be (set BIN=)" >&2; exit 2; }
@@ -19,8 +19,8 @@ _BIN=$(dirname "$BE")
 JABC=${JABC:-$_BIN/jab}
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
-PATCHJS="$_ROOT/../be/patch.js"
-[ -f "$PATCHJS" ] || { echo "patchcase: SKIP — no be/ submodule at $_ROOT/../be" >&2; exit 0; }
+BEDIR="${BEDIR:-$_ROOT/..}"
+[ -f "$BEDIR/main.js" ] || { echo "patchcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "patchcase: no jab at $JABC" >&2; exit 2; }
 
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
@@ -38,10 +38,13 @@ export BE JABC PATCHJS
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/js-patch/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -96,7 +99,7 @@ patch_parity() {
 
     ( cd "$NAT" && "$BE" patch "$_uri" ) >"$WORK/nat.out" 2>"$WORK/nat.err" \
         || _fail "native patch failed: $(cat "$WORK/nat.err")"
-    ( cd "$JS" && "$JABC" "$PATCHJS" "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
+    ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
     #  1. merged worktree bytes — file-by-file byte equality.
@@ -164,7 +167,7 @@ patch_js_golden() {
 
     ( cd "$NAT" && "$BE" patch "$_uri" ) >"$WORK/nat.out" 2>"$WORK/nat.err" \
         || _fail "native patch failed: $(cat "$WORK/nat.err")"
-    ( cd "$JS" && "$JABC" "$PATCHJS" "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
+    ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
     #  1. JS merged bytes == the deterministic dog golden (the gate).

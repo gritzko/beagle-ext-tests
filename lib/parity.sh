@@ -25,7 +25,7 @@ set -eu
 
 # --- locate binaries + the be/ extension dir --------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/parity/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)           # repo root (beagle/)
+_ROOT=$(cd "$_CASE/../.." && pwd)           # repo root (beagle/)
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "parity: cannot locate be (set BE= or BIN=)" >&2; exit 2; }
@@ -36,14 +36,14 @@ JABC=${JABC:-${JAB:-$_BIN/jab}}
 # JSQUE-008: a $BEDIR override lets an isolated worktree gate its OWN be/ shard
 # (the agent's CODE lives in ~/todo/<TICKET>, not the landed beagle-ext) — the
 # default is unchanged for the in-tree run.
-BEDIR="${BEDIR:-$_ROOT/../be}"
+BEDIR="${BEDIR:-$_ROOT/..}"
 [ -d "$BEDIR" ] || { echo "parity: SKIP — no be/ submodule at $BEDIR" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "parity: no jab at $JABC" >&2; exit 2; }
 
 # wire transport env (file:/be: local keeper) — point at the bin dir.
 : "${KEEPER_BIN:=$_BIN/keeper}"
 : "${DOG_REMOTE_PATH:=$_BIN}"
-: "${SUT:=oneshot}"                               # oneshot | loop
+: "${SUT:=loop}"                                  # loop | oneshot (oneshot scripts retired post-conversion)
 # Loop-mode pre-flight (hoisted ABOVE any subshell): if the case targets the
 # resident loop but be/main.js has not landed yet, SKIP the whole case cleanly
 # (exit 0) here — a deferred SKIP inside the `( cd $JS && run_js )` subshell
@@ -57,12 +57,15 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops
 # `be`'s cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-parity/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -94,7 +97,7 @@ run_js() {
         loop)
             _js="$BEDIR/main.js"
             [ -f "$_js" ] || { echo "parity: SKIP — SUT=loop but no $_js yet" >&2; exit 0; }
-            "$JABC" "$_js" "$_v" "$@" ;;
+            "$JABC" "$_v" "$@" ;;
         oneshot|*)
             _js="$BEDIR/$_v.js"
             [ -f "$_js" ] || { echo "parity: SKIP — no $_js for verb $_v" >&2; exit 0; }

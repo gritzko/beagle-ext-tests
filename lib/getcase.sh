@@ -13,7 +13,7 @@ set -eu
 
 # --- locate binaries + the get.js extension ---------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/js/get/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)          # repo root
+_ROOT=$(cd "$_CASE/../.." && pwd)          # repo root
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "getcase: cannot locate be (set BIN=)" >&2; exit 2; }
@@ -21,8 +21,8 @@ _BIN=$(dirname "$BE")
 JABC=${JABC:-$_BIN/jab}
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be), not in
 # beagle/bin/.  GUARD: skip (exit 0) if that cross-submodule path is absent.
-GETJS="$_ROOT/../be/get.js"
-[ -f "$GETJS" ] || { echo "getcase: SKIP — no be/ submodule at $_ROOT/../be" >&2; exit 0; }
+BEDIR="${BEDIR:-$_ROOT/..}"
+[ -f "$BEDIR/main.js" ] || { echo "getcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "getcase: no jab at $JABC" >&2; exit 2; }
 
 # wire transport env (be:/ssh: spawn `ssh <host> keeper upload-pack`; local
@@ -37,13 +37,16 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 RS_ROOT="$TMP/$$"
 # Hermetic base: an empty `.be` FILE just above the scratch stops `be`'s
 # cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-get/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 # --- assert helpers ---------------------------------------------------
@@ -72,7 +75,7 @@ tree_eq() {
 get_both() {
     _remote=$1; _nd=$2; _jd=$3
     ( cd "$_nd" && "$BE" get "$_remote" ) >"$_nd.out" 2>/dev/null
-    ( cd "$_jd" && "$JABC" "$GETJS" "$_remote" ) >"$_jd.out" 2>"$_jd.err"
+    ( cd "$_jd" && "$JABC" get "$_remote" ) >"$_jd.out" 2>"$_jd.err"
     _norm <"$_nd.out" >"$_nd.norm"
     _norm <"$_jd.out" >"$_jd.norm"
     if ! cmp -s "$_nd.norm" "$_jd.norm"; then

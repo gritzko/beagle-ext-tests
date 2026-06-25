@@ -16,7 +16,7 @@
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/diff/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)           # repo root (beagle/)
+_ROOT=$(cd "$_CASE/../.." && pwd)           # repo root (beagle/)
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "diffcase: cannot locate be (set BE= or BIN=)" >&2; exit 2; }
@@ -25,7 +25,7 @@ GRAF=${GRAF:-$_BIN/graf}
 JABC=${JABC:-${JAB:-$_BIN/jab}}
 # JAB-001/JSQUE-016: the loop + scripts live in the sibling `be/` submodule.
 # A $BEDIR override lets an isolated worktree gate its OWN be/ shard.
-BEDIR="${BEDIR:-$_ROOT/../be}"
+BEDIR="${BEDIR:-$_ROOT/..}"
 [ -d "$BEDIR" ] || { echo "diffcase: SKIP — no be/ submodule at $BEDIR" >&2; exit 0; }
 [ -f "$BEDIR/main.js" ] || { echo "diffcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "diffcase: no jab at $JABC" >&2; exit 2; }
@@ -39,12 +39,15 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/js-diff/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops a
 # cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -65,7 +68,7 @@ diff_eq() {
     _desc=$1; shift
     # --plain: native be vs the loop.
     _orc=0; "$BE" "$@" --plain   >"$WORK/o.plain" 2>"$WORK/o.perr" || _orc=$?
-    _jrc=0; "$JABC" "$BEDIR/main.js" diff "$@" --plain \
+    _jrc=0; "$JABC" diff "$@" --plain \
                                      >"$WORK/j.plain" 2>"$WORK/j.perr" || _jrc=$?
     cmp -s "$WORK/o.plain" "$WORK/j.plain" || {
         echo "--- be --plain ---";   cat -A "$WORK/o.plain" | head -60
@@ -84,7 +87,7 @@ diff_eq() {
     # leg (oracle `be`) already gates the case; skip the --color assert.
     _ogc=0; "$GRAF" "$@" --color >"$WORK/o.color" 2>"$WORK/o.cerr" || _ogc=$?
     if [ "$_ogc" = 0 ] && [ -s "$WORK/o.color" ]; then
-        "$JABC" "$BEDIR/main.js" diff "$@" --color \
+        "$JABC" diff "$@" --color \
                                      >"$WORK/j.color" 2>"$WORK/j.cerr" || true
         cmp -s "$WORK/o.color" "$WORK/j.color" || {
             echo "--- graf --color ---";  cat -v "$WORK/o.color" | head -60

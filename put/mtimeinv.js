@@ -4,7 +4,7 @@
 //  (`<old>#<new>`) the DEST (`<new>`) is the stamped file.  Args: <wt-dir>.
 //  Exits non-zero (throws) on any mismatch.  Used by test/js/put/putcase.sh.
 "use strict";
-const ulog = require("lib/ulog.js");     // be-relative: the be/ shard's ulog
+const ulog = require("shared/ulog.js");     // be-relative: the be/ shard's ulog
 const wt = process.argv[2];
 let bad = 0;
 //  Only the put rows AFTER the last get/post are in the current staging

@@ -20,7 +20,7 @@
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)              # test/js/spot/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)            # repo root (beagle/)
+_ROOT=$(cd "$_CASE/../.." && pwd)            # repo root (beagle/)
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "spotcase: cannot locate be (set BE= or BIN=)" >&2; exit 2; }
@@ -29,7 +29,7 @@ JABC=${JABC:-${JAB:-$_BIN/jab}}
 # JAB-001/JSQUE-016: the loop + handlers live in the sibling `be/` submodule.
 # A $BEDIR override lets an isolated worktree gate its OWN be/ shard (JAB-021
 # develops under ~/todo/JAB-021/be, not the landed beagle-ext).
-BEDIR="${BEDIR:-$_ROOT/../be}"
+BEDIR="${BEDIR:-$_ROOT/..}"
 [ -d "$BEDIR" ] || { echo "spotcase: SKIP — no be/ submodule at $BEDIR" >&2; exit 0; }
 [ -f "$BEDIR/main.js" ] || { echo "spotcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 # A case sets NEED_VERB to the handler it exercises (spot/grep/regex); the gate
@@ -47,12 +47,15 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/js-spot/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops a
 # cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -81,7 +84,7 @@ spot_eq() {
     "$BE" "$_uri" "$@" --plain 2>"$WORK/exp.err" \
       | awk -v v="$_verb" '$1=="hunk" && NF==2 && $2 ~ /#L[0-9]+/ {$1=v} {print}' \
       > "$WORK/exp.out" || true
-    _jrc=0; "$JABC" "$BEDIR/main.js" "$_verb" "$_uri" "$@" >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
+    _jrc=0; "$JABC" "$_verb" "$_uri" "$@" >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
     cmp -s "$WORK/exp.out" "$WORK/j.out" || {
         echo "--- expected (native $_verb: --plain) ($_uri $*) ---"; cat -A "$WORK/exp.out" | head -60
         echo "--- jab loop ($_uri $*) ---";                          cat -A "$WORK/j.out"   | head -60
@@ -98,7 +101,7 @@ spot_err() {
     _desc=$1; _uri=$2; _expect=$3
     _verb=${_uri%%:*}
     rm -f "$PWD/.be/queue" 2>/dev/null || true
-    _jrc=0; "$JABC" "$BEDIR/main.js" "$_verb" "$_uri" >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
+    _jrc=0; "$JABC" "$_verb" "$_uri" >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
     [ "$_jrc" -ne 0 ] || {
         echo "--- jab stdout ---"; cat -A "$WORK/j.out" | head -20
         echo "--- jab stderr ---"; cat "$WORK/j.err" | head -20

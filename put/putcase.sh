@@ -19,7 +19,7 @@ set -eu
 
 # --- locate binaries + the put.js extension ---------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/put/<case>
-_ROOT=$(cd "$_CASE/../../../.." && pwd)           # repo root
+_ROOT=$(cd "$_CASE/../.." && pwd)           # repo root
 BE=${BE:-${BIN:+$BIN/be}}
 BE=${BE:-$(command -v be || true)}
 [ -n "$BE" ] && [ -x "$BE" ] || { echo "putcase: cannot locate be (set BIN=)" >&2; exit 2; }
@@ -27,8 +27,8 @@ _BIN=$(dirname "$BE")
 JABC=${JABC:-$_BIN/jab}
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
-PUTJS="$_ROOT/../be/put.js"
-[ -f "$PUTJS" ] || { echo "putcase: SKIP — no be/ submodule at $_ROOT/../be" >&2; exit 0; }
+BEDIR="${BEDIR:-$_ROOT/..}"
+[ -f "$BEDIR/main.js" ] || { echo "putcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "putcase: no jab at $JABC" >&2; exit 2; }
 export BE JABC PUTJS
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
@@ -36,12 +36,15 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
-. "$_ROOT/test/lib/repo-setup.sh"
+. "$_ROOT/lib/repo-setup.sh"
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops
 # `be`'s cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-put/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
+# JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
+# extension via this `be` shard symlink planted above the scratch worktrees.
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
@@ -74,7 +77,7 @@ fork_pair() {
 # Accepts the put args as "$@".
 put_both() {
     ( cd "$NAT" && "$BE" put "$@" ) >"$NAT.out" 2>"$NAT.err" || true
-    ( cd "$JS"  && "$JABC" "$PUTJS" "$@" ) >"$JS.out" 2>"$JS.err" || true
+    ( cd "$JS"  && "$JABC" put "$@" ) >"$JS.out" 2>"$JS.err" || true
     _assert_equiv
 }
 
