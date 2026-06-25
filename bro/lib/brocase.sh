@@ -22,8 +22,9 @@ JABC=${JABC:-$_BIN/jab}
 # upward `be/`-scan from the CWD, so the jab call must run with CWD inside a
 # worktree that has the by-verb layout + the `be -> .` self-loop (the live
 # `$_ROOT/../be` tree has NO self-loop, so use a store-backed worktree).
-# $BROWT points at that worktree; default to the JAB-bro checkout.
-BROWT="${BROWT:-$HOME/todo/JAB-bro}"
+# $BROWT points at that worktree; default to the be/ tree itself ($_ROOT/..),
+# which carries views/bro/bro.js (the old ~/todo/JAB-bro worktree is gone).
+BROWT="${BROWT:-$(cd "$_ROOT/.." && pwd)}"
 # GUARD: skip (exit 0) if the worktree has no bro verb handler (not yet landed).
 { [ -f "$BROWT/views/bro/bro.js" ] || [ -f "$BROWT/verbs/bro/bro.js" ]; } || {
     echo "brocase: SKIP — no bro handler at $BROWT/{views,verbs}/bro/bro.js" >&2; exit 0; }

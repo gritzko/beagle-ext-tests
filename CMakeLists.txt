@@ -26,8 +26,7 @@ set(_BE_WILL_FAIL
     be-js-diff-03-stock-context
     be-js-diff-08-sub-pin-bump-gitlink
     be-js-diff-11-file-scope-full
-    be-js-bro-color                   # JS bro-view rendering differs
-    be-js-bro-view
+    be-js-bro-universal               # JS bro universal-pager checks differ
     be-js-put-bare                    # bare `jab put` (stage-all) emits nothing
 )
 
