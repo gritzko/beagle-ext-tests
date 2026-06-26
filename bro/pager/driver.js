@@ -135,9 +135,21 @@ const utext = utf8.Encode("opencat:foo.txt more\n");      // "open"+"cat:foo.txt
 const utoks = Uint32Array.from([packTok("C", 4), packTok("U", 15), packTok("S", 21)]);
 const uhunk = { uri: "host.txt#L1", verb: "hunk", text: utext, toks: utoks, kind: "file" };
 
-//  _uriAt: the U-target URI for a byte offset inside a visible token.
-check("uriAt-on-token", pager.Pager.prototype._uriAt.call({}, uhunk, 1) === "cat:foo.txt");
-check("uriAt-no-target", pager.Pager.prototype._uriAt.call({}, uhunk, 17) === null);
+//  _uriAt: the U-target URI for a byte offset.  A click on the visible token
+//  before the U resolves to it (token-precise); BRO-005 follow-up — a click on
+//  the REST of the same logical line (here " more") also resolves, since the
+//  line carries exactly ONE U (the whole row is clickable, not just the token).
+const pu = new pager.Pager(-1, { color: false });
+check("uriAt-on-token", pu._uriAt(uhunk, 1) === "cat:foo.txt");
+check("uriAt-line-tail", pu._uriAt(uhunk, 17) === "cat:foo.txt");
+//  A line with MORE THAN ONE U stays token-precise (no line-fallback): clicking
+//  word "a" → its own U, the space between → null (not the neighbour's link).
+const mtext = utf8.Encode("aU1: bU2:\n");          // "a"+U"U1:"+" "+"b"+U"U2:"+"\n"
+const mtoks = Uint32Array.from([packTok("F", 1), packTok("U", 4), packTok("S", 5),
+                                packTok("F", 6), packTok("U", 9), packTok("S", 10)]);
+const mhunk = { uri: "m.txt#L1", verb: "hunk", text: mtext, toks: mtoks, kind: "file" };
+check("uriAt-multiU-word", pu._uriAt(mhunk, 0) === "U1:");
+check("uriAt-multiU-space", pu._uriAt(mhunk, 4) === null);   // space, >1 U → no fallback
 
 //  A full left-click through _mouse: row 2 (banner is row 1), col over "open"
 //  → driveSpell("cat:foo.txt") → PUSH that view.  driveSpell is mocked to echo.
@@ -154,12 +166,21 @@ pc._mouse("0;2;2", true);
 check("uclick-drove", clicked === "cat:foo.txt");
 check("uclick-pushed", pc.view.hunks.length === 1 && pc.view.hunks[0].uri === "cat:foo.txt");
 check("uclick-stack", pc.stack.length === 1);
-//  Clicking a cell with NO U-target after it falls back to the row's hunk URI.
+//  BRO-005 follow-up: clicking " more" — the line tail PAST the U — now also
+//  navigates to the line's U-target (the whole single-U row is clickable).
 let clicked2 = null;
 const pc2 = new pager.Pager(-1, { color: false, driveSpell: function (s) { clicked2 = s; return [{ uri: s, verb: "hunk", text: utf8.Encode("x\n"), toks: new Uint32Array(0), kind: "file" }]; } });
 pc2.setHunks([uhunk]); pc2.rows(80);
-pc2._mouse("0;7;2", true);                                // col over " more" (no U after)
-check("uclick-fallback", clicked2 === "host.txt#L1");
+pc2._mouse("0;7;2", true);                                // col over " more" (line tail)
+check("uclick-line-tail", clicked2 === "cat:foo.txt");
+//  A row whose line carries NO U at all falls back to the row's hunk URI.
+let clickedNoU = null;
+const plainHk = { uri: "plain.txt#L1", verb: "hunk", text: utf8.Encode("just text\n"),
+                  toks: Uint32Array.from([packTok("S", 10)]), kind: "file" };
+const pc3 = new pager.Pager(-1, { color: false, driveSpell: function (s) { clickedNoU = s; return [{ uri: s, verb: "hunk", text: utf8.Encode("y\n"), toks: new Uint32Array(0), kind: "file" }]; } });
+pc3.setHunks([plainHk]); pc3.rows(80);
+pc3._mouse("0;3;2", true);                                // a plain row → hunk URI
+check("uclick-fallback", clickedNoU === "plain.txt#L1");
 
 //  --- 6. BRO-005: the mouse WHEEL scrolls (button 64 up / 65 down) ------------
 const pw = new pager.Pager(-1, { color: false });
