@@ -125,5 +125,62 @@ p3.setHunks(big);
 p3.key(0x3a); p3.key(0x1b);
 check("addr-esc", p3.mode === "scroll" && p3.cmd === "");
 
+//  --- 5. BRO-005: a LEFT-CLICK on a `U`-tagged token navigates to ITS URI -----
+//  Build a hunk whose first row carries a hidden `U` click-target: the visible
+//  token "open" is followed by a `U` token over the URI bytes "cat:foo.txt"
+//  (invisible), then " more\n".  Mirrors C bro's row layout (HUNK.h: a path
+//  column + a trailing 'U' tok over the hidden nav URI).
+function packTok(tag, end) { return (((tag.charCodeAt(0) - 65) & 0x1f) << 27) | (end & 0xffffff); }
+const utext = utf8.Encode("opencat:foo.txt more\n");      // "open"+"cat:foo.txt"+" more\n"
+const utoks = Uint32Array.from([packTok("C", 4), packTok("U", 15), packTok("S", 21)]);
+const uhunk = { uri: "host.txt#L1", verb: "hunk", text: utext, toks: utoks, kind: "file" };
+
+//  _uriAt: the U-target URI for a byte offset inside a visible token.
+check("uriAt-on-token", pager.Pager.prototype._uriAt.call({}, uhunk, 1) === "cat:foo.txt");
+check("uriAt-no-target", pager.Pager.prototype._uriAt.call({}, uhunk, 17) === null);
+
+//  A full left-click through _mouse: row 2 (banner is row 1), col over "open"
+//  → driveSpell("cat:foo.txt") → PUSH that view.  driveSpell is mocked to echo.
+let clicked = null;
+const pc = new pager.Pager(-1, { color: false, driveSpell: function (s) {
+  clicked = s;
+  return [{ uri: s, verb: "hunk", text: utf8.Encode("opened\n"), toks: new Uint32Array(0), kind: "file" }];
+} });
+pc.setHunks([uhunk]);
+pc.rows(80);                                              // index for width 80
+//  Banner is display-row 0 (screen row 1); the body row is screen row 2.
+//  Left press (button 0) at col 2 (over "open"), row 2 → "\x1b[<0;2;2M".
+pc._mouse("0;2;2", true);
+check("uclick-drove", clicked === "cat:foo.txt");
+check("uclick-pushed", pc.view.hunks.length === 1 && pc.view.hunks[0].uri === "cat:foo.txt");
+check("uclick-stack", pc.stack.length === 1);
+//  Clicking a cell with NO U-target after it falls back to the row's hunk URI.
+let clicked2 = null;
+const pc2 = new pager.Pager(-1, { color: false, driveSpell: function (s) { clicked2 = s; return [{ uri: s, verb: "hunk", text: utf8.Encode("x\n"), toks: new Uint32Array(0), kind: "file" }]; } });
+pc2.setHunks([uhunk]); pc2.rows(80);
+pc2._mouse("0;7;2", true);                                // col over " more" (no U after)
+check("uclick-fallback", clicked2 === "host.txt#L1");
+
+//  --- 6. BRO-005: the mouse WHEEL scrolls (button 64 up / 65 down) ------------
+const pw = new pager.Pager(-1, { color: false });
+pw.setHunks(big); pw.rows(80);
+pw.view.scroll = 10;
+pw._mouse("64;5;5", true); check("wheel-up", pw.view.scroll < 10);     // wheel up
+const before = pw.view.scroll;
+pw._mouse("65;5;5", true); check("wheel-down", pw.view.scroll > before); // wheel down
+
+//  --- 7. BRO-005: `m` toggles mouse tracking on/off --------------------------
+const pm = new pager.Pager(-1, { color: false });
+pm.setHunks(big);
+check("mouse-default-on", pm.mouse === true);
+pm.key(0x6d); check("mouse-off", pm.mouse === false);    // m → off
+pm.key(0x6d); check("mouse-on", pm.mouse === true);      // m → on
+//  With mouse OFF, a click does nothing (no navigate).
+let clicked3 = null;
+const pmo = new pager.Pager(-1, { color: false, driveSpell: function (s) { clicked3 = s; return []; } });
+pmo.setHunks([uhunk]); pmo.rows(80); pmo.mouse = false;
+pmo._mouse("0;2;2", true);
+check("mouse-off-noclick", clicked3 === null);
+
 tty.size = realSize;                                     // restore the stub
 w("DONE\n");

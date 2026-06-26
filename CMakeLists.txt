@@ -69,3 +69,15 @@ foreach(_unit store ulog)
         ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
         TIMEOUT 60)
 endforeach()
+
+# Subdir unit tests (test/<topic>/<unit>.js).  LOG-001: log.js follows
+# non-spine (merge 2nd+) parents and greys them.  Same direct-script harness.
+foreach(_sub log/nonspine)
+    string(REPLACE "/" "-" _subname "${_sub}")
+    add_test(NAME be-js-unit-${_subname}
+        COMMAND "${BEAGLE_BIN_DIR}/jab" "${CMAKE_CURRENT_SOURCE_DIR}/${_sub}.js"
+        WORKING_DIRECTORY "${BE_TEST_TMP}")
+    set_tests_properties(be-js-unit-${_subname} PROPERTIES
+        ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        TIMEOUT 60)
+endforeach()

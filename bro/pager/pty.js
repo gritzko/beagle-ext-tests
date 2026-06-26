@@ -51,7 +51,7 @@ try {
 
   //  Drive a key (j = scroll down), re-render.
   send("j");
-  const krb = io.buf(8); let n = 0;
+  const krb = io.buf(64); let n = 0;     // BRO-005: ≥ one SGR mouse seq (9 B)
   while (n === 0) n = io.read(pty.slave, krb);
   const kd = krb.data(); for (let i = 0; i < kd.length; i++) p.key(kd[i]);
   check("pty-key-scroll", p.view.scroll === 1);
@@ -67,6 +67,48 @@ try {
   check("pty-view-swapped", p.view.hunks.length === 1 && p.view.hunks[0].uri === "mock.txt#L1");
   p.render(); drain();
   check("pty-painted-mock", frames.indexOf("MOCKED OUTPUT") >= 0);
+
+  //  BRO-005: a real SGR LEFT-CLICK on a `U`-tagged token navigates to ITS URI.
+  //  Reset to a hunk whose body row carries a hidden `U` click-target, feed the
+  //  raw `\x1b[<0;col;rowM` mouse report through the master, and assert the
+  //  pager drove driveSpell with the U-target URI (the dead link now lives).
+  function packTok(tag, end) { return (((tag.charCodeAt(0) - 65) & 0x1f) << 27) | (end & 0xffffff); }
+  const utext = utf8.Encode("opencat:doc2.txt rest\n");    // "open"+"cat:doc2.txt"(U)+" rest\n"
+  const uhunk = [{ uri: "host.txt#L1", verb: "hunk", text: utext,
+                   toks: Uint32Array.from([packTok("C", 4), packTok("U", 16), packTok("S", 22)]),
+                   kind: "file" }];
+  let clicked = null;
+  const pm = new pager.Pager(pty.slave, { color: true, driveSpell: function (s) {
+    clicked = s;
+    return [{ uri: s, verb: "hunk", text: utf8.Encode("OPENED VIA CLICK\n"),
+              toks: new Uint32Array(0), kind: "file" }]; } });
+  pm.setHunks(uhunk);
+  pm.render(); drain(); frames = "";
+  //  Banner is screen row 1, body is row 2; col 2 lands on "open" (the visible
+  //  token before the U-target).  Feed the SGR press report over the master.
+  send("\x1b[<0;2;2M");
+  for (let r = 0; r < 12 && clicked === null; r++) {
+    krb.reset(); const m = io.read(pty.slave, krb);
+    if (m > 0) pm._feed(krb.data().slice());
+  }
+  check("pty-uclick-drove", clicked === "cat:doc2.txt");
+  check("pty-uclick-pushed", pm.view.hunks.length === 1 && pm.view.hunks[0].uri === "cat:doc2.txt");
+  pm.render(); drain();
+  check("pty-uclick-painted", frames.indexOf("OPENED VIA CLICK") >= 0);
+
+  //  BRO-005: a real WHEEL-DOWN report (button 65) scrolls.  Use the big-ish
+  //  uhunk re-seeded with many lines so a scroll is observable.
+  let txt = ""; for (let i = 0; i < 40; i++) txt += "row " + i + "\n";
+  const pw = new pager.Pager(pty.slave, { color: true });
+  pw.setHunks([{ uri: "scroll.txt#L1", verb: "hunk", text: utf8.Encode(txt),
+                 toks: new Uint32Array(0), kind: "file" }]);
+  pw.render(); drain();
+  send("\x1b[<65;5;5M");                                   // wheel down
+  for (let r = 0; r < 8 && pw.view.scroll === 0; r++) {
+    krb.reset(); const m = io.read(pty.slave, krb);
+    if (m > 0) pw._feed(krb.data().slice());
+  }
+  check("pty-wheel-down", pw.view.scroll > 0);
 } finally {
   tty.cook(pty.slave, saved);
 }
