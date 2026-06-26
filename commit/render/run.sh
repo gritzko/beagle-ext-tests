@@ -1,0 +1,73 @@
+#!/bin/sh
+# test/commit/render — `jab commit "commit:#<sha>"` renders the keeper-metadata
+# hunk (COMMIT-003).  The JS view resolves the slot and feeds ONE content HUNK
+# with an EMPTY uri; a regression dropped that record in --plain (a hand-built
+# tok32 table failed the HUNK reader's drain, so next() skipped the record and
+# 0 bytes reached stdout).  Assert the `commit <sha40>` line + the full body are
+# present, and that the JS plain output equals native modulo the single trailing
+# blank-line separator the HUNK content render appends to EVERY content view.
+set -eu
+
+_CASE=$(cd "$(dirname "$0")" && pwd)             # test/commit/render
+_ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
+BE=${BE:-${BIN:+$BIN/be}}
+BE=${BE:-$(command -v be || true)}
+[ -n "$BE" ] && [ -x "$BE" ] || { echo "commit: cannot locate be (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$BE")
+JABC=${JABC:-$_BIN/jab}
+# The JS scripts are this be/ tree (be/test -> be/).
+BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
+[ -f "$BEDIR/main.js" ] || { echo "commit: SKIP — no $BEDIR/main.js" >&2; exit 0; }
+[ -x "$JABC" ] || { echo "commit: no jab at $JABC" >&2; exit 2; }
+export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
+
+: "${TMP:=/tmp}"; export TMP
+NAME=$(basename "$_CASE")
+. "$_ROOT/lib/repo-setup.sh"
+WORK="$TMP/$$/commit/$NAME"
+rm -rf "$WORK"; mkdir -p "$WORK"
+# Hermetic firewall + the `be -> <be/>` shard symlink so bareword `jab commit`
+# resolves the extension via jab's upward be/-scan from the worktree cwd.
+: > "$TMP/$$/.be" 2>/dev/null || true
+ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+
+_fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
+
+# One-commit worktree under the isolated scratch base.
+WT="$WORK/wt"; mkdir -p "$WT/.be"
+( cd "$WT" && printf 'hello\n' > a.txt && "$BE" post 'first commit' >/dev/null 2>&1 ) \
+    || _fail "could not seed the one-commit worktree"
+
+# The trunk tip's full 40-hex sha (a resolvable commit object).
+SHA=$("$JABC" "$_ROOT/put/tipsha.js" "$WT")
+[ -n "$SHA" ] || _fail "could not resolve the trunk tip sha"
+case "$SHA" in
+    *[!0-9a-f]*|"") _fail "tip sha not 40-hex: '$SHA'" ;;
+esac
+SHORT=$(printf '%s' "$SHA" | cut -c1-8)
+
+# native `be commit "commit:#<short>"` (the C keeper oracle) vs bareword
+# `jab commit` (the loop view), resolved from the worktree cwd.
+( cd "$WT" && "$BE"   commit "commit:#$SHORT" ) >"$WORK/nat.out" 2>/dev/null \
+    || _fail "native be commit failed"
+( cd "$WT" && "$JABC" commit "commit:#$SHORT" ) >"$WORK/jab.out" 2>"$WORK/jab.err" \
+    || _fail "jab commit failed (stderr: $(cat "$WORK/jab.err"))"
+
+# The bug was ZERO bytes from jab — assert non-empty and the metadata lines.
+[ -s "$WORK/jab.out" ] || _fail "jab commit emitted ZERO bytes (COMMIT-003)"
+grep -q "^commit $SHA\$"  "$WORK/jab.out" || _fail "missing 'commit <sha40>' line"
+grep -q "^tree "          "$WORK/jab.out" || _fail "missing tree header"
+grep -q "^author "        "$WORK/jab.out" || _fail "missing author header"
+grep -q "^first commit\$" "$WORK/jab.out" || _fail "missing message body"
+
+# Byte-parity with native modulo the trailing separator: native bytes prefix the
+# JS bytes exactly (the JS HUNK content render appends ONE blank-line separator,
+# a binding-level constant shared by cat/blob/grep — see commit.js).
+_n=$(wc -c <"$WORK/nat.out")
+head -c "$_n" "$WORK/jab.out" >"$WORK/jab.trim"
+cmp -s "$WORK/nat.out" "$WORK/jab.trim" \
+    || { echo "--- native ---"; cat -A "$WORK/nat.out"
+         echo "--- jab ---";    cat -A "$WORK/jab.out"
+         _fail "jab content not byte-identical to native (modulo separator)"; }
+
+echo "PASS [$NAME]"
