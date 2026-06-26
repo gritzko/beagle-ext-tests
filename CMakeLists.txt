@@ -21,11 +21,6 @@ set(_BE_WILL_FAIL
     be-js-spot-search                 # JS grep omits the `grep ` banner prefix
     be-js-spot-submount               # + JS grep does not recurse into submounts
     be-js-regex-regex                 # JS grep banner (regex scheme)
-    be-js-diff-01-3revs               # JS diff view output diverges from native
-    be-js-diff-02-divergent-children
-    be-js-diff-03-stock-context
-    be-js-diff-08-sub-pin-bump-gitlink
-    be-js-diff-11-file-scope-full
     be-js-bro-universal               # JS bro universal-pager checks differ
     be-js-put-bare                    # bare `jab put` (stage-all) emits nothing
 )

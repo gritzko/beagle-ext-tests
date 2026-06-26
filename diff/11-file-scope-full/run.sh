@@ -20,6 +20,12 @@ sed 's/^line 20 original$/line 20 CHANGED/' big.txt > big.txt.t && mv big.txt.t 
 
 # file scope: WHOLE file (full=YES) — the far line 01 must appear.
 diff_eq "file scope full (range)" 'diff:big.txt?v1..v2'
+# JS-071: the USER's commit:-hunk-header click target — a TWO-DOT RANGE off raw
+# commit hashes (`diff:<path>?<hashA>..<hashB>`), the URI a hunk banner carries.
+# Must emit the SAME real hunks as the tag-named range (range-mode reparse seam).
+SHA1=$("$BE" sha1:'?v1' 2>/dev/null); SHA2=$("$BE" sha1:'?v2' 2>/dev/null)
+[ -n "$SHA1" ] && [ -n "$SHA2" ] || _fail "could not resolve v1/v2 commit shas"
+diff_eq "file scope full (hash range)" "diff:big.txt?$SHA1..$SHA2"
 # tree scope: windowed (full=NO) — far context dropped.
 diff_eq "tree scope windowed"     'diff:?v1..v2'
 # file scope wt-vs-base full after a fresh edit.
