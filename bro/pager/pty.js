@@ -49,6 +49,18 @@ try {
   check("pty-painted-status", frame0.indexOf("\x1b[7m") >= 0);    // inverse status bar
   check("pty-painted-banner", frame0.indexOf("doc.txt#L1") >= 0);
 
+  //  BANNER BAND (bro hunk-header parity): the header row must be the pale-yellow
+  //  band — open with the BANNER_SGR bg (`48;5;230`), space-FILL to the 40-col
+  //  width (the band spans the row like core/emit.js / C bro), close with ESC[0m.
+  //  A body row stays unbanded.  RED before the fix (only `[1m` bold, no fill).
+  const band = p._banner(initial[0], 40);
+  check("band-bg",   band.indexOf("48;5;230") >= 0);             // pale-yellow bg
+  check("band-fill", band.replace(/\x1b\[[0-9;]*m/g, "").length === 40);  // to width
+  check("band-close", band.slice(-4) === "\x1b[0m");             // closes the band
+  check("band-text", band.indexOf("doc.txt#L1") >= 0);          // header text kept
+  check("body-unbanded",                                         // body row: no band
+        pager.paintRow(initial[0], 0, 4, true).indexOf("48;5;230") < 0);
+
   //  Drive a key (j = scroll down), re-render.
   send("j");
   const krb = io.buf(64); let n = 0;     // BRO-005: ≥ one SGR mouse seq (9 B)
