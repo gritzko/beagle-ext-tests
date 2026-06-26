@@ -79,23 +79,23 @@ diff_eq() {
     { [ "$_orc" = 0 ] && [ "$_jrc" = 0 ]; } || { [ "$_orc" != 0 ] && [ "$_jrc" != 0 ]; } || \
         _fail "$_desc: --plain exit class differs (be=$_orc jab=$_jrc)"
 
-    # --color: native graf is the DIRECT producer (the same HUNK `.color`
-    # cursor the loop drives) — BUT graf has no `--at` baseline, so a
-    # wt-vs-base form (`diff:` / `diff:<file>` with no range) errors GRAFNOAT
-    # there (only `be` composes the baseline, and `be --color` pages via bro, a
-    # different render).  When graf can't produce the color oracle, the --plain
-    # leg (oracle `be`) already gates the case; skip the --color assert.
-    _ogc=0; "$GRAF" "$@" --color >"$WORK/o.color" 2>"$WORK/o.cerr" || _ogc=$?
-    if [ "$_ogc" = 0 ] && [ -s "$WORK/o.color" ]; then
+    # --color: the oracle is native `be <uri> --color`, which pages through the
+    # C `bro` (the ONE diff-colour renderer: two-pass old/new line reconstruction
+    # with the side→bg word wash).  The loop's `jab diff --color` single-sources
+    # the SAME render in JS (view/bro.js colorDiffHunk, the bro_cell_ansi twin),
+    # so the two must be BYTE-identical.  `be` composes the wt-vs-base baseline,
+    # so unlike graf it produces the colour oracle for EVERY form (wt + range).
+    _obc=0; "$BE" "$@" --color >"$WORK/o.color" 2>"$WORK/o.cerr" || _obc=$?
+    if [ "$_obc" = 0 ] && [ -s "$WORK/o.color" ]; then
         "$JABC" diff "$@" --color \
                                      >"$WORK/j.color" 2>"$WORK/j.cerr" || true
         cmp -s "$WORK/o.color" "$WORK/j.color" || {
-            echo "--- graf --color ---";  cat -v "$WORK/o.color" | head -60
-            echo "--- jab --color ---";   cat -v "$WORK/j.color" | head -60
+            echo "--- be --color (bro) ---"; cat -v "$WORK/o.color" | head -60
+            echo "--- jab --color ---";      cat -v "$WORK/j.color" | head -60
             _fail "$_desc: --color stdout differs"
         }
         echo "ok   $_desc (plain+color)"
     else
-        echo "ok   $_desc (plain; color N/A — graf has no --at baseline)"
+        echo "ok   $_desc (plain; color N/A)"
     fi
 }
