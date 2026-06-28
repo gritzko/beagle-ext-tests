@@ -10,8 +10,20 @@
 //  assert.js is a sibling test helper; the JS-ext lib lives in the be/ shard
 //  (beagle/test/js → ../../../be/lib).
 const { eq, ok } = require("./lib/assert.js");
-const store = require("shared/store.js");   // JSQUE-016: lib/ -> shared/
-const ulog = require("shared/ulog.js");
+//  DIS-054: an ISOLATED ticket clone gives the test tree its OWN `.be` shard,
+//  so a be-relative `require("shared/store.js")` resolves against THAT
+//  (code-less) shard.  Derive the be/ code dir from THIS script's own path
+//  (`<be>/test/store.js` → `<be>`); fall back to the be-relative form.
+const store = _req("shared/store.js");   // JSQUE-016: lib/ -> shared/
+const ulog = _req("shared/ulog.js");
+function _req(mod) {
+  const self = (typeof process !== "undefined" && process.argv && process.argv[1]) || "";
+  if (self) {
+    const d = self.slice(0, self.lastIndexOf("/test/"));
+    if (d && d !== self) { try { return require(d + "/" + mod); } catch (e) {} }
+  }
+  return require(mod);
+}
 
 const SHA = (c) => c.repeat(40);
 
@@ -78,7 +90,7 @@ for (const f of io.readdir(shard)) { try { io.unlink(shard + "/" + f); } catch (
 //  the whole pack.  We prove "no O(all-objects) scan" by counting pack.scan
 //  calls: the disk-idx path does ZERO; the no-idx fallback does >0.
 {
-  const sha = require("shared/util/sha.js");   // JSQUE-016: lib/sha -> shared/util/
+  const sha = _req("shared/util/sha.js");   // JSQUE-016: lib/sha -> shared/util/  (DIS-054 _req: code-shard resolve)
   //  count pack.scan() invocations by wrapping git.pack.mmap (store.js's only
   //  pack opener).  Each opened pack's scan is spied; the counter is global.
   let scans = 0;
