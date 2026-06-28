@@ -12,7 +12,19 @@
 
 //  assert.js is a sibling test helper; ulog.js is a be/ shard lib module.
 const { eq, ok, bytesEq, throws } = require("./lib/assert.js");
-const ulog = require("shared/ulog.js");   // JSQUE-016: lib/ -> shared/
+//  DIS-054: an ISOLATED ticket clone gives the test tree its OWN `.be` shard,
+//  so a be-relative `require("shared/ulog.js")` resolves against THAT
+//  (code-less) shard.  Derive the be/ code dir from THIS script's own path
+//  (`<be>/test/ulog.js` → `<be>`); fall back to the be-relative form.
+const ulog = _req("shared/ulog.js");
+function _req(mod) {
+  const self = (typeof process !== "undefined" && process.argv && process.argv[1]) || "";
+  if (self) {
+    const d = self.slice(0, self.lastIndexOf("/test/"));
+    if (d && d !== self) { try { return require(d + "/" + mod); } catch (e) {} }
+  }
+  return require(mod);
+}
 
 const SHA = (c) => c.repeat(40);
 
