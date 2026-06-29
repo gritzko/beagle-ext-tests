@@ -28,7 +28,7 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall + the `be -> <be/>` shard symlink so `require("view/theme.js")`
 # resolves the extension via jab's upward be/-scan from the worktree cwd.
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 
 _fail() { echo "FAIL [status/$NAME] $*" >&2; exit 1; }
 

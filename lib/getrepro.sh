@@ -32,7 +32,7 @@ NAME=$(basename "$_CASE")
 WORK="$TMP/$$/js-getr/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }

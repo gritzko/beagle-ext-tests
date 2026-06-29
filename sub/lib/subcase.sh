@@ -37,7 +37,7 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
 # JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
-ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }

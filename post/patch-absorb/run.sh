@@ -32,7 +32,7 @@ NAME=$(basename "$_CASE")
 WORK="$TMP/$$/post/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
