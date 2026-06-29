@@ -40,4 +40,18 @@ if grep -q '^FAIL' "$WORK/p.out"; then
 grep -q '^DONE' "$WORK/p.out" || { echo "--- pty out ---"; cat "$WORK/p.out"; _fail "pty did not finish"; }
 echo "ok   pager interactive cycle (raw mode + key + address bar)"
 
+# --- leg 3: BRO-010 status verb-token colour parity -----------------------
+# The pager's paintRow must paint the status verb cell (mod/unk/adv/del/cnf)
+# with the SAME VERB_SLOT/THEME SGR the DIRECT path (renderHunkLog → C THEME
+# .color() sink) emits — i.e. matching `be` / `jab status --color | cat`.
+# Compares the pager renderer's bytes against renderHunkLog's for the same hunk.
+THEMELIB="${THEMELIB:-$BROWT/view/theme.js}"
+[ -f "$THEMELIB" ] || { echo "pager: SKIP verbcolor — no view/theme.js at $BROWT" >&2; pass; }
+"$JABC" "$_CASE/verbcolor.js" "$PAGER" "$LIB" "$THEMELIB" >"$WORK/v.out" 2>"$WORK/v.err" || {
+    echo "--- stderr ---"; cat "$WORK/v.err"; _fail "verbcolor exited non-zero"; }
+if grep -q '^FAIL' "$WORK/v.out"; then
+    echo "--- verbcolor out ---"; cat "$WORK/v.out"; _fail "verbcolor check(s) failed"; fi
+grep -q '^DONE' "$WORK/v.out" || { echo "--- verbcolor out ---"; cat "$WORK/v.out"; _fail "verbcolor did not finish"; }
+echo "ok   pager status verb-token colour matches the direct path (BRO-010)"
+
 pass
