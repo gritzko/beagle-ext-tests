@@ -42,27 +42,58 @@ ln -sf "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
-# A committed baseline with three tracked files, then a dirty tree: a tracked
-# mod (a.txt → diff:), an untracked add (n.txt → cat:), a nested tracked mod
-# (d/c.txt → diff:), and a move (b.txt → m.txt → cat: the DST) — exercises both
-# nav schemes, a path-bearing row, and the move-targets-dst rule.
+# A committed baseline with four tracked files, then a dirty tree exercising
+# EVERY nav scheme + bucket:
+#   a.txt    → mod  (base present, edited)       → diff: (wt-vs-base)
+#   d/c.txt  → mod  (nested base present, edited)→ diff:
+#   r.txt    → del  (staged delete, base present)→ diff: (deletion diff)
+#   k.txt    → mis  (base present, rm'd off disk)→ diff: (deletion diff)
+#   n.txt    → unk  (untracked add, no base)     → cat:
+#   b.txt→m.txt move — DIS-057 Dirty.mkd PAIR:
+#     rmv b.txt (source, base present, removed)  → diff: (deletion diff; move-row
+#                                                  nav restored)
+#     mov m.txt (dest, no base, new content)     → cat:
+# DIS-057 NAV RULE: a base-present row (mod/put/pat/mrg/cnf, and the gone-from-wt
+# rmv/del/mis) leads to a `diff:` (wt-vs-base, or base-vs-empty deletion diff);
+# a base-less / new-content row (new/unk/mov/adv) keeps `cat:`.
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 ( cd "$WT" && printf 'A\n' > a.txt && printf 'B\n' > b.txt && mkdir d && printf 'C\n' > d/c.txt \
+    && printf 'R\n' > r.txt && printf 'K\n' > k.txt \
     && "$BE" post 'base' >/dev/null 2>&1 ) || _fail "could not seed the baseline"
 ( cd "$WT" && sleep 0.02 && printf 'A2\n' > a.txt && printf 'N\n' > n.txt && printf 'C2\n' > d/c.txt \
-    && "$BE" put b.txt#m.txt >/dev/null 2>&1 ) || _fail "could not dirty the tree"
+    && "$BE" put b.txt#m.txt >/dev/null 2>&1 \
+    && "$BE" delete r.txt >/dev/null 2>&1 \
+    && rm -f k.txt ) || _fail "could not dirty the tree"
 
-# 1. PLAIN parity: the U bytes are hidden (HUNKu8sFeedText skips them), so the
-#    plain text is byte-identical to native `be status --plain`.
-( cd "$WT" && "$BE"   status --plain ) >"$WORK/nat.plain" 2>/dev/null || true
+# 1. PLAIN output: the U bytes are hidden (HUNKu8sFeedText skips them), so the
+#    plain text carries only the visible columns.  DIS-057 UNTIES this from
+#    native `be status --plain` (native still COLLAPSES the move to one `mov
+#    b.txt#m.txt` row; JS now shows the Dirty.mkd `rmv`+`mov` PAIR), so assert the
+#    date-normalised `<bucket> <path>` rows against the JS-only golden instead of
+#    a native cmp.  Render order: put,new,rmv,mov,mod,… (ROW_ORDER).
 ( cd "$WT" && "$JABC" status --plain ) >"$WORK/jab.plain" 2>/dev/null || true
 [ -s "$WORK/jab.plain" ] || _fail "jab status --plain emitted ZERO bytes"
-cmp -s "$WORK/nat.plain" "$WORK/jab.plain" || {
-    echo "--- native --plain ---"; cat -A "$WORK/nat.plain"
-    echo "--- jab --plain ---";    cat -A "$WORK/jab.plain"
-    _fail "plain output differs from native (U bytes must stay hidden)"
+# Drop the fixed 8-char leading date column (7-col date + 1 sep — a real ts, or
+# 8 spaces for a ts-less `mis` row), then read `<verb> <path>` from each per-file
+# row.  The `status:` banner (7 chars, no col) + the `?<branch>\t<counts>`
+# summary don't match the `^.{8}<verb> ` shape, so they drop out naturally.
+jrows=$(sed -nE 's/^.{8}([a-z]{3}) (.*)$/\1 \2/p' "$WORK/jab.plain")
+exprows='rmv b.txt
+mov m.txt
+mod a.txt
+mod d/c.txt
+del r.txt
+mis k.txt
+unk n.txt'
+[ "$jrows" = "$exprows" ] || {
+    echo "--- jab --plain ---"; cat -A "$WORK/jab.plain"
+    _fail "plain rows != DIS-057 golden:
+golden:
+$exprows
+js:
+$jrows"
 }
-echo "ok: jab status --plain byte-matches native (U bytes hidden)"
+echo "ok: jab status --plain shows the DIS-057 rmv/mov pair (U bytes hidden)"
 
 # 2. U click-targets: capture the on-wire HUNK stream (--tlv) and assert each
 #    per-file row carries a `U` token decoding to its nav URI.  RED pre-fix
@@ -70,11 +101,18 @@ echo "ok: jab status --plain byte-matches native (U bytes hidden)"
 ( cd "$WT" && "$JABC" status --tlv ) >"$WORK/jab.tlv" 2>/dev/null || true
 [ -s "$WORK/jab.tlv" ] || _fail "jab status --tlv emitted ZERO bytes"
 
-# Expected nav URIs, one per per-file row (mod → diff:, mov → cat: the DST,
-# else cat:).  Order-independent (the asserter set-compares).
+# Expected nav URIs, one per per-file row.  DIS-057 NAV RULE: a base-present row
+# (mod, plus the gone-from-wt rmv/del/mis) → diff:<path> (a wt-vs-base diff, or a
+# base-vs-empty deletion diff); a base-less / new-content row (mov dest, unk) →
+# cat:<path>.  The move PAIR is two rows — `rmv b.txt` → diff:b.txt (the deletion
+# diff; move-row nav RESTORED) and `mov m.txt` → cat:m.txt.  Order-independent
+# (the asserter set-compares).
 cat > "$WORK/expect" <<EOF
 diff:a.txt
 diff:d/c.txt
+diff:b.txt
+diff:r.txt
+diff:k.txt
 cat:n.txt
 cat:m.txt
 EOF

@@ -27,6 +27,17 @@ build() {
     "$BE" get '?..' >/dev/null 2>&1
 }
 
+# DIS-057: JS-only goldens (patch verb untied from native be).  theirs adds an
+# exec blob (run.sh) + a symlink (link) — both clean take-theirs ADDs.  ours-only
+# modified plain.txt, which the patch does NOT touch (theirs==fork there), so the
+# wt's plain.txt stays at OURS' content.  RULING 2026-06-29: base is OURS (curTip)
+# and theirs is a SEPARATE input — so run.sh + link read `pat` (clean take-theirs
+# adds, absent from ours), while plain.txt (wt == ours-base) is clean `ok`
+# (count-only, no row).  The old golden's `mod plain.txt` was the baselineTip-
+# folds-theirs bug (ours-edited plain.txt != the theirs baseline).  Render order:
+# pat rows, lex (link before run.sh).
+EXPECT_BANNER='applied link\nmod plain.txt\napplied run.sh'; export EXPECT_BANNER
+EXPECT_STATUS='pat link\npat run.sh'; export EXPECT_STATUS
 patch_parity build '#@F1' plain.txt run.sh
 
 #  Extra checks beyond patch_parity: the exec bit + symlink target on the JS

@@ -28,5 +28,14 @@ build() {
     "$BE" get '?..' >/dev/null 2>&1
 }
 
+# DIS-057: JS-only goldens — the JS banner spells cnf (was conf) and `jab
+# status` reads the patch-stamp OFFSET as pat/mrg/cnf, so the patch verb is
+# untied from native `be`.  RULING 2026-06-29: base is OURS (curTip) and the
+# patched-in (theirs) tree is a SEPARATE input — so new.txt (a clean take-theirs
+# ADD, absent from ours) reads `pat`, NOT `ok` (the old baselineTip-folds-theirs
+# bug collapsed it).  keep.txt's disjoint 3-way merge reads `mrg`.  Status render
+# order: pat before mrg.
+EXPECT_BANNER='merged keep.txt\napplied new.txt'; export EXPECT_BANNER
+EXPECT_STATUS='pat new.txt\nmrg keep.txt'; export EXPECT_STATUS
 patch_parity build '#@F1' keep.txt new.txt
 pass

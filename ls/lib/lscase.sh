@@ -89,6 +89,73 @@ ls_rel() {
     echo "ok   $_desc"
 }
 
+# ls_js DESC URI GOLDEN — JS-ONLY assertion (DIS-057 RULING 2026-06-29): assert
+# `jab <scheme> URI` (one hunk) equals an EXPLICIT golden, NOT native ls:.  Used
+# where the JS form deliberately DIVERGES from native — a staged RENAME lists as
+# the `rmv`(src)+`mov`(dst) move PAIR (status's form), where native ls: still
+# spells `mov src -> dst` + `new dst`.  GOLDEN is the date-NORMALISED expected
+# body (date column collapsed to a literal `DATE` token so the assertion is
+# clock-independent); the JS output is normalised the same way before compare.
+_norm_dates() { sed -E 's/^( *)([0-9][0-9]:[0-9][0-9]|[0-9]{2}[A-Za-z]{3}[0-9]{2})/\1DATE/'; }
+ls_js() {
+    _desc=$1; _uri=$2; _golden=$3
+    rm -f "$PWD/.be/queue" 2>/dev/null || true
+    printf '%s\n' "$_golden" > "$WORK/exp.out"
+    _jrc=0; "$JABC" "${_uri%%:*}" "$_uri" >"$WORK/j.raw" 2>"$WORK/j.err" || _jrc=$?
+    _norm_dates < "$WORK/j.raw" > "$WORK/j.out"
+    cmp -s "$WORK/exp.out" "$WORK/j.out" || {
+        echo "--- expected (JS-only golden) ($_uri) ---"; cat -A "$WORK/exp.out" | head -60
+        echo "--- jab loop ($_uri) ---";                  cat -A "$WORK/j.out"   | head -60
+        echo "--- jab stderr ---";                        cat "$WORK/j.err"      | head -20
+        echo "--- diff ---"; diff "$WORK/exp.out" "$WORK/j.out" | head -40 || true
+        _fail "$_desc: stdout differs"
+    }
+    echo "ok   $_desc"
+}
+
+# lsr_js DESC URI GOLDEN — JS-ONLY lsr: assertion (date-normalised), for the same
+# rename-pair divergence across the concatenated per-dir hunks.
+lsr_js() {
+    _desc=$1; _uri=$2; _golden=$3
+    rm -f "$PWD/.be/queue" 2>/dev/null || true
+    printf '%s\n' "$_golden" > "$WORK/exp.out"
+    _jrc=0; "$JABC" lsr "$_uri" >"$WORK/j.raw" 2>"$WORK/j.err" || _jrc=$?
+    _norm_dates < "$WORK/j.raw" > "$WORK/j.out"
+    cmp -s "$WORK/exp.out" "$WORK/j.out" || {
+        echo "--- expected (JS-only golden) ($_uri) ---"; cat -A "$WORK/exp.out" | head -80
+        echo "--- jab lsr ($_uri) ---";                   cat -A "$WORK/j.out"   | head -80
+        echo "--- jab stderr ---";                        cat "$WORK/j.err"      | head -20
+        echo "--- diff ---"; diff "$WORK/exp.out" "$WORK/j.out" | head -40 || true
+        _fail "$_desc: lsr hunks differ"
+    }
+    echo "ok   $_desc"
+}
+
+# lsr_mixed DESC URI ROOTGOLDEN -- DIR1 DIR2 ... — JS-ONLY lsr: assertion where
+# only the ROOT hunk diverges from native (the rename pair); the named SUBDIR
+# hunks still equal native ls: of that dir.  Expected = ROOTGOLDEN (the explicit,
+# date-normalised root hunk) ++ each subdir's native_rel hunk (date-normalised);
+# the JS lsr: output is date-normalised the same way.  DIR list pins the BFS
+# recursion coverage + order after the root.
+lsr_mixed() {
+    _desc=$1; _uri=$2; _rootg=$3; shift 3
+    [ "${1:-}" = "--" ] && shift
+    { printf '%s\n' "$_rootg"
+      for _d in "$@"; do native_rel lsr "$_d" | _norm_dates; done
+    } > "$WORK/exp.out"
+    rm -f "$PWD/.be/queue" 2>/dev/null || true
+    _jrc=0; "$JABC" lsr "$_uri" >"$WORK/j.raw" 2>"$WORK/j.err" || _jrc=$?
+    _norm_dates < "$WORK/j.raw" > "$WORK/j.out"
+    cmp -s "$WORK/exp.out" "$WORK/j.out" || {
+        echo "--- expected (root JS golden ++ native subdir hunks) ---"; cat -A "$WORK/exp.out" | head -80
+        echo "--- jab lsr ($_uri) ---";                                 cat -A "$WORK/j.out"   | head -80
+        echo "--- jab stderr ---";                                      cat "$WORK/j.err"      | head -20
+        echo "--- diff ---"; diff "$WORK/exp.out" "$WORK/j.out" | head -40 || true
+        _fail "$_desc: lsr hunks differ"
+    }
+    echo "ok   $_desc"
+}
+
 # lsr_rel DESC URI -- DIR1 DIR2 ... — assert `jab main.js lsr URI` matches the
 # per-directory hunks (relative-rendered native ls: of each DIR, banner→lsr:),
 # concatenated WITHOUT blank separators (the JS lsr: emits no gaps), in BFS

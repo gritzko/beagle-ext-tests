@@ -25,5 +25,9 @@ build() {
     "$BE" get '?..' >/dev/null 2>&1
 }
 
+# DIS-057: JS-only goldens (patch verb untied from native be — cnf + pat/mrg/cnf
+# stamp offset).  A clean NEXT-branch absorb stamps `mrg`.
+EXPECT_BANNER='merged f.txt'; export EXPECT_BANNER
+EXPECT_STATUS='mrg f.txt'; export EXPECT_STATUS
 patch_parity build '?feat' f.txt
 pass

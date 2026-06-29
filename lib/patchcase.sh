@@ -102,7 +102,8 @@ patch_parity() {
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
-    #  1. merged worktree bytes — file-by-file byte equality.
+    #  1. merged worktree bytes — file-by-file byte equality (STILL native==JS:
+    #     DIS-057 left the WEAVE merge engine + barrier row untouched).
     for f in "$@"; do
         if [ -e "$NAT/$f" ] || [ -e "$JS/$f" ]; then
             cmp -s "$NAT/$f" "$JS/$f" \
@@ -112,28 +113,56 @@ js:     $(cat "$JS/$f" 2>/dev/null | tr '\n' '.')"
         fi
     done
 
-    #  2. the `patch` ULOG row (scope + sha), ts-normalised.
+    #  2. the `patch` ULOG row (scope + sha), ts-normalised (STILL native==JS).
     nrow=$(_patch_row "$NAT"); jrow=$(_patch_row "$JS")
     [ "$nrow" = "$jrow" ] || _fail "patch row differs:
 native: $nrow
 js:     $jrow"
 
-    #  3. per-file status rows in the banner.
-    nban=$(_normbanner < "$WORK/nat.out"); jban=$(_normbanner < "$WORK/js.out")
-    [ "$nban" = "$jban" ] || _fail "banner status rows differ:
-native:
-$nban
+    #  DIS-057 — UNTIED from native here: the JS patch banner spells a conflict
+    #  `cnf` (was `conf`) and `jab status` reads the patch-stamp OFFSET as
+    #  pat/mrg/cnf, so it intentionally diverges from native `be`.  Checks 3 & 4
+    #  are now JS-ONLY golden assertions against per-case fixtures:
+    #    $EXPECT_BANNER  the patch banner's per-file status rows (one `<verb>
+    #                    <path>` per line; the patch-verb vocabulary applied/
+    #                    merged/cnf/del/modl), or unset to skip.
+    #    $EXPECT_STATUS  the `jab status` buckets after the patch (one `<bucket>
+    #                    <path>` per line, lex; the Dirty.mkd pat/mrg/cnf), or
+    #                    unset to skip.  Both date-normalised → time-independent.
+
+    #  3. JS banner per-file status rows == the committed golden.  The patch
+    #     banner emits per-file rows with a BLANK date column, so the verb is the
+    #     first field after the leading whitespace (`<verb> <path>`).
+    if [ -n "${EXPECT_BANNER+x}" ]; then
+        jban=$(grep -vE 'patch patch:' "$WORK/js.out" 2>/dev/null \
+                 | sed -E 's/^ +//' \
+                 | grep -E '^(applied|merged|cnf|del|modl|failed|add|mod) ')
+        _exp=$(printf '%b' "$EXPECT_BANNER")
+        [ "$jban" = "$_exp" ] || _fail "JS banner status rows != golden:
+golden:
+$_exp
 js:
 $jban"
+    fi
 
-    #  4. restamp parity: `be` status must classify both wts identically
-    #     (a `pat` row iff the file mtime == the patch row ts).
-    nst=$(_status "$NAT"); jst=$(_status "$JS")
-    [ "$nst" = "$jst" ] || _fail "be-status differs (restamp mismatch):
-native:
-$nst
+    #  4. JS `jab status` buckets == the committed golden (the restamp proof: a
+    #     clean apply reads `pat`, a merge `mrg`, a conflict `cnf`).
+    if [ -n "${EXPECT_STATUS+x}" ]; then
+        jst=$(_jstatus "$JS")
+        _exp=$(printf '%b' "$EXPECT_STATUS")
+        [ "$jst" = "$_exp" ] || _fail "jab status buckets != golden (restamp):
+golden:
+$_exp
 js:
 $jst"
+    fi
+}
+
+# `jab status` of a wt, reduced to date-normalised `<bucket> <path>` rows (the
+# header + summary stripped) — the JS-only restamp/classify golden (DIS-057).
+_jstatus() {  # _jstatus WTDIR
+    ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
+      | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'
 }
 
 # --- patch_js_golden: JS patch one clone, assert the merged FILE bytes ---------

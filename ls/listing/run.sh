@@ -41,14 +41,35 @@ ls_rel   "clean ls: (eq + dir collapse)"   'ls:'
 # deep/ enqueues deep/inner/) — each hunk == native ls: of that dir (relative).
 lsr_rel  "clean lsr: (per-dir hunks, BFS)" 'lsr:' -- '' 'deep/' 'sub/' 'deep/inner/'
 
-# --- 2. dirty tree: mod + unk + mov(+dst) + mis ---------------------------
+# --- 2. dirty tree: mod + unk + RENAME-pair + mis -------------------------
+# DIS-057 RULING 2026-06-29: a staged rename now lists as the `rmv`(src)+`mov`
+# (dst) move PAIR (status's form), UNTIED from native ls:'s `mov src -> dst` +
+# `new dst`.  So the dirty hunks are asserted JS-only (date-normalised golden),
+# NOT against native (the rename form diverges); the rest of the listing
+# (mod/unk/mis/dir-collapse) is unchanged and rides the same golden.
 sleep 0.02
 printf 'A2\n' >> a.txt          # mod a.txt
 printf 'NEW\n' > new.txt        # unk new.txt
 rm gone.txt                     # mis gone.txt (rm without be delete)
-"$BE" put b.txt#c.txt >/dev/null 2>&1   # mov b.txt -> c.txt (+ new c.txt)
-ls_rel   "dirty ls: (mod/unk/mov/mis)"     'ls:'
-lsr_rel  "dirty lsr: (mod/unk/mov/mis)"    'lsr:' -- '' 'deep/' 'sub/' 'deep/inner/'
+"$BE" put b.txt#c.txt >/dev/null 2>&1   # rename b.txt -> c.txt → rmv b + mov c
+ls_js  "dirty ls: (mod/unk/RENAME-pair/mis)" 'ls:' 'ls:
+ DATE  mod a.txt
+ DATE  rmv b.txt
+ DATE  mov c.txt
+        dir deep/
+        mis gone.txt
+ DATE  unk new.txt
+        dir sub/'
+# lsr: only the ROOT hunk diverges (the rename pair); the subdir hunks still
+# equal native ls: of that dir (all `eq`), so mix the JS root golden with native.
+lsr_mixed "dirty lsr: (mod/unk/RENAME-pair/mis)" 'lsr:' 'lsr:
+ DATE  mod a.txt
+ DATE  rmv b.txt
+ DATE  mov c.txt
+        dir deep/
+        mis gone.txt
+ DATE  unk new.txt
+        dir sub/' -- 'deep/' 'sub/' 'deep/inner/'
 
 # --- 3. prefix scope: subdir + deep nesting + empty scope -----------------
 ls_rel    "scope ls:sub/"                   'ls:sub/'

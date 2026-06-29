@@ -31,5 +31,10 @@ build() {
     "$BE" get '?..' >/dev/null 2>&1
 }
 
+# DIS-057: JS-only goldens (patch verb untied from native be).  A true content
+# conflict spells `cnf` in the banner AND stamps `cnf` (ts+2) so `jab status`
+# reads cnf — the conf→cnf rename + the conflict stamp offset.
+EXPECT_BANNER='cnf f.txt'; export EXPECT_BANNER
+EXPECT_STATUS='cnf f.txt'; export EXPECT_STATUS
 patch_parity build '#@F1' f.txt
 pass
