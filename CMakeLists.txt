@@ -55,7 +55,7 @@ endforeach()
 # ones are registered.  barrier/loop/resolve/emit are dev repro tests pinned to
 # in-flight ticket worktrees (~/todo/JSQUE-002/004/005/006) loading code "not in
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
-foreach(_unit store ulog)
+foreach(_unit store ulog patchband)
     add_test(NAME be-js-unit-${_unit}
         COMMAND "${BEAGLE_BIN_DIR}/jab" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
