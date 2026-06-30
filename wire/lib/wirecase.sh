@@ -101,6 +101,107 @@ PYEOF
 }
 wire_http_down() { kill "$HPID" 2>/dev/null || true; }
 
+#  --- GIT-013/014 PUSH helpers (receive-pack peer + a be-store clone) -------
+#  wire_push_seed: a SMALL bare peer (master@A) + a beagle worktree CLONE of it
+#  (via ssh://localhost, the only way to build a be store from a git bare here).
+#  Sets PBARE (bare path), PREL (HOME-relative), PWT (the be worktree), PA (the
+#  seed sha A).  ssh-to-localhost + scratch-under-$HOME are REQUIRED (the keeper
+#  wire resolves HOME-relative); SKIP cleanly otherwise — never a false FAIL.
+wire_push_seed() {
+  command -v ssh >/dev/null 2>&1 || { echo "SKIP [$NAME] no ssh"; exit 0; }
+  case "$WORK" in "$HOME"/*) ;; *) echo "SKIP [$NAME] scratch not under \$HOME"; exit 0;; esac
+  ssh -o BatchMode=yes -o ConnectTimeout=4 localhost true >/dev/null 2>&1 \
+    || { echo "SKIP [$NAME] no passwordless ssh to localhost"; exit 0; }
+  PBARE="$WORK/peer.git"; PREL="${PBARE#$HOME/}"
+  git init -q --bare -b master "$PBARE"
+  git config -f "$PBARE/config" receive.denyCurrentBranch ignore
+  git config -f "$PBARE/config" http.receivepack true
+  _ps="$WORK/pseed"; git init -q -b master "$_ps"
+  git -C "$_ps" config user.email t@e.st; git -C "$_ps" config user.name T
+  printf 'A\n' > "$_ps/a.txt"; git -C "$_ps" add -A
+  git -C "$_ps" commit -qm A >/dev/null 2>&1
+  git -C "$_ps" push -q "$PBARE" master:master >/dev/null 2>&1
+  PA=$(git -C "$PBARE" rev-parse master)
+  PWT="$WORK/pwt"; rm -rf "$PWT"; mkdir "$PWT"
+  ( cd "$PWT" && "$JABC" get "ssh://localhost/$PREL" ) >"$WORK/pget.out" 2>"$WORK/pget.err" \
+    || { cat "$WORK/pget.err"; _fail "push-seed: ssh clone of peer failed"; }
+}
+
+#  wire_local_commit PWT CONTENT  — edit a.txt to CONTENT, put + post a local FF
+#  commit in the be worktree.  Echoes the new cur tip (40-hex).
+wire_local_commit() {
+  ( cd "$1" && printf '%s' "$2" > a.txt && "$JABC" put a.txt >/dev/null 2>&1 \
+      && "$JABC" post '#c' >/dev/null 2>&1 ) || _fail "local commit failed"
+  grep -aoE '#[0-9a-f]{40}' "$1/.be/wtlog" 2>/dev/null | tail -1 | tr -d '#'
+}
+
+#  wire_peer_advance PBARE CONTENT  — a server-side commit on top of master
+#  (parent = master) via a throwaway seed; pushes it so the bare's master moves
+#  to a sha that is NOT an ancestor of a divergent local commit.  Echoes the sha.
+wire_peer_advance() {
+  _as="$WORK/padv"; rm -rf "$_as"; git clone -q "$1" "$_as" >/dev/null 2>&1
+  git -C "$_as" config user.email t@e.st; git -C "$_as" config user.name T
+  printf 'A\nSERVER\n' > "$_as/a.txt"; git -C "$_as" add -A
+  git -C "$_as" commit -qm B >/dev/null 2>&1
+  git -C "$_as" push -q origin master:master >/dev/null 2>&1
+  git -C "$1" rev-parse master
+}
+
+#  wire_http_rp_up <bare> -> RURL (http base) + RPID, a smart-HTTP RECEIVE-pack
+#  backend (push).  Shells `git receive-pack --stateless-rpc` for the advert
+#  (GET) + the POST (mirrors test/.../githttp_rp.py).  wire_http_rp_down reaps.
+wire_http_rp_up() {
+  _bare=$1; RSRV="$WORK/rpserver.py"
+  cat > "$RSRV" <<'PYEOF'
+import http.server, subprocess, sys, socketserver
+REPO = sys.argv[2]
+def pkt(b): return ("%04x" % (len(b)+4)).encode() + b
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        if "/info/refs" not in self.path or "git-receive-pack" not in self.path:
+            self.send_error(404); return
+        out = subprocess.run(["git","receive-pack","--stateless-rpc",
+                              "--advertise-refs",REPO], capture_output=True).stdout
+        body = pkt(b"# service=git-receive-pack\n") + b"0000" + out
+        self.send_response(200)
+        self.send_header("Content-Type",
+                         "application/x-git-receive-pack-advertisement")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers(); self.wfile.write(body)
+    def do_POST(self):
+        if not self.path.endswith("/git-receive-pack"): self.send_error(404); return
+        n = int(self.headers.get("Content-Length","0"))
+        out = subprocess.run(["git","receive-pack","--stateless-rpc",REPO],
+                             input=self.rfile.read(n), capture_output=True).stdout
+        self.send_response(200)
+        self.send_header("Content-Type","application/x-git-receive-pack-result")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers(); self.wfile.write(out)
+socketserver.TCPServer.allow_reuse_address = True
+httpd = socketserver.TCPServer(("127.0.0.1", int(sys.argv[1])), H)
+sys.stderr.write("up\n"); sys.stderr.flush()
+httpd.serve_forever()
+PYEOF
+  RPORT=$(( 8700 + ($$ % 700) ))
+  i=0; while [ $i -lt 8 ]; do
+    : > "$WORK/rpsrv.log"
+    python3 "$RSRV" "$RPORT" "$_bare" >/dev/null 2>"$WORK/rpsrv.log" &
+    RPID=$!
+    j=0; while [ $j -lt 50 ]; do
+      grep -q up "$WORK/rpsrv.log" 2>/dev/null && break
+      kill -0 "$RPID" 2>/dev/null || break
+      j=$((j+1)); sleep 0.1
+    done
+    if grep -q up "$WORK/rpsrv.log" 2>/dev/null; then
+      RURL="http://127.0.0.1:$RPORT"; return 0
+    fi
+    kill "$RPID" 2>/dev/null; RPORT=$((RPORT+1)); i=$((i+1))
+  done
+  _fail "receive-pack http backend failed to start"
+}
+wire_http_rp_down() { kill "$RPID" 2>/dev/null || true; }
+
 #  wire_big_mirror SRC -> builds BARE (a big bare repo) + sets WANT (its HEAD)
 #  from the real git source tree SRC, with the lone `sha1collisiondetection`
 #  gitlink + `.gitmodules` STRIPPED from HEAD's tree.  The full blob/tree closure

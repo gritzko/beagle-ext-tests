@@ -60,8 +60,13 @@ foreach(_big wire-big-ssh wire-big-http)
         set_tests_properties(be-js-${_big} PROPERTIES LABELS "big;wire" TIMEOUT 300)
     endif()
 endforeach()
+#  GIT-013/014 PUSH cases (wire/<case>): post/put receive-pack over ssh + http.
+#  Same `wire` label + 120 s timeout as the fetch cases; SKIP cleanly without
+#  ssh-to-localhost / python3 / curl, so a no-net box reports green-skips.
 foreach(_sm wire-ssh-clone wire-ssh-update wire-ssh-incremental
-            wire-http-clone wire-http-update wire-http-incremental)
+            wire-http-clone wire-http-update wire-http-incremental
+            wire-push-ssh wire-push-http wire-push-nonff
+            wire-put-force-ssh wire-put-force-http wire-put-dis011)
     if (TEST be-js-${_sm})
         set_tests_properties(be-js-${_sm} PROPERTIES LABELS "wire" TIMEOUT 120)
     endif()

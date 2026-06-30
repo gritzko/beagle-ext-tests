@@ -10,9 +10,12 @@
 #     untouched; absent target ?branch is CREATED at cur's tip.
 #   * Path `./path` / `dir/file` — NARROW the commit to that path: only the
 #     named path's change lands; a sibling staged change does NOT.
-#   * Host `//host` / `ssh://…?b` / `be://…?b` — push is a separate subsystem
-#     (no JS receive-pack send-pack yet); still refuse-loud POSTPUSH, never a
-#     silent local commit (DIS-054 design fork — its own ticket).
+#   * Host `//host` / `ssh://…?b` / `be://…?b` — GIT-013 IMPLEMENTED the wire
+#     receive-pack send-pack: a Host slot is now a real wire PUSH (NOT a local
+#     commit).  We assert (1) a populated host slot FF-PUSHES cur's tip to a
+#     LOCAL ssh://localhost bare (the ref advances), and (2) it NEVER silently
+#     local-commits onto cur; a bogus `//host` is a push ATTEMPT that fails
+#     cleanly (network error), never a POSTPUSH refuse and never a local commit.
 # A populated slot must never silently local-commit onto cur.  The local-FF
 # `#msg` path must still commit (no regression).
 . "$(dirname "$0")/../../lib/postcase.sh"
@@ -98,14 +101,65 @@ _refuse() {   # _refuse DIR URI CODE
         || _fail "post '$2' mutated the store tip (must be all-or-nothing)"
 }
 
-# === Host slot (push) — DESIGN FORK: still refuse-loud POSTPUSH =============
-# A correct JS push needs a receive-pack send-pack client (object-closure walk,
-# pack build, ref-update command, report-status drain) that shared/wire.js does
-# not yet have (it is fetch-only).  Per the DIS-054 fork, push stays an honest
-# refuse — never a silent local commit — and lands in its own ticket.
-_refuse h1 "ssh://host/repo?branch" POSTPUSH
-_refuse h2 "//host"                 POSTPUSH
-_refuse h3 "be://host?branch"       POSTPUSH
+# === Host slot (push) — GIT-013: a Host slot is a real wire PUSH ============
+# The JS receive-pack send-pack (shared/wire.js) landed, so a populated host
+# slot no longer refuses — it FF-pushes cur's tip to the remote.  Two checks:
+#   (1) POSITIVE: `post ssh://localhost/<bare>?master` FF-advances a local bare
+#       repo's master to cur's tip (the slot routes to a working push).
+#   (2) NEGATIVE: a bogus `//host` (unresolvable) is a push ATTEMPT that fails
+#       cleanly — non-zero, NEVER `POSTPUSH`, and NEVER a silent local commit.
+# The wire needs git + ssh-to-localhost under $HOME; SKIP that leg cleanly if
+# either is missing, but always run the offline NEGATIVE leg.
+if command -v git >/dev/null 2>&1 \
+   && command -v ssh >/dev/null 2>&1 \
+   && case "$WORK" in "$HOME"/*) true;; *) false;; esac \
+   && ssh -o BatchMode=yes -o ConnectTimeout=4 localhost true >/dev/null 2>&1
+then
+    : "${KEEPER_BIN:=$(dirname "$BE")/keeper}"; export KEEPER_BIN
+    : "${DOG_REMOTE_PATH:=$(dirname "$BE")}"; export DOG_REMOTE_PATH
+    HREL="${WORK#$HOME/}"
+    HBARE="$WORK/host.git"
+    git init -q --bare -b master "$HBARE"
+    git -C "$HBARE" config receive.denyCurrentBranch ignore
+    HSEED="$WORK/host.seed"; git init -q -b master "$HSEED"
+    git -C "$HSEED" config user.email t@e.st; git -C "$HSEED" config user.name T
+    printf 'A\n' > "$HSEED/a.txt"; git -C "$HSEED" add -A
+    git -C "$HSEED" commit -qm A >/dev/null 2>&1
+    git -C "$HSEED" push -q "$HBARE" master:master >/dev/null 2>&1
+    H_BEFORE=$(git -C "$HBARE" rev-parse master)
+    # clone the bare into a beagle wt, commit a FF descendant locally, then push.
+    rm -rf "$WORK/hwt"; mkdir "$WORK/hwt"
+    ( cd "$WORK/hwt" && "$JABC" get "ssh://localhost/$HREL/host.git" ) \
+        >"$WORK/hget.out" 2>"$WORK/hget.err" \
+        || _fail "host-slot: ssh clone failed: $(cat "$WORK/hget.err")"
+    ( cd "$WORK/hwt" && printf 'A\nB\n' > a.txt && "$JABC" put a.txt \
+        && "$JABC" post '#hcommit' ) >"$WORK/hpost.out" 2>"$WORK/hpost.err" \
+        || _fail "host-slot: local FF commit failed: $(cat "$WORK/hpost.err")"
+    H_CUR=$(grep -aoE '#[0-9a-f]{40}' "$WORK/hwt/.be/wtlog" | tail -1 | tr -d '#')
+    [ -n "$H_CUR" ] && [ "$H_CUR" != "$H_BEFORE" ] \
+        || _fail "host-slot: local commit did not advance cur"
+    ( cd "$WORK/hwt" && "$JABC" post "ssh://localhost/$HREL/host.git?master" ) \
+        >"$WORK/hpush.out" 2>"$WORK/hpush.err" \
+        || _fail "host-slot: wire push failed: $(cat "$WORK/hpush.err")"
+    H_AFTER=$(git -C "$HBARE" rev-parse master)
+    [ "$H_AFTER" = "$H_CUR" ] \
+        || _fail "host-slot: ssh push did NOT FF-advance the bare to cur ($H_CUR; got $H_AFTER)"
+    git -C "$HBARE" fsck >/dev/null 2>&1 || _fail "host-slot: pushed bare fails fsck"
+else
+    echo "SKIP [$NAME] host-slot ssh push (no git/ssh-localhost/\$HOME scratch)"
+fi
+
+# NEGATIVE (always runs): a bogus `//host` push must FAIL cleanly — non-zero,
+# no POSTPUSH refuse, and the local store tip UNCHANGED (no silent commit).
+_clone_staged hn
+HN_T0=$(_tip "$WORK/hn")
+if ( cd "$WORK/hn" && "$JABC" post "//host" ) >"$WORK/hn.out" 2>"$WORK/hn.err"; then
+    _fail "post '//host' unexpectedly succeeded (silent local commit?): $(cat "$WORK/hn.out")"
+fi
+grep -q "POSTPUSH" "$WORK/hn.err" \
+    && _fail "post '//host' refused via stale POSTPUSH — push is implemented now: $(cat "$WORK/hn.err")"
+[ "$(_tip "$WORK/hn")" = "$HN_T0" ] \
+    || _fail "post '//host' mutated the store tip (a failed push must not local-commit)"
 
 # === Query slot: ?other#msg — COMMIT onto ?other + UNTIE wt from cur ========
 _clone_staged q1
