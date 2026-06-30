@@ -49,12 +49,30 @@ foreach(_run ${_be_runs})
     endif()
 endforeach()
 
+# GIT-012 wire cases (test/wire/<case>): the glob above already registers them
+# as be-js-wire-<case>.  The two TREADMILL cases (big-ssh/big-http) clone the
+# real git source tree — slow + heavy — so tag them with the `big` LABEL (so
+# `ctest -L big` selects them and `ctest -LE big` excludes them) and grant a
+# longer TIMEOUT than the 90 s default.  lib/wirecase.sh carries no run.sh, so
+# it is never registered as a case.
+foreach(_big wire-big-ssh wire-big-http)
+    if (TEST be-js-${_big})
+        set_tests_properties(be-js-${_big} PROPERTIES LABELS "big;wire" TIMEOUT 300)
+    endif()
+endforeach()
+foreach(_sm wire-ssh-clone wire-ssh-update wire-ssh-incremental
+            wire-http-clone wire-http-update wire-http-incremental)
+    if (TEST be-js-${_sm})
+        set_tests_properties(be-js-${_sm} PROPERTIES LABELS "wire" TIMEOUT 120)
+    endif()
+endforeach()
+
 # Top-level jab unit tests (run the script directly; be-relative requires
 # resolve via the script's own upward be/-scan).  Only the landed, general
 # ones are registered.  barrier/loop/resolve/emit are dev repro tests pinned to
 # in-flight ticket worktrees (~/todo/JSQUE-002/004/005/006) loading code "not in
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
-foreach(_unit store ulog patchband)
+foreach(_unit store ulog patchband wire)
     add_test(NAME be-js-unit-${_unit}
         COMMAND "${BEAGLE_BIN_DIR}/jab" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
