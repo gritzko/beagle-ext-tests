@@ -21,7 +21,6 @@ set(_BE_WILL_FAIL
     be-js-spot-search                 # JS grep omits the `grep ` banner prefix
     be-js-spot-submount               # + JS grep does not recurse into submounts
     be-js-regex-regex                 # JS grep banner (regex scheme)
-    be-js-put-bare                    # bare `jab put` (stage-all) emits nothing
 )
 
 # Glob <verb>/<case>/run.sh (CONFIGURE_DEPENDS → new case dirs picked up on
