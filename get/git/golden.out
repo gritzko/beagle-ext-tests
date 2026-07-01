@@ -1,8 +1,10 @@
 === get stdout ===
+get:?master#H
 T get ?master#H
 T new a.txt
 T new b.txt
 T new d/c.txt
+
 === worktree ===
 ./a.txt
 ./b.txt
@@ -17,11 +19,13 @@ C
 status:
 ?master	3 ok
 === get stdout ===
+get:?master#H
 T get ?master#H
 T post ?H#c2
 T upd a.txt
 T new n.txt
 T del b.txt
+
 === worktree ===
 ./a.txt
 ./d/c.txt

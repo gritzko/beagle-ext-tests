@@ -1,9 +1,11 @@
 === get stdout ===
+get:?#H
 T get ?#H
 T new a.txt
 T new b.txt
 T new d/c.txt
 T new m.txt
+
 === worktree ===
 ./a.txt
 ./b.txt
@@ -21,6 +23,7 @@ M
 status:
 ?	4 ok
 === get stdout ===
+get:?#H
 T get ?#H
 T post ?H#multi
 T new g/g.txt
@@ -28,6 +31,7 @@ T upd m.txt
 T new z.txt
 T del b.txt
 T del d/c.txt
+
 === worktree ===
 ./a.txt
 ./g/g.txt
