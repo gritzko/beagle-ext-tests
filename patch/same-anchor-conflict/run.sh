@@ -41,6 +41,7 @@ build() {
     "$BE" get '?..' >/dev/null 2>&1
 }
 
-#  dog hash-order golden: theirs (X2) frames before ours (O2) at this anchor.
-patch_js_golden build '?feat!' f.txt 'a\n<<<<X2||||O2>>>>\nc\n'
+# JAB-003 golden snapshot: dog frames theirs (X2) before ours (O2) at this
+# anchor; the committed golden captures jab's verified fence order + banner.
+patch_js_golden build '?feat!' f.txt
 pass

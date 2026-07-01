@@ -5,10 +5,10 @@
 # clones it, then mounts a GRANDCHILD `inner` store directly inside the cloned
 # `vendor/sub` (a `.gitmodules` decl + secondary-wt `.be` anchor + checkout — a
 # live mount, which is all recurse.walk's gate needs).  A `mod` in the grandchild
-# must be staged into the grandchild's OWN wtlog, byte-parity vs native.
+# JAB-003: must be staged into the grandchild's OWN wtlog; golden-snapshotted.
 . "$(dirname "$0")/../lib/subcase.sh"
-
-_norm() { sed -E 's/^ *[0-9]{1,2}:[0-9]{2} +/T /' "$1"; }
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 
 sc_build_parent     # par -> vendor/sub
 
@@ -21,9 +21,8 @@ rm -rf "$INNERSTORE"; mkdir -p "$INNERSTORE/.be"
 INNERTIP0=$(sc_tip "$INNERSTORE" "inner")
 sc_is40 "$INNERTIP0" "inner tip0"
 
-# Clone the parent into a native + jab side; in EACH, mount `inner` inside the
-# cloned vendor/sub (declare it in the sub's .gitmodules + write the anchor +
-# checkout), then dirty the grandchild and bare put.  Both sides are identical.
+# JAB-003: clone the parent into the jab side, mount `inner` inside the cloned
+# vendor/sub (.gitmodules decl + anchor + checkout), dirty the grandchild, put.
 mount_inner() { # $1 = cloned-parent dir
   SUBWT="$1/vendor/sub"
   cat > "$SUBWT/.gitmodules" <<EOF
@@ -51,20 +50,15 @@ run_side() { # $1=client $2=dest
   printf 'inner payload v1 EDITED\n' > "$2/vendor/sub/vendor/inner/deep.c"
   ( cd "$2" && "$1" put ) > "$2.out" 2>"$2.err" || true
 }
-NAT="$WORK/nat"; JS="$WORK/js"
-run_side "$BE"   "$NAT"
+JS="$WORK/js"                                     # JAB-003: JS side only; native oracle retired
 run_side "$JABC" "$JS"
 
-_norm "$NAT.out" > "$WORK/nat.norm"; _norm "$JS.out" > "$WORK/js.norm"
-cmp -s "$WORK/nat.norm" "$WORK/js.norm" || {
-    echo "--- native stdout ---"; cat "$NAT.out"
-    echo "--- jab stdout ---";    cat "$JS.out"
-    echo "--- diff (normalised) ---"; diff "$WORK/nat.norm" "$WORK/js.norm" || true
-    _fail "nested bare put stdout differs"; }
+# JAB-003: golden-snapshot the jab bare-put stdout (was native-vs-jab cmp).
+cat "$JS.out" | golden_assert "$NAME" "$GOLDEN"
 
 #  The grandchild `mod` lands in the GRANDCHILD's own wtlog.
 grep -qE 'put[[:space:]]+deep\.c' "$JS/vendor/sub/vendor/inner/.be" \
     || _fail "jab: grandchild mod deep.c not staged in grandchild wtlog: $(cat "$JS/vendor/sub/vendor/inner/.be")"
-echo "ok   nested bare put recurses sub-of-sub (grandchild wtlog), parity"
+echo "ok   nested bare put recurses sub-of-sub (grandchild wtlog)"
 
 pass

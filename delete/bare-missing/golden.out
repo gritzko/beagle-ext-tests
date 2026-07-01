@@ -1,0 +1,11 @@
+=== stdout ===
+delete:
+        delete a.txt
+        delete src/b.c
+        delete src/m.c
+        delete z.txt
+swept 4 missing file(s)
+
+=== wtlog delete rows ===
+=== refs rows ===
+=== file set ===

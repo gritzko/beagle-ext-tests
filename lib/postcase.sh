@@ -1,17 +1,13 @@
-# test/js/lib/postcase.sh — differential parity harness for `bin/post.js`
-# (the pure-JS `be post`, JS-051).  Sourced at the top of every
-# test/js/post/<case>/run.sh.  Posts the SAME staged change-set with native
-# `be post` AND `jabc bin/post.js`, then asserts byte-equivalence: the
-# commit OBJECT (sha + bytes), the REFS row, the wtlog post row, and the
-# `post:` banner.
+# JAB-003 test/lib/postcase.sh — golden-snapshot harness for the hunk-emitting
+# `be post` (jab).  post_parity now snapshots jab's OWN verified-correct output
+# (no native `be post` oracle: native stays columnar while jab emits true hunks).
 #
-# The commit sha embeds the author/committer epoch (the post-row stamp's
-# wall-clock second).  To make two independent posts byte-identical we PIN
-# the stamp: each side gets an identical NEAR-FUTURE (now+3s) seed row in its
-# wtlog, so SNIFFAtNow / ulog.nowAfter both clamp the post to `tail+1` — the
-# same ron60, hence the same epoch second, hence the same sha.  (now+3s stays
-# under the 30s CLOCKBAD skew guard.)  Each side is an INDEPENDENT full clone
-# of one post-c1 origin store, so the parent commit is identical too.
+# Sourced at the top of every test/js/post/<case>/run.sh.  Posts a staged
+# change-set with `jab post`, then folds the `post:` banner + wtlog post row +
+# refs row + file set into ONE golden stream (see post_parity / lib/golden.sh).
+#
+# JAB-003 The commit sha embeds the wall-clock epoch, so it is VOLATILE run to
+# run; the golden folds it (like the date column) — see post_parity.
 #
 # Self-contained (does NOT source test/lib/case.sh — this case sits 3 levels
 # deep at test/js/post/<case>).  POSIX sh.
@@ -38,6 +34,8 @@ export BE JABC BEDIR
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 WORK="$TMP/$$/js-post/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
@@ -97,48 +95,35 @@ _wtlog_post_row() {   # last post row of a side's primary wtlog
     grep -a $'\tpost\t' "$WORK/$1/.be/wtlog" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
 }
 
-# --- post_parity: stage a change-set in two independent clones, post each --
-# Usage:
-#   post_parity ORIGIN_BUILDER STAGE_FN MSG
-# where ORIGIN_BUILDER builds the c1 origin in $1 (a fresh primary repo),
-# STAGE_FN edits+stages the change-set in $1 (run in each clone before post),
-# MSG is the commit message (passed as `#MSG`).  Asserts commit/refs/wtlog/
-# banner parity.  Leaves $WORK/nT and $WORK/jT for the caller.
+# JAB-003 fold the VOLATILE commit sha (`?#<40hex>` in a row, `?<8hex>#` in the
+# banner) to a stable token; golden_norm folds the date column too.
+_postnorm() { sed -E 's/\?#[0-9a-f]{40}/?#SHA/; s/\?[0-9a-f]{7,40}#/?SHA#/'; }
+_fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be' | sort ); }
+
+# JAB-003 post_parity: build the c1 origin, clone into ONE JS tree, stage +
+# `jab post`, then snapshot the `post:` banner + wtlog post row + refs row +
+# file set as one golden stream.  No native `be post` oracle.
+# Usage: post_parity ORIGIN_BUILDER STAGE_FN MSG (name kept for the call site;
+# ORIGIN_BUILDER/STAGE_FN are the repo SETUP, MSG is the `#MSG` commit message).
 post_parity() {
     _origin_builder=$1; _stage=$2; _msg=$3
     ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && "$_origin_builder" )
-    # Each side gets its OWN store copy (a `.be`-shaped dir → an independent
-    # redirected store), so the two posts never race the same refs.
-    mkdir -p "$WORK/nstore.be" "$WORK/jstore.be"
-    cp -a "$ORG/.be/." "$WORK/nstore.be/"; cp -a "$ORG/.be/." "$WORK/jstore.be/"
-    mkdir "$WORK/nT" "$WORK/jT"
+    # JAB-003 single JS-side own-store clone (native fork retired).
+    mkdir -p "$WORK/jstore.be"; cp -a "$ORG/.be/." "$WORK/jstore.be/"
+    mkdir "$WORK/jT"
     #  URI-006 St.2: `file:` is worktree-only; the host-less `be:` local
     #  keeper wire (St.1) makes the independent own-store clone.
-    ( cd "$WORK/nT" && "$BE" get "be:$WORK/nstore.be?/org" >/dev/null 2>&1 )
     ( cd "$WORK/jT" && "$BE" get "be:$WORK/jstore.be?/org" >/dev/null 2>&1 )
     SEED=$(_mk_seed)
-    _seed_wtlog "$WORK/nT" "$SEED"
     _seed_wtlog "$WORK/jT" "$SEED"
-    ( cd "$WORK/nT" && "$_stage" )
     ( cd "$WORK/jT" && "$_stage" )
-    ( cd "$WORK/nT" && "$BE" post "#$_msg" ) >"$WORK/nT.out" 2>"$WORK/nT.err" || _fail "native post failed: $(cat "$WORK/nT.err")"
     ( cd "$WORK/jT" && "$JABC" post "#$_msg" ) >"$WORK/jT.out" 2>"$WORK/jT.err" || _fail "JS post failed: $(cat "$WORK/jT.err")"
 
-    # banner
-    _norm <"$WORK/nT.out" >"$WORK/nT.norm"; _norm <"$WORK/jT.out" >"$WORK/jT.norm"
-    cmp -s "$WORK/nT.norm" "$WORK/jT.norm" || {
-        echo "--- native banner ---"; cat "$WORK/nT.out"; echo "--- js banner ---"; cat "$WORK/jT.out"
-        _fail "banner differs"; }
-    # commit object (sha + bytes)
-    _commit_dump "$WORK/nT" >"$WORK/nT.commit"; _commit_dump "$WORK/jT" >"$WORK/jT.commit"
-    cmp -s "$WORK/nT.commit" "$WORK/jT.commit" || {
-        echo "--- native commit ---"; cat "$WORK/nT.commit"; echo
-        echo "--- js commit ---"; cat "$WORK/jT.commit"; echo
-        _fail "commit object differs"; }
-    # refs + wtlog rows
-    [ "$(_refs_row nT)" = "$(_refs_row jT)" ] || _fail "refs row differs"
-    [ "$(_wtlog_post_row nT)" = "$(_wtlog_post_row jT)" ] || _fail "wtlog post row differs"
-    # native reads the JS-posted store clean
-    _s=$( cd "$WORK/jT" && "$BE" status 2>/dev/null | tail -1 )
-    case "$_s" in *ok*) ;; *) _fail "native be status on JS tree not clean: $_s" ;; esac
+    # JAB-003 fold banner + wtlog post row + refs row + file set into ONE golden.
+    {
+        echo "=== stdout ==="; cat "$WORK/jT.out"
+        echo "=== wtlog post row ==="; _wtlog_post_row jT
+        echo "=== refs row ==="; _refs_row jT
+        echo "=== file set ==="; _fileset "$WORK/jT"
+    } | _postnorm | golden_assert "$NAME" "$GOLDEN"
 }

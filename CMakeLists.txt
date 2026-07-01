@@ -1,7 +1,8 @@
-# be/test — data-driven JS-vs-native parity cases for the beagle-ext (`be/`)
-# resident loop.  Each <verb>/<case>/run.sh is a differential harness: it runs
-# native `be <verb>` and bareword `jab <verb>` (the loop, resolved via jab's
-# upward be/-scan) and asserts byte-parity.  Registered as be-js-<verb>-<case>.
+# be/test — data-driven cases for the beagle-ext (`be/`) resident loop.  Each
+# <verb>/<case>/run.sh runs bareword `jab <verb>` (the loop, resolved via jab's
+# upward be/-scan).  JAB-003: converted verbs now emit TRUE HUNKS, so jab-vs-
+# native-`be` parity is RETIRED — cases assert jab's output against a committed
+# per-case GOLDEN snapshot (lib/golden.sh).  Registered as be-js-<verb>-<case>.
 #
 # The toolchain (be, jab, keeper) is EXTERNAL — ${BEAGLE_BIN_DIR}, built by the
 # beagle submodule.  The harness plants a `be -> <be/>` shard symlink above its
@@ -11,7 +12,7 @@
 # anchor, and a scratch wt under the source tree would glue onto the project's
 # own store.  $HOME-rooted (ext4) so the store mmaps + ssh path resolution work.
 set(BE_TEST_TMP "$ENV{HOME}/tmp/be-ext-tests" CACHE PATH
-    "scratch root for be/test parity cases")
+    "scratch root for be/test cases")
 file(MAKE_DIRECTORY "${BE_TEST_TMP}")
 
 # Known JS-port gaps (xfail): the loop's view/verb output diverges from native

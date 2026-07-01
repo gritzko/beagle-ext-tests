@@ -1,8 +1,11 @@
-# test/js/lib/getcase.sh — differential parity harness for `bin/get.js`
-# (the pure-JS `be get`, JS-038..041).  Sourced at the top of every
-# test/js/get/<case>/run.sh.  Clones the SAME remote with native `be get`
-# AND `jabc bin/get.js`, then asserts the two are equivalent: stdout
-# (time-normalised), the worktree tree (excl `.be`/`.git`), and `be status`.
+# JAB-003 test/lib/getcase.sh — golden-snapshot harness for the hunk-emitting
+# `be get` (jab, JS-038..041).  Sourced at the top of every
+# test/get/<case>/run.sh.  A case clones a remote with `jab get` and asserts
+# its output against a committed per-case golden (jab's own verified-correct
+# snapshot): stdout (date-normalised), the checked-out worktree (excl
+# `.be`/`.git`), and `jab status`.  No native `be get` oracle: native `be`
+# stays columnar while jab emits true hunks, so jab-vs-be is retired (JAB-003).
+# Golden path: <case_dir>/golden.out (see lib/golden.sh).
 #
 # Self-contained (does NOT source test/lib/case.sh, whose $0-relative paths
 # assume a 2-level test/<verb>/<case> layout — this case sits 3 levels deep
@@ -32,12 +35,14 @@ BEDIR="${BEDIR:-$_ROOT/..}"
 export BE JABC GETJS KEEPER_BIN DOG_REMOTE_PATH
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
 # JSC singleton leaks are suppressed in the unit harness; the extension run
-# is a separate process, so silence LSan here too (parity is the assertion).
+# is a separate process, so silence LSan here too.
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 RS_ROOT="$TMP/$$"
 # Hermetic base: an empty `.be` FILE just above the scratch stops `be`'s
 # cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
@@ -52,47 +57,49 @@ export WORK
 # --- assert helpers ---------------------------------------------------
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
-# strip the leading 7-col date so two runs at different wall-clocks compare.
-_norm() { sed -E 's/^ *[0-9]{1,2}:[0-9]{2} */T /'; }
+# JAB-003: accumulate labelled probe blocks; pass() golden_asserts the whole
+# stream (a case may clone/status several times → one golden per case).
+_GSTREAM="$WORK/golden.stream"; : > "$_GSTREAM"
 
-# tree_eq DIR_A DIR_B — same CONTENT file set + same contents.  Excludes the
-# `.be` store/worktree-log (a dir for a primary clone, a FILE for a file://
-# secondary wt) and its `..be.idx` sidecar — store metadata, not content
-# (native writes the sidecar, the JS clone doesn't; `be status` reads either).
-tree_eq() {
+# JAB-003 tree_dump DIR — emit the CONTENT file set + each file's bytes.
+# Excludes the `.be` store/worktree-log + its `..be.idx` sidecar + `.git`
+# (store metadata, not content).
+tree_dump() {
     _flt='^\./(\.be(/|$)|\.\.be\.idx$|\.git/)'
-    _a=$(cd "$1" && find . -type f | grep -vE "$_flt" | sort)
-    _b=$(cd "$2" && find . -type f | grep -vE "$_flt" | sort)
-    [ "$_a" = "$_b" ] || { echo "--- A ---"; echo "$_a"; echo "--- B ---"; echo "$_b"; _fail "file set differs"; }
-    for _f in $_a; do
-        cmp -s "$1/$_f" "$2/$_f" || _fail "content differs: $_f"
-    done
+    _fs=$(cd "$1" && find . -type f | grep -vE "$_flt" | sort)
+    echo "$_fs"
+    for _f in $_fs; do echo "--- $_f ---"; cat "$1/$_f"; done
 }
 
-# get_both REMOTE NDIR JDIR — run native + JS get into the two (existing)
-# dirs and assert stdout + tree equivalence.  Leaves the outputs in
-# $NDIR.out / $JDIR.out for the caller.
+# JAB-003 _gnorm — fold the volatile per-run commit hash (7-40 hex after `#`
+# or bare `?`) to `H`; the stable ref sigil (`?master`) + message stay.
+_gnorm() { sed -E 's/([#?])[0-9a-f]{7,40}/\1H/g'; }
+
+# JAB-003 get_both REMOTE _ JDIR — run `jab get` into the (existing) JS dir,
+# capturing stdout, then append hash-folded stdout + worktree dump to the
+# golden stream (the volatile scratch-path REMOTE is kept OUT of the golden).
+# 3-arg signature kept for the cases' call site; the native dir arg is ignored.
 get_both() {
-    _remote=$1; _nd=$2; _jd=$3
-    ( cd "$_nd" && "$BE" get "$_remote" ) >"$_nd.out" 2>/dev/null
+    _remote=$1; _jd=$3
     ( cd "$_jd" && "$JABC" get "$_remote" ) >"$_jd.out" 2>"$_jd.err"
-    _norm <"$_nd.out" >"$_nd.norm"
-    _norm <"$_jd.out" >"$_jd.norm"
-    if ! cmp -s "$_nd.norm" "$_jd.norm"; then
-        echo "--- native ---"; cat "$_nd.out"; echo "--- js ---"; cat "$_jd.out"
-        _fail "stdout differs"
-    fi
-    tree_eq "$_nd" "$_jd"
+    {
+        echo "=== get stdout ==="; _gnorm <"$_jd.out"
+        echo "=== worktree ==="; tree_dump "$_jd"
+    } >>"$_GSTREAM"
 }
 
-# status_eq DIR — `be status` summary line; echoes it (caller compares).
-status_line() { ( cd "$1" && "$BE" status 2>/dev/null | tail -1 ); }
+# JAB-003 status_line DIR — `jab status` output; echoes it (caller compares).
+status_line() { ( cd "$1" && "$JABC" status 2>/dev/null ); }
 
-# status_both NDIR JDIR — assert `be status` summaries match.
+# JAB-003 status_both _ JDIR — append the JS side's `jab status` to the stream.
+# 2-arg signature kept; the native dir arg is ignored.
 status_both() {
-    _ns=$(status_line "$1"); _js=$(status_line "$2")
-    [ "$_ns" = "$_js" ] || _fail "be status differs: native[$_ns] js[$_js]"
+    { echo "=== status ==="; status_line "$2"; } >>"$_GSTREAM"
 }
 
-# pass — final marker.
-pass() { echo "PASS [$NAME]"; }
+# JAB-003 pass — golden_assert the accumulated stream, then print the marker.
+# Cases with no probe (self-checking E2E) leave the stream empty → no assert.
+pass() {
+    [ -s "$_GSTREAM" ] && golden_assert "$NAME" "$GOLDEN" <"$_GSTREAM"
+    echo "PASS [$NAME]"
+}

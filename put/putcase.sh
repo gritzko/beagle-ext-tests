@@ -1,14 +1,16 @@
-# test/js/put/putcase.sh — differential parity harness for `bin/put.js`
-# (the pure-JS `be put`, JS-049).  Sourced at the top of every
-# test/js/put/<case>/run.sh.  A case BUILDS a baseline once, COPIES it into
-# a native tree and a JS tree, mutates BOTH identically, then runs native
-# `be put` vs `jabc bin/put.js` and asserts they are equivalent:
+# JAB-003 test/put/putcase.sh — golden-snapshot harness for the hunk-emitting
+# `be put` (jab).  Sourced at the top of every test/put/<case>/run.sh.  A case
+# BUILDS a baseline once, COPIES it into a single JS tree, mutates it, then
+# runs `jab put` and asserts its output against a committed per-case golden
+# (jab's own verified-correct snapshot):
 #   * stdout (time-normalised) — the `put:` banner + rows + skip lines,
 #   * the wtlog `put` rows (verb + URI),
 #   * the on-disk file set (renames/claims),
-#   * the mtime==row-ts restamp invariant (each staged file's mtime equals
-#     its `put` row ts),
 #   * the project-shard `refs` rows (ref-write forms).
+# All four are folded into ONE golden stream; the mtime==row-ts restamp
+# invariant stays a separate jab-vs-jab behavioral check (no native oracle).
+# Native `be put` is retired: native stays columnar while jab emits true hunks,
+# so jab-vs-be is phased out (JAB-003).  Golden path: <case_dir>/golden.out.
 #
 # Self-contained (does NOT source test/lib/case.sh, whose $0-relative paths
 # assume a 2-level test/<verb>/<case> layout — this case sits 3 levels deep
@@ -37,6 +39,8 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops
 # `be`'s cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-put/$NAME"
@@ -60,32 +64,25 @@ seed_baseline() {
     ( cd "$BASE" && mkdir .be && eval "$1" && "$BE" post 'base' >/dev/null 2>&1 )
 }
 
-# fork_pair — copy $BASE into a native side ($NAT) and a JS side ($JS), then
-# re-anchor each fork's row-0 at its OWN `.be` so the two stores are isolated
-# (cp -a leaves the anchor pinned at $BASE, colliding ref writes; reanchor.js
-# repoints it — the cp -a already duplicated the project shard).
+# JAB-003 fork_pair — copy $BASE into the JS side ($JS) and re-anchor its
+# row-0 at its OWN `.be` (cp -a leaves the anchor pinned at $BASE; reanchor.js
+# repoints it).  Single side now — the native oracle is retired.
 fork_pair() {
-    NAT="$WORK/nat"; JS="$WORK/js"; rm -rf "$NAT" "$JS"
-    cp -a "$BASE" "$NAT"; cp -a "$BASE" "$JS"
-    "$JABC" "$_CASE/../../lib/reanchor.js" "$NAT"
+    JS="$WORK/js"; rm -rf "$JS"
+    cp -a "$BASE" "$JS"
     "$JABC" "$_CASE/../../lib/reanchor.js" "$JS"
 }
 
-# put_both ARGS… — mutate is the caller's job (run mutate_side on each).
-# Run native `be put ARGS` in $NAT and `jabc put.js ARGS` in $JS, capturing
-# stdout/stderr, then assert stdout + wtlog rows + file set + mtime + refs.
-# Accepts the put args as "$@".
+# JAB-003 put_both ARGS… — run `jab put ARGS` in $JS, capturing stdout/stderr,
+# then golden_assert stdout + wtlog rows + refs + file set as one snapshot
+# stream.  Name kept for the cases' call site.  Mutate is the caller's job.
 put_both() {
-    ( cd "$NAT" && "$BE" put "$@" ) >"$NAT.out" 2>"$NAT.err" || true
     ( cd "$JS"  && "$JABC" put "$@" ) >"$JS.out" 2>"$JS.err" || true
     _assert_equiv
 }
 
-# mutate BOTH sides identically by running CMD in each (cd'd into the wt).
-mutate() {
-    ( cd "$NAT" && eval "$1" )
-    ( cd "$JS"  && eval "$1" )
-}
+# JAB-003 mutate CMD — apply CMD to the (single) JS side, cd'd into the wt.
+mutate() { ( cd "$JS" && eval "$1" ); }
 
 _putrows() {  # verb<TAB>uri for every `put` wtlog row
     "$JABC" "$_CASE/../dumprows.js" "$1/.be/wtlog" put
@@ -97,26 +94,18 @@ _refrows() {  # verb<TAB>uri for the project-shard refs (if present)
 }
 _fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be' | sort ); }
 
+# JAB-003 _assert_equiv — fold the JS side's stdout + wtlog put rows +
+# project refs rows + on-disk file set into ONE labelled stream and
+# golden_assert it against the committed <case_dir>/golden.out.
 _assert_equiv() {
-    _norm <"$NAT.out" >"$NAT.norm"; _norm <"$JS.out" >"$JS.norm"
-    cmp -s "$NAT.norm" "$JS.norm" || {
-        echo "--- native ---"; cat "$NAT.out"; echo "--- js ---"; cat "$JS.out"
-        _fail "stdout differs"; }
-    _putrows "$NAT" >"$NAT.rows"; _putrows "$JS" >"$JS.rows"
-    cmp -s "$NAT.rows" "$JS.rows" || {
-        echo "--- native rows ---"; cat "$NAT.rows"; echo "--- js rows ---"; cat "$JS.rows"
-        _fail "wtlog put rows differ"; }
-    _refrows "$NAT" >"$NAT.refs"; _refrows "$JS" >"$JS.refs"
-    cmp -s "$NAT.refs" "$JS.refs" || {
-        echo "--- native refs ---"; cat "$NAT.refs"; echo "--- js refs ---"; cat "$JS.refs"
-        _fail "refs rows differ"; }
-    _fileset "$NAT" >"$NAT.files"; _fileset "$JS" >"$JS.files"
-    cmp -s "$NAT.files" "$JS.files" || {
-        echo "--- native files ---"; cat "$NAT.files"; echo "--- js files ---"; cat "$JS.files"
-        _fail "on-disk file set differs"; }
-    # mtime==row-ts invariant on the JS side (native's stamp is the spec the
-    # JS side reproduces; the row-vs-stdout/refs checks already pin the JS
-    # rows to native's).
+    {
+        echo "=== stdout ==="; cat "$JS.out"
+        echo "=== wtlog put rows ==="; _putrows "$JS"
+        echo "=== refs rows ==="; _refrows "$JS"
+        echo "=== file set ==="; _fileset "$JS"
+    } | golden_assert "$NAME" "$GOLDEN"
+    # JAB-003: mtime==row-ts restamp is jab's own invariant (JS side only, no
+    # native oracle) — kept as a separate behavioral check past the snapshot.
     "$JABC" "$_CASE/../mtimeinv.js" "$JS" || _fail "mtime != row ts (restamp)"
 }
 

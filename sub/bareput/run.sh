@@ -1,24 +1,27 @@
 #!/bin/sh
 # test/sub/bareput — SUBS-044: bare `jab put` (no path arg) must stage a
-# sub-interior `mod` file INSIDE the mounted submodule (its own wtlog), matching
-# native `be put`, which recurses PRE-ORDER ([Submodules]).  Before the fix,
-# bareStage `return`ed at the gitlink leaf and left the sub `mod` unstaged.
+# sub-interior `mod` file INSIDE the mounted submodule (its own wtlog).  Before
+# the fix, bareStage `return`ed at the gitlink leaf and left the sub `mod`
+# unstaged.
 #
-# Asserts, against the NATIVE oracle on an identical clone:
+# JAB-003: native `be put` is retired as the stdout oracle (it stays columnar
+# while jab emits true hunks); step 1's stdout is now a committed golden.
+# Asserts:
 #   1. jab put stages the parent `mod` AND the sub `mod` (sub row in the sub's
 #      OWN wtlog, parent wtlog carries only the parent row — no gitlink bump,
-#      that's POST's job), with byte-identical stdout (date column normalised).
+#      that's POST's job), with stdout matching the golden (date column folded).
 #   2. an UNMOUNTED gitlink is still skipped (no descent, no row).
 #
 # Pure local `be:` keeper wire, reuses the DIS-058 sub harness.
 . "$(dirname "$0")/../lib/subcase.sh"
-
-_norm() { sed -E 's/^ *[0-9]{1,2}:[0-9]{2} +/T /' "$1"; }
+# JAB-003: golden-snapshot assertion + committed per-case golden.
+. "$_ROOT/lib/golden.sh"
+GOLDEN=${GOLDEN:-$_CASE/golden.out}
 
 sc_build_parent
 
 # ---- 1. bare put stages a parent mod + a sub-interior mod ----
-#  Clone the SAME parent into a native side and a jab side; mutate identically.
+# JAB-003: clone the parent into the jab side only; the native oracle is retired.
 run_side() { # $1=client $2=dest
   sc_jget "$2" "be:$PARSTORE/.be?/par" >/dev/null
   [ -f "$2/vendor/sub/lib.c" ] || _fail "$2: sub not mounted/checked out"
@@ -26,17 +29,11 @@ run_side() { # $1=client $2=dest
   printf 'sub payload v1 EDITED\n'     > "$2/vendor/sub/lib.c" # sub mod
   ( cd "$2" && "$1" put ) > "$2.out" 2>"$2.err" || true
 }
-NAT="$WORK/nat"; JS="$WORK/js"
-run_side "$BE"   "$NAT"
+JS="$WORK/js"
 run_side "$JABC" "$JS"
 
-#  stdout byte-parity (date column normalised — the only normalisation).
-_norm "$NAT.out" > "$WORK/nat.norm"; _norm "$JS.out" > "$WORK/js.norm"
-cmp -s "$WORK/nat.norm" "$WORK/js.norm" || {
-    echo "--- native stdout ---"; cat "$NAT.out"
-    echo "--- jab stdout ---";    cat "$JS.out"
-    echo "--- diff (normalised) ---"; diff "$WORK/nat.norm" "$WORK/js.norm" || true
-    _fail "bare put stdout differs"; }
+# JAB-003: snapshot jab put stdout against the committed golden (date folded).
+golden_assert "$NAME" "$GOLDEN" < "$JS.out"
 
 #  The sub `mod` is staged in the SUB's OWN wtlog (the secondary-wt `.be` anchor).
 grep -qE 'put[[:space:]]+lib\.c' "$JS/vendor/sub/.be" \

@@ -1,0 +1,6 @@
+put:
+        put main.c
+
+put:vendor/sub
+        put vendor/sub/lib.c
+

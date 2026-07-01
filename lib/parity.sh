@@ -71,13 +71,18 @@ export WORK
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 pass()  { echo "PASS [$NAME]"; }
 
-# --- normalisation: collapse the leading wall-clock date column -------
-# Each hunk line begins with a `H:MM ` (or ` H:MM `) date column; two runs at
-# different seconds differ ONLY there, so fold it to a constant `T `.  This is
-# the ONLY normalisation — everything after (verb pad, uri, row order, blank
-# lines, trailing newline) is compared byte-exact.  (Identical regex to the
-# landed *case.sh oracles, so a divergence they would catch, this catches too.)
-_norm() { sed -E 's/^ *[0-9]{1,2}:[0-9]{2} +/T /'; }
+# --- normalisation: date column + hunk framing ------------------------
+# 1. collapse the leading wall-clock date column to a constant `T ` (two runs
+#    at different seconds differ ONLY there).
+# 2. JAB-003: jab verbs now emit TRUE HUNKS — renderHunkLog (HUNKu8sFeedText)
+#    prepends the hunk URI as a bare `<scheme>:` banner line and a trailing
+#    blank that native columnar `be` has none of; drop those so the columnar
+#    BODY still compares byte-for-byte.  (A `T `-dated line is never a banner.)
+_norm() {
+    sed -E 's/^ *[0-9]{1,2}:[0-9]{2} +/T /' \
+  | sed -E '/^[a-z][a-z0-9]*:/d' \
+  | awk 'NF{last=NR} {ln[NR]=$0} END{for(i=1;i<=last;i++)print ln[i]}'
+}
 
 # --- the SUT selector: native cmd vs the JS path ----------------------
 # run_native VERB ARGS…  — run native `be VERB ARGS` in $PWD.

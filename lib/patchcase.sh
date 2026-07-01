@@ -1,9 +1,11 @@
-# test/js/lib/patchcase.sh — differential parity harness for `bin/patch.js`
+# JAB-003 test/js/lib/patchcase.sh — golden-snapshot harness for `bin/patch.js`
 # (the pure-JS `be patch`, JS-052).  Sourced at the top of every
 # test/js/patch/<case>/run.sh.  Each case builds ONE origin store with a
-# trunk/feature divergence, forks an independent native and JS clone, runs
-# `be patch <uri>` on each, then asserts byte-equivalence of the merged
-# worktree, the `patch` ULOG row, and the file restamp (via `be` status).
+# trunk/feature divergence, clones ONLY a JS worktree, runs `jab patch <uri>`,
+# then asserts its stdout + `patch` ULOG row + `jab status` + merged worktree
+# bytes against a committed per-case golden (jab's own verified-correct
+# snapshot).  No native `be patch` oracle: native stays columnar while jab
+# emits true hunks, so jab-vs-be is retired (golden path: <case>/golden.out).
 #
 # Self-contained (does NOT source test/lib/case.sh — this case sits 3 levels
 # deep at test/js/patch/<case>).  POSIX sh.
@@ -39,6 +41,8 @@ export BE JABC PATCHJS
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 WORK="$TMP/$$/js-patch/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
@@ -50,35 +54,30 @@ export WORK
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 pass() { echo "PASS [$NAME]"; }
 
-# strip the leading date col so two runs at different wall-clocks compare,
-# and drop the native-only commit-line / stats-summary lines (cosmetic) so
-# only the per-file status rows are diffed.  The VERB is field 2 (`T <verb>
-# <path>`); match it as a whole field so a commit subject that merely contains
-# a status word (e.g. `post ?h#f2 del X`) is NOT mistaken for a status row.
-_normbanner() {
-    sed -E 's/^ *[0-9]{1,2}:[0-9]{2} */T /' \
-      | awk '$2=="applied"||$2=="merged"||$2=="conf"||$2=="del"||$2=="modl"||$2=="failed"||$2=="add"' \
-      || true
-}
-
 # the last `patch` wtlog row, ts-normalised (store-backed wt: .be IS the wtlog).
 _patch_row() {  # _patch_row WTDIR
     grep -a $'\tpatch\t' "$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
 }
 
-# `be` status of a wt, date-normalised — proves the restamp (a patched file
-# reads `pat`, not `mod`, iff its mtime == the patch row ts).
-_status() {  # _status WTDIR
-    ( cd "$1" && "$BE" 2>&1 ) | sed -E 's/^ *[0-9]{1,2}:[0-9]{2} */T /'
+# JAB-003 merged worktree bytes for the case FILES: label + content per file
+# (a symlink shows its `-> target`, an exec blob its mode), snapshotting the
+# WEAVE-merge result the golden captures verbatim.  Usage: _fbytes WTDIR FILES…
+_fbytes() {
+    _fb=$1; shift
+    for f in "$@"; do
+        printf -- '--- %s ---\n' "$f"
+        if [ -L "$_fb/$f" ]; then printf -- '-> %s\n' "$(readlink "$_fb/$f")"
+        elif [ -e "$_fb/$f" ]; then ls -l "$_fb/$f" | cut -c1-10; cat "$_fb/$f"; fi
+    done
 }
 
-# --- patch_parity: fork native + JS clones of $ORG, patch each, assert -------
+# --- patch_parity: clone ONLY a JS worktree of $ORG, patch it, golden-assert --
 # Usage:  patch_parity ORIGIN_BUILDER PATCH_URI [FILES...]
 #   ORIGIN_BUILDER  builds the origin store in $ORG (a fresh primary repo,
 #                   leaving cur at the branch we patch INTO).
 #   PATCH_URI       the `be patch` arg (`#<sha>` | `?<br>` | `?<br>!`); a
 #                   literal `@F1` is expanded to the F1 sha the builder exports.
-#   FILES           worktree files to byte-compare between the two clones.
+#   FILES           worktree files whose merged bytes go into the golden stream.
 # Builder must `export F1=...` (etc.) for any `@NAME` refs in PATCH_URI.
 patch_parity() {
     _builder=$1; _uri=$2; shift 2
@@ -93,69 +92,20 @@ patch_parity() {
              _uri=$(printf '%s' "$_uri" | sed "s/@$_ref/$_val/") ;;
     esac
 
-    NAT="$WORK/nat"; JS="$WORK/js"; mkdir -p "$NAT" "$JS"
-    ( cd "$NAT" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "native clone failed"
+    #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
+    JS="$WORK/js"; mkdir -p "$JS"
     ( cd "$JS"  && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "JS clone failed"
-
-    ( cd "$NAT" && "$BE" patch "$_uri" ) >"$WORK/nat.out" 2>"$WORK/nat.err" \
-        || _fail "native patch failed: $(cat "$WORK/nat.err")"
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
-    #  1. merged worktree bytes — file-by-file byte equality (STILL native==JS:
-    #     DIS-057 left the WEAVE merge engine + barrier row untouched).
-    for f in "$@"; do
-        if [ -e "$NAT/$f" ] || [ -e "$JS/$f" ]; then
-            cmp -s "$NAT/$f" "$JS/$f" \
-                || _fail "wt bytes differ for $f:
-native: $(cat "$NAT/$f" 2>/dev/null | tr '\n' '.')
-js:     $(cat "$JS/$f" 2>/dev/null | tr '\n' '.')"
-        fi
-    done
-
-    #  2. the `patch` ULOG row (scope + sha), ts-normalised (STILL native==JS).
-    nrow=$(_patch_row "$NAT"); jrow=$(_patch_row "$JS")
-    [ "$nrow" = "$jrow" ] || _fail "patch row differs:
-native: $nrow
-js:     $jrow"
-
-    #  DIS-057 — UNTIED from native here: the JS patch banner spells a conflict
-    #  `cnf` (was `conf`) and `jab status` reads the patch-stamp OFFSET as
-    #  pat/mrg/cnf, so it intentionally diverges from native `be`.  Checks 3 & 4
-    #  are now JS-ONLY golden assertions against per-case fixtures:
-    #    $EXPECT_BANNER  the patch banner's per-file status rows (one `<verb>
-    #                    <path>` per line; the patch-verb vocabulary applied/
-    #                    merged/cnf/del/modl), or unset to skip.
-    #    $EXPECT_STATUS  the `jab status` buckets after the patch (one `<bucket>
-    #                    <path>` per line, lex; the Dirty.mkd pat/mrg/cnf), or
-    #                    unset to skip.  Both date-normalised → time-independent.
-
-    #  3. JS banner per-file status rows == the committed golden.  The patch
-    #     banner emits per-file rows with a BLANK date column, so the verb is the
-    #     first field after the leading whitespace (`<verb> <path>`).
-    if [ -n "${EXPECT_BANNER+x}" ]; then
-        jban=$(grep -vE 'patch patch:' "$WORK/js.out" 2>/dev/null \
-                 | sed -E 's/^ +//' \
-                 | grep -E '^(applied|merged|cnf|del|modl|failed|add|mod) ')
-        _exp=$(printf '%b' "$EXPECT_BANNER")
-        [ "$jban" = "$_exp" ] || _fail "JS banner status rows != golden:
-golden:
-$_exp
-js:
-$jban"
-    fi
-
-    #  4. JS `jab status` buckets == the committed golden (the restamp proof: a
-    #     clean apply reads `pat`, a merge `mrg`, a conflict `cnf`).
-    if [ -n "${EXPECT_STATUS+x}" ]; then
-        jst=$(_jstatus "$JS")
-        _exp=$(printf '%b' "$EXPECT_STATUS")
-        [ "$jst" = "$_exp" ] || _fail "jab status buckets != golden (restamp):
-golden:
-$_exp
-js:
-$jst"
-    fi
+    #  JAB-003 fold jab stdout + the `patch` ULOG row + `jab status` buckets +
+    #  the merged worktree bytes into ONE stream, diffed vs the committed golden.
+    {
+        echo "=== stdout ==="; cat "$WORK/js.out"
+        echo "=== patch row ==="; _patch_row "$JS"
+        echo "=== status ==="; _jstatus "$JS"
+        echo "=== file bytes ==="; _fbytes "$JS" "$@"
+    } | golden_assert "$NAME" "$GOLDEN"
 }
 
 # `jab status` of a wt, reduced to date-normalised `<bucket> <path>` rows (the
@@ -165,23 +115,14 @@ _jstatus() {  # _jstatus WTDIR
       | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'
 }
 
-# --- patch_js_golden: JS patch one clone, assert the merged FILE bytes ---------
-# against an explicit dog/WEAVE golden.  For the DOG-005 residual: native
-# `be patch` (graf path) frames a conflict OURS-FIRST — it builds the base/ours
-# weave, then lays theirs' tip on as ONE edit, so ours' tokens always precede
-# theirs'.  dog's symmetric WEAVEMerge instead orders the two sides by the RGA
-# commit-id tie-break (hash-order), which the maintainer has ruled CORRECT.  So
-# on a true multi-commit same-anchor conflict native and JS legitimately differ
-# on side ORDER until graf is retired (DOG-005); a pure native==JS differential
-# would be asserting graf's soon-to-go behaviour.  Pin the clock (above) so the
-# shas — and thus the dog order — are reproducible, then gate JS against that
-# fixed dog golden.  Also confirms native is itself stable and that the ONLY
-# divergence is the framed-side order (patch row + conf banner still match).
-# Usage:  patch_js_golden ORIGIN_BUILDER PATCH_URI FILE GOLDEN
-#   GOLDEN  expected merged FILE content, '\n' written literally as the 2-char
-#           sequence  \n  (decoded with printf '%b').
+# JAB-003 patch_js_golden: JS-only path for the DOG-005 same-anchor residual.
+# dog's symmetric WEAVEMerge orders the two conflict sides by the RGA commit-id
+# tie-break (hash-order, ruled CORRECT); the clock is pinned (above) so the
+# shas — and thus that side ORDER — are reproducible.  Native `be` retired as
+# the oracle: snapshot jab's stdout + `patch` ULOG row + merged FILE bytes.
+# Usage:  patch_js_golden ORIGIN_BUILDER PATCH_URI FILE
 patch_js_golden() {
-    _builder=$1; _uri=$2; _file=$3; _golden=$4
+    _builder=$1; _uri=$2; _file=$3
     ORG="$WORK/org"; mkdir -p "$ORG/.be"
     _opwd=$(pwd); cd "$ORG"; "$_builder"; cd "$_opwd"
     case "$_uri" in
@@ -190,42 +131,17 @@ patch_js_golden() {
              _uri=$(printf '%s' "$_uri" | sed "s/@$_ref/$_val/") ;;
     esac
 
-    NAT="$WORK/nat"; JS="$WORK/js"; mkdir -p "$NAT" "$JS"
-    ( cd "$NAT" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "native clone failed"
+    #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
+    JS="$WORK/js"; mkdir -p "$JS"
     ( cd "$JS"  && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "JS clone failed"
-
-    ( cd "$NAT" && "$BE" patch "$_uri" ) >"$WORK/nat.out" 2>"$WORK/nat.err" \
-        || _fail "native patch failed: $(cat "$WORK/nat.err")"
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
-    #  1. JS merged bytes == the deterministic dog golden (the gate).
-    printf '%b' "$_golden" > "$WORK/golden"
-    cmp -s "$WORK/golden" "$JS/$_file" \
-        || _fail "JS merged bytes != dog golden for $_file:
-golden: $(cat "$WORK/golden" | tr '\n' '.')
-js:     $(cat "$JS/$_file" 2>/dev/null | tr '\n' '.')"
-
-    #  2. the `patch` ULOG row still matches native (only side ORDER diverges).
-    nrow=$(_patch_row "$NAT"); jrow=$(_patch_row "$JS")
-    [ "$nrow" = "$jrow" ] || _fail "patch row differs:
-native: $nrow
-js:     $jrow"
-
-    #  3. conf banner rows still match native.
-    nban=$(_normbanner < "$WORK/nat.out"); jban=$(_normbanner < "$WORK/js.out")
-    [ "$nban" = "$jban" ] || _fail "banner status rows differ:
-native:
-$nban
-js:
-$jban"
-
-    #  4. DOG-005 marker: native frames the SAME conflict ours-first, so its
-    #     bytes differ from JS's by side order alone — assert that residual is
-    #     EXACTLY the order swap, not some other (real) merge divergence.  When
-    #     graf retires and native adopts dog's order this cmp flips to equal and
-    #     the case can fold back into patch_parity.
-    if cmp -s "$NAT/$_file" "$JS/$_file"; then
-        echo "NOTE [$NAME] native now byte-matches dog order (DOG-005 converged)" >&2
-    fi
+    #  JAB-003 fold jab stdout + the `patch` ULOG row + the merged FILE bytes
+    #  into ONE stream, diffed vs the committed golden.
+    {
+        echo "=== stdout ==="; cat "$WORK/js.out"
+        echo "=== patch row ==="; _patch_row "$JS"
+        echo "=== file bytes ==="; _fbytes "$JS" "$_file"
+    } | golden_assert "$NAME" "$GOLDEN"
 }

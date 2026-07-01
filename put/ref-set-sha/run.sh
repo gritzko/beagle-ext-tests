@@ -3,11 +3,10 @@
 # reflog escape hatch) parity in BOTH sub-cases (DIS-050):
 #   A. sha == cur's OWN branch tip — the "set to current value" no-op.
 #   B. sha != cur tip but a resolvable sibling tip — a genuine ref reset.
-# `?<40hex>` rewrites cur's branch OUTRIGHT to the resolved sha.  Native vs
-# JS must agree on the project-shard refs rows and the (empty) stdout in
-# EACH case so the form is pinnable for byte-parity.  Beyond put_both's
-# diff, we count the refs rows explicitly so the case can never pass
-# vacuously (a no-op case must NOT mask a one-sided divergence).
+# `?<40hex>` rewrites cur's branch OUTRIGHT to the resolved sha.  JAB-003:
+# each sub-case snapshots its own golden (refs rows + empty stdout); we also
+# count the refs rows so the case can never pass vacuously (a no-op case must
+# NOT mask a divergence).
 . "$(dirname "$0")/../putcase.sh"
 
 # refs-row counter: count `post`/`delete` rows in a side's project shard.
@@ -34,19 +33,19 @@ FEAT=$("$JABC" "$(dirname "$0")/../tipsha.js" "$BASE" feat)
 [ "$CUR" != "$FEAT" ] || _fail "cur tip and ?feat tip unexpectedly equal"
 BASE_N=$(_nrefs "$BASE")
 
-# A. sha == cur tip: set cur's branch to the sha it already holds.
+# A. sha == cur tip: set cur's branch to the sha it already holds.  JAB-003:
+# no-op case snapshots its own golden; refs count must stay at baseline.
 fork_pair
-put_both "?$CUR"
-NA=$(_nrefs "$NAT"); JA=$(_nrefs "$JS")
-[ "$NA" = "$JA" ] || _fail "CASE A refs-row count diverges (native=$NA js=$JA)"
+GOLDEN="$_CASE/A.golden.out" put_both "?$CUR"
+JA=$(_nrefs "$JS")
+[ "$JA" -eq "$BASE_N" ] || _fail "CASE A must be a no-op (base=$BASE_N got=$JA)"
 
-# B. sha != cur tip: reset cur's branch OUTRIGHT to the ?feat tip.  A real
-# move must add exactly one row on each side past the baseline.
+# B. sha != cur tip: reset cur's branch OUTRIGHT to the ?feat tip.  JAB-003: a
+# real move must add exactly one refs row past the baseline; own golden.
 fork_pair
-put_both "?$FEAT"
-NB=$(_nrefs "$NAT"); JB=$(_nrefs "$JS")
-[ "$NB" = "$JB" ] || _fail "CASE B refs-row count diverges (native=$NB js=$JB)"
-[ "$NB" -eq $((BASE_N + 1)) ] \
-    || _fail "CASE B must add one refs row (base=$BASE_N got=$NB)"
+GOLDEN="$_CASE/B.golden.out" put_both "?$FEAT"
+JB=$(_nrefs "$JS")
+[ "$JB" -eq $((BASE_N + 1)) ] \
+    || _fail "CASE B must add one refs row (base=$BASE_N got=$JB)"
 
 pass

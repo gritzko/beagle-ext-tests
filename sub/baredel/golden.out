@@ -1,0 +1,6 @@
+delete:
+        delete main.c
+swept 1 missing file(s)
+        delete vendor/sub/helper.c
+vendor/sub/swept 1 missing file(s)
+

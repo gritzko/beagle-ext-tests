@@ -1,0 +1,20 @@
+=== stdout ===
+patch:#fd27f72eef45e3dbccee8de8a6c0e08f006287ae
+        merged keep.txt
+        applied new.txt
+
+=== patch row ===
+T	patch	#fd27f72eef45e3dbccee8de8a6c0e08f006287ae
+=== status ===
+pat new.txt
+mrg keep.txt
+=== file bytes ===
+--- keep.txt ---
+-rw-------
+ONE
+2
+THREE
+4
+--- new.txt ---
+-rw-------
+brand new

@@ -1,0 +1,10 @@
+=== stdout ===
+put:
+        put a.txt
+
+=== wtlog put rows ===
+=== refs rows ===
+=== file set ===
+./a.txt
+./ren.txt
+./unt.txt

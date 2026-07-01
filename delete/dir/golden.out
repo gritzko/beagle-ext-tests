@@ -1,0 +1,11 @@
+=== stdout ===
+delete:
+T delete delete:
+src/ — 2 file(s) unlinked
+        delete src/
+deleted 0 file(s) (1 row(s))
+
+=== wtlog delete rows ===
+=== refs rows ===
+=== file set ===
+./README.md

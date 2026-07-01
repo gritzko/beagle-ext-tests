@@ -1,0 +1,18 @@
+=== stdout ===
+post:?#mixed change-set
+T post ?SHA#mixed change-set
+        mod a.txt
+        del b.txt
+        add g/g.txt
+        add new.txt
+
+=== wtlog post row ===
+T	post	?#SHA
+=== refs row ===
+T	post	?#SHA
+=== file set ===
+./a.txt
+./d/c.txt
+./g/g.txt
+./keep.txt
+./new.txt

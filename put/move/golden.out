@@ -1,0 +1,9 @@
+=== stdout ===
+put:
+        put b.txt#moved.txt
+
+=== wtlog put rows ===
+=== refs rows ===
+=== file set ===
+./a.txt
+./moved.txt

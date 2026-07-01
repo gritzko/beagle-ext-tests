@@ -1,0 +1,12 @@
+=== stdout ===
+patch:?98b99c5fb49c31954f4b56d6e92682ec09f54351!
+        cnf f.txt
+
+=== patch row ===
+T	patch	?98b99c5fb49c31954f4b56d6e92682ec09f54351!
+=== file bytes ===
+--- f.txt ---
+-rw-------
+a
+<<<<X2||||O2>>>>
+c

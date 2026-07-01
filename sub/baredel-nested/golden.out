@@ -1,0 +1,4 @@
+delete:
+        delete vendor/sub/vendor/inner/deeph.c
+vendor/sub/vendor/inner/swept 1 missing file(s)
+

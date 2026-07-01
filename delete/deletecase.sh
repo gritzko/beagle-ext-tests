@@ -1,12 +1,15 @@
-# test/js/delete/deletecase.sh — differential parity harness for
-# `bin/delete.js` (the pure-JS `be delete`, JS-050).  Sourced at the top of
-# every test/js/delete/<case>/run.sh.  A case BUILDS a baseline once, COPIES
-# it into a native tree and a JS tree, mutates BOTH identically, then runs
-# native `be delete` vs `jabc bin/delete.js` and asserts they are equivalent:
-#   * stdout (time-normalised) — the `delete:` banner + rows + summary lines,
+# JAB-003 test/delete/deletecase.sh — golden-snapshot harness for the
+# hunk-emitting `be delete` (jab).  Sourced at the top of every
+# test/delete/<case>/run.sh.  A case BUILDS a baseline once, COPIES it into a
+# single JS tree, mutates it, then runs `jab delete` and asserts its output
+# against a committed per-case golden (jab's own verified-correct snapshot):
+#   * stdout (date-normalised) — the `delete:` hunk banner + rows + summary,
 #   * the wtlog `delete` rows (verb + URI),
 #   * the on-disk file set (which files got unlinked),
 #   * the project-shard `refs` rows (branch tombstones).
+# All four are folded into ONE golden stream.  No native `be delete` oracle:
+# native `be` stays columnar while jab emits true hunks, so jab-vs-be is
+# retired (JAB-003).  Golden path: <case_dir>/golden.out (see lib/golden.sh).
 # DELETE does NOT restamp (the file is gone), so there is no mtime invariant.
 #
 # Self-contained (does NOT source test/lib/case.sh, whose $0-relative paths
@@ -36,6 +39,8 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 : "${TMP:=/tmp}"; export TMP
 NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 # Hermetic firewall: an empty `.be` FILE just above the scratch base stops
 # `be`'s cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-delete/$NAME"
@@ -48,9 +53,6 @@ export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
-# strip the leading 7-col date so two runs at different wall-clocks compare.
-_norm() { sed -E 's/^ *[0-9]{1,2}:[0-9]{2} +/T /'; }
-
 # --- baseline + per-side copies ---------------------------------------
 # seed_baseline CMD — run CMD (file-seed shell) inside a fresh wt, commit a
 # baseline, and stash it at $WORK/base.  Sets $BASE.
@@ -59,31 +61,25 @@ seed_baseline() {
     ( cd "$BASE" && mkdir .be && eval "$1" && "$BE" post 'base' >/dev/null 2>&1 )
 }
 
-# fork_pair — copy $BASE into a native side ($NAT) and a JS side ($JS), then
-# re-anchor each fork's row-0 at its OWN `.be` so the two stores are isolated
-# (cp -a leaves the anchor pinned at $BASE, colliding ref writes; reanchor.js
-# repoints it — the cp -a already duplicated the project shard).
+# JAB-003 fork_pair — copy $BASE into the JS side ($JS) and re-anchor its
+# row-0 at its OWN `.be` (cp -a leaves the anchor pinned at $BASE; reanchor.js
+# repoints it).  Single side now — the native oracle is retired.
 fork_pair() {
-    NAT="$WORK/nat"; JS="$WORK/js"; rm -rf "$NAT" "$JS"
-    cp -a "$BASE" "$NAT"; cp -a "$BASE" "$JS"
-    "$JABC" "$_CASE/../../lib/reanchor.js" "$NAT"
+    JS="$WORK/js"; rm -rf "$JS"
+    cp -a "$BASE" "$JS"
     "$JABC" "$_CASE/../../lib/reanchor.js" "$JS"
 }
 
-# delete_both ARGS… — run native `be delete ARGS` in $NAT and
-# `jabc delete.js ARGS` in $JS, capturing stdout/stderr, then assert
-# stdout + wtlog rows + file set + refs.  Mutate is the caller's job.
+# JAB-003 delete_both ARGS… — run `jab delete ARGS` in $JS, capturing
+# stdout/stderr, then golden_assert stdout + wtlog rows + refs + file set as
+# one snapshot stream.  Name kept for the cases' call site.  Mutate is theirs.
 delete_both() {
-    ( cd "$NAT" && "$BE" delete "$@" ) >"$NAT.out" 2>"$NAT.err" || true
     ( cd "$JS"  && "$JABC" delete "$@" ) >"$JS.out" 2>"$JS.err" || true
     _assert_equiv
 }
 
-# mutate BOTH sides identically by running CMD in each (cd'd into the wt).
-mutate() {
-    ( cd "$NAT" && eval "$1" )
-    ( cd "$JS"  && eval "$1" )
-}
+# JAB-003 mutate CMD — apply CMD to the (single) JS side, cd'd into the wt.
+mutate() { ( cd "$JS" && eval "$1" ); }
 
 _delrows() {  # verb<TAB>uri for every `delete` wtlog row
     "$JABC" "$_CASE/../../put/dumprows.js" "$1/.be/wtlog" delete
@@ -95,23 +91,16 @@ _refrows() {  # verb<TAB>uri for the project-shard refs (if present)
 }
 _fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be' | sort ); }
 
+# JAB-003 _assert_equiv — fold the JS side's stdout + wtlog delete rows +
+# project refs rows + on-disk file set into ONE labelled stream and
+# golden_assert it against the committed <case_dir>/golden.out.
 _assert_equiv() {
-    _norm <"$NAT.out" >"$NAT.norm"; _norm <"$JS.out" >"$JS.norm"
-    cmp -s "$NAT.norm" "$JS.norm" || {
-        echo "--- native ---"; cat "$NAT.out"; echo "--- js ---"; cat "$JS.out"
-        _fail "stdout differs"; }
-    _delrows "$NAT" >"$NAT.rows"; _delrows "$JS" >"$JS.rows"
-    cmp -s "$NAT.rows" "$JS.rows" || {
-        echo "--- native rows ---"; cat "$NAT.rows"; echo "--- js rows ---"; cat "$JS.rows"
-        _fail "wtlog delete rows differ"; }
-    _refrows "$NAT" >"$NAT.refs"; _refrows "$JS" >"$JS.refs"
-    cmp -s "$NAT.refs" "$JS.refs" || {
-        echo "--- native refs ---"; cat "$NAT.refs"; echo "--- js refs ---"; cat "$JS.refs"
-        _fail "refs rows differ"; }
-    _fileset "$NAT" >"$NAT.files"; _fileset "$JS" >"$JS.files"
-    cmp -s "$NAT.files" "$JS.files" || {
-        echo "--- native files ---"; cat "$NAT.files"; echo "--- js files ---"; cat "$JS.files"
-        _fail "on-disk file set differs"; }
+    {
+        echo "=== stdout ==="; cat "$JS.out"
+        echo "=== wtlog delete rows ==="; _delrows "$JS"
+        echo "=== refs rows ==="; _refrows "$JS"
+        echo "=== file set ==="; _fileset "$JS"
+    } | golden_assert "$NAME" "$GOLDEN"
 }
 
 pass() { echo "PASS [$NAME]"; }

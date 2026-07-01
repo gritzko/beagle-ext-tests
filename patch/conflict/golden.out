@@ -1,0 +1,14 @@
+=== stdout ===
+patch:#b3b51488eff573d69c56834b14d844706a3f5923
+        cnf f.txt
+
+=== patch row ===
+T	patch	#b3b51488eff573d69c56834b14d844706a3f5923
+=== status ===
+cnf f.txt
+=== file bytes ===
+--- f.txt ---
+-rw-------
+a
+<<<<Y||||X>>>>
+c

@@ -59,7 +59,11 @@ parity() {
     ( cd "$WT" && "$JABC" size "size:$_full" ) >"$WORK/full.$_lbl" 2>"$WORK/err.$_lbl" \
         || _fail "[$_lbl] jab size:'$_full' (full sha) failed (RED: $(cat "$WORK/err.$_lbl"))"
     [ -s "$WORK/full.$_lbl" ] || _fail "[$_lbl] full-sha emitted ZERO bytes (RED)"
-    cmp -s "$WORK/short.$_lbl" "$WORK/full.$_lbl" \
+    #  JAB-003: drop the hunk `<scheme>:` banner (embeds the query sha — differs
+    #  full vs short) so the BODY (the size) compares.
+    sed -E '/^[a-z][a-z0-9]*:/d' "$WORK/short.$_lbl" >"$WORK/short.$_lbl.n"
+    sed -E '/^[a-z][a-z0-9]*:/d' "$WORK/full.$_lbl"  >"$WORK/full.$_lbl.n"
+    cmp -s "$WORK/short.$_lbl.n" "$WORK/full.$_lbl.n" \
         || _fail "[$_lbl] full-sha size != short-prefix size"
 }
 

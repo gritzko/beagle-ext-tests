@@ -1,0 +1,37 @@
+=== get stdout ===
+T get ?master#H
+T new a.txt
+T new b.txt
+T new d/c.txt
+=== worktree ===
+./a.txt
+./b.txt
+./d/c.txt
+--- ./a.txt ---
+A
+--- ./b.txt ---
+B
+--- ./d/c.txt ---
+C
+=== status ===
+status:
+?master	3 ok
+=== get stdout ===
+T get ?master#H
+T post ?H#c2
+T upd a.txt
+T new n.txt
+T del b.txt
+=== worktree ===
+./a.txt
+./d/c.txt
+./n.txt
+--- ./a.txt ---
+A2
+--- ./d/c.txt ---
+C
+--- ./n.txt ---
+N
+=== status ===
+status:
+?master	3 ok

@@ -1,8 +1,8 @@
 #!/bin/sh
-# test/js/post/file — `bin/post.js` vs native `be post` on the local path.
-# Asserts byte-equivalent commit object, REFS row, wtlog post row, and `post:`
-# banner across a mix of decisions: a modified file, a new file, a new file in
-# a new subdir, a deleted file, and a kept (untouched tracked) file.
+# JAB-003 test/post/file — golden snapshot of jab `post` on a mixed change-set
+# (mod / new / new-subdir / delete / keep).  Native `be post` is retired as the
+# oracle (jab emits a true hunk banner, native stays columnar); the shared
+# post_parity now snapshots jab's own verified-correct output.
 . "$(dirname "$0")/../../lib/postcase.sh"
 
 build_origin() {

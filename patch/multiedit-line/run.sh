@@ -30,9 +30,7 @@ build() {
     "$BE" get '?..' >/dev/null 2>&1
 }
 
-# DIS-057: JS-only goldens (patch verb untied from native be — cnf + pat/mrg/cnf
-# stamp offset).  A clean multi-edit merge stamps `mrg`.
-EXPECT_BANNER='merged f.txt'; export EXPECT_BANNER
-EXPECT_STATUS='mrg f.txt'; export EXPECT_STATUS
+# JAB-003 golden snapshot (native oracle retired): a clean multi-edit merge
+# stamps `mrg` — see golden.out.
 patch_parity build '?feat!' f.txt
 pass

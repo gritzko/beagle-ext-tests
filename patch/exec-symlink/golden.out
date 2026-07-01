@@ -1,0 +1,21 @@
+=== stdout ===
+patch:#2e43e22eb795038bc90a2ef90444a99cbf6858e2
+        applied link
+        mod plain.txt
+        applied run.sh
+
+=== patch row ===
+T	patch	#2e43e22eb795038bc90a2ef90444a99cbf6858e2
+=== status ===
+pat link
+pat run.sh
+=== file bytes ===
+--- link ---
+-> plain.txt
+--- plain.txt ---
+-rw-------
+HELLO
+--- run.sh ---
+-rwxr-xr-x
+#!/bin/sh
+echo hi

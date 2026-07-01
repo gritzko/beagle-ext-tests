@@ -1,0 +1,16 @@
+=== stdout ===
+patch:#ba823b7030257ddfb59084d4b2b91031cf1a940b
+        merged f.txt
+
+=== patch row ===
+T	patch	#ba823b7030257ddfb59084d4b2b91031cf1a940b
+=== status ===
+mrg f.txt
+=== file bytes ===
+--- f.txt ---
+-rw-------
+A
+b
+C
+d
+e

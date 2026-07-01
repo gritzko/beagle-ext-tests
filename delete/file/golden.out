@@ -1,0 +1,10 @@
+=== stdout ===
+delete:
+T delete delete:
+        delete a.txt
+deleted 1 file(s) (1 row(s))
+
+=== wtlog delete rows ===
+=== refs rows ===
+=== file set ===
+./b.txt

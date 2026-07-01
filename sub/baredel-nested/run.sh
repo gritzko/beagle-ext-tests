@@ -1,13 +1,13 @@
 #!/bin/sh
 # test/sub/baredel-nested — SUBS-044: bare `jab delete` must recurse NESTED
-# mounted subs (sub-of-sub), sweeping a `mis` at the deepest level, matching
-# native `be delete` PRE-ORDER recursion.  Builds par -> vendor/sub via the
-# DIS-058 harness, clones it, mounts a GRANDCHILD `inner` inside the cloned
-# `vendor/sub`, deletes a grandchild file, and asserts native==jab stdout +
-# the grandchild `mis` row landing in the grandchild's OWN wtlog.
+# mounted subs (sub-of-sub), sweeping a `mis` at the deepest level.  Builds
+# par -> vendor/sub via the DIS-058 harness, clones it, mounts a GRANDCHILD
+# `inner` inside the cloned `vendor/sub`, deletes a grandchild file, and
+# asserts jab stdout + the grandchild `mis` row landing in its OWN wtlog.
+# JAB-003: golden snapshot of jab's own output; native `be` oracle retired.
 . "$(dirname "$0")/../lib/subcase.sh"
-
-_norm() { sed -E 's/^ *[0-9]{1,2}:[0-9]{2} +/T /' "$1"; }
+. "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
+GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 
 sc_build_parent
 
@@ -45,19 +45,15 @@ run_side() { # $1=client $2=dest
   rm -f "$2/vendor/sub/vendor/inner/deeph.c"     # grandchild mis
   ( cd "$2" && "$1" delete ) > "$2.out" 2>"$2.err" || true
 }
-NAT="$WORK/nat"; JS="$WORK/js"
-run_side "$BE"   "$NAT"
+# JAB-003: only the JS side runs; native fork retired as the oracle.
+JS="$WORK/js"
 run_side "$JABC" "$JS"
 
-_norm "$NAT.out" > "$WORK/nat.norm"; _norm "$JS.out" > "$WORK/js.norm"
-cmp -s "$WORK/nat.norm" "$WORK/js.norm" || {
-    echo "--- native stdout ---"; cat "$NAT.out"
-    echo "--- jab stdout ---";    cat "$JS.out"
-    echo "--- diff (normalised) ---"; diff "$WORK/nat.norm" "$WORK/js.norm" || true
-    _fail "nested bare delete stdout differs"; }
+# JAB-003: golden-snapshot jab's own stdout (date column folded by golden_norm).
+cat "$JS.out" | golden_assert "$NAME" "$GOLDEN"
 
 grep -qE 'delete[[:space:]]+deeph\.c' "$JS/vendor/sub/vendor/inner/.be" \
     || _fail "jab: grandchild mis deeph.c not swept in grandchild wtlog"
-echo "ok   nested bare delete recurses sub-of-sub (grandchild wtlog), parity"
+echo "ok   nested bare delete recurses sub-of-sub (grandchild wtlog), golden"
 
 pass
