@@ -62,7 +62,7 @@ def check(name, cond):
     print(("ok   " if cond else "FAIL ") + name)
     if not cond: fails += 1
 
-VIEWS = [("cat", ["cat", "cat:core/job.js"]),
+VIEWS = [("cat", ["cat", "cat:core/loop.js"]),
          ("grep", ["grep", "grep:#JSQUE"]),
          ("ls",  ["ls"])]
 
