@@ -1,5 +1,5 @@
 === stdout ===
-put:
+?
         put a.txt
 
 === wtlog put rows ===

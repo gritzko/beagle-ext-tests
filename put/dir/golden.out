@@ -1,5 +1,5 @@
 === stdout ===
-put:
+?
         put d/c.txt
         put d/e.txt
         put d/f.txt

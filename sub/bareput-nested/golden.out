@@ -1,5 +1,5 @@
-put:
-put:vendor/sub
-put:vendor/sub/vendor/inner
+?
+vendor/sub
+vendor/sub/vendor/inner
         put vendor/sub/vendor/inner/deep.c
 

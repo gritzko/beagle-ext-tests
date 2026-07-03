@@ -1,6 +1,6 @@
-put:
+?
         put main.c
 
-put:vendor/sub
+vendor/sub
         put vendor/sub/lib.c
 

@@ -1,6 +1,6 @@
 === stdout ===
-delete:
-T delete delete:
+?
+T delete ?
 src/ — 2 file(s) unlinked
         delete src/
 deleted 0 file(s) (1 row(s))

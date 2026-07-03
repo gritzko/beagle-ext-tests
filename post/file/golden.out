@@ -1,5 +1,5 @@
 === stdout ===
-post:?#mixed change-set
+?#mixed change-set
 T post ?SHA#mixed change-set
         mod a.txt
         del b.txt

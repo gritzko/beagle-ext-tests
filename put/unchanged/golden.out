@@ -1,5 +1,5 @@
 === stdout ===
-put:
+?
         put unchanged.txt
         put to-modify.txt
 

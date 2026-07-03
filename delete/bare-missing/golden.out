@@ -1,5 +1,5 @@
 === stdout ===
-delete:
+?
         delete a.txt
         delete src/b.c
         delete src/m.c

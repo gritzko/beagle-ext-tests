@@ -1,6 +1,6 @@
 === stdout ===
-delete:
-T delete delete:
+?
+T delete ?
         delete a.txt
 deleted 1 file(s) (1 row(s))
 

@@ -1,5 +1,5 @@
 === stdout ===
-patch:#2e43e22eb795038bc90a2ef90444a99cbf6858e2
+#2e43e22eb795038bc90a2ef90444a99cbf6858e2
         applied link
         mod plain.txt
         applied run.sh
