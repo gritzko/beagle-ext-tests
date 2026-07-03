@@ -45,10 +45,10 @@ const sink = { feed: function (uri, body, toks, verb, ts) {
 } };
 function run(mode) {
   feeds.length = 0;
-  cat({ uri: "cat:" + path }, {
-    mode: mode, repo: { wt: wt, storePath: wt, project: "p" },
-    args: ["cat:" + path], sink: sink,
-  });
+  //  JAB-004: cat is plain-args reading the global `be` — mint it, then call plain.
+  globalThis.be = { repo: { wt: wt, storePath: wt, project: "p" },
+                    sink: sink, format: mode, out: null, flags: [] };
+  cat("cat:" + path);
 }
 
 //  tok helpers (the JS tok-build model, log.js): [31..27] tag, [23..0] end.
