@@ -15,6 +15,14 @@ set(BE_TEST_TMP "$ENV{HOME}/tmp/be-ext-tests" CACHE PATH
     "scratch root for be/test cases")
 file(MAKE_DIRECTORY "${BE_TEST_TMP}")
 
+# PUT-006 harness: each case pid-stamps + cleans its OWN $TMP/$$ scratch, so the
+# shared root can vanish between configure and a `ctest` run — then the
+# WORKING_DIRECTORY cd fails the WHOLE suite ("Not Run") before any run.sh.  A
+# SETUP fixture re-creates the root; every case declares FIXTURES_REQUIRED be_tmp.
+add_test(NAME be-js-tmp-setup
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${BE_TEST_TMP}")
+set_tests_properties(be-js-tmp-setup PROPERTIES FIXTURES_SETUP be_tmp)
+
 # Known JS-port gaps (xfail): the loop's view/verb output diverges from native
 # until the respective JSQUE conversion lands.  Tracked here; drop an entry as
 # its conversion makes the case pass.  NOT harness bugs — real product gaps.
@@ -44,6 +52,7 @@ foreach(_run ${_be_runs})
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(${_name} PROPERTIES
         ENVIRONMENT "BIN=${BEAGLE_BIN_DIR};TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        FIXTURES_REQUIRED be_tmp
         TIMEOUT 90)
     if (_name IN_LIST _BE_WILL_FAIL)
         set_tests_properties(${_name} PROPERTIES WILL_FAIL TRUE)
@@ -84,6 +93,7 @@ foreach(_unit store ulog ingest patchband wire wirepush)
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(be-js-unit-${_unit} PROPERTIES
         ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        FIXTURES_REQUIRED be_tmp
         TIMEOUT 60)
 endforeach()
 
@@ -96,5 +106,6 @@ foreach(_sub log/nonspine)
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(be-js-unit-${_subname} PROPERTIES
         ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        FIXTURES_REQUIRED be_tmp
         TIMEOUT 60)
 endforeach()

@@ -99,7 +99,10 @@ PYEOF
   done
   _fail "http backend failed to start (last log: $(cat "$WORK/srv.log" 2>/dev/null))"
 }
-wire_http_down() { kill "$HPID" 2>/dev/null || true; }
+# PUT-006: EXIT-trap teardown — reap the http server, then (on clean exit only)
+# rm the pid scratch getcase.sh minted; keep it on failure for debugging.
+wire_http_down() { _rc=$?; kill "$HPID" 2>/dev/null || true
+    [ "$_rc" = 0 ] && [ -n "${TMP:-}" ] && rm -rf "$TMP/$$"; return 0; }
 
 #  --- GIT-013/014 PUSH helpers (receive-pack peer + a be-store clone) -------
 #  wire_push_seed: a SMALL bare peer (master@A) + a beagle worktree CLONE of it
@@ -200,7 +203,9 @@ PYEOF
   done
   _fail "receive-pack http backend failed to start"
 }
-wire_http_rp_down() { kill "$RPID" 2>/dev/null || true; }
+# PUT-006: as wire_http_down — reap receive-pack server, rm pid scratch on rc=0.
+wire_http_rp_down() { _rc=$?; kill "$RPID" 2>/dev/null || true
+    [ "$_rc" = 0 ] && [ -n "${TMP:-}" ] && rm -rf "$TMP/$$"; return 0; }
 
 #  wire_big_mirror SRC -> builds BARE (a big bare repo) + sets WANT (its HEAD)
 #  from the real git source tree SRC, with the lone `sha1collisiondetection`

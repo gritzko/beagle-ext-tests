@@ -28,6 +28,8 @@ WORK="$TMP/$$/dis060/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+# PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
+SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export BE JABC BEDIR
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }

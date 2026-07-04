@@ -95,12 +95,25 @@ rs_firewall() {
     [ -e "$_rs_fw_base/.be" ] || : > "$_rs_fw_base/.be"
 }
 
+# PUT-006: arm ONE EXIT trap (once — guarded, never double-installs/clobbers)
+# that rm's whichever pid-scratch roots this shell minted (RS_ROOT and/or
+# RS_NOREPO_ROOT) on clean exit (0); keeps them on failure for debugging.
+rs_cleanup_arm() {
+    [ -n "${RS_TRAP_ARMED:-}" ] && return 0
+    RS_TRAP_ARMED=1
+    trap 'rc=$?; if [ "$rc" = 0 ]; then
+        [ -n "${RS_ROOT:-}" ] && rm -rf "$RS_ROOT"
+        [ -n "${RS_NOREPO_ROOT:-}" ] && rm -rf "$RS_NOREPO_ROOT"
+    fi; exit $rc' EXIT
+}
+
 # rs_fresh_wt [name] — create an isolated REPO worktree, cd into it, and
 # seed the empty-`.be/` shield.  Wipes any leftover same-root state.
 # Sets/exports $RS_ROOT (process scratch root) and $RS_WT.
 rs_fresh_wt() {
     _rs_name=${1:-wt}
     : "${RS_ROOT:=$(rs_repo_base)}"
+    rs_cleanup_arm
     rs_firewall
     RS_WT="$RS_ROOT/$_rs_name"
     rm -rf "$RS_WT"
@@ -141,6 +154,7 @@ rs_wt_at() {
 rs_fresh_norepo() {
     _rs_name=${1:-loose}
     : "${RS_NOREPO_ROOT:=$(rs_norepo_base)}"
+    rs_cleanup_arm
     RS_WT="$RS_NOREPO_ROOT/$_rs_name"
     rm -rf "$RS_WT"
     mkdir -p "$RS_WT"

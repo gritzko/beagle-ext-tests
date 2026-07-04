@@ -56,6 +56,8 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 # JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
 ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+# PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
+SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }

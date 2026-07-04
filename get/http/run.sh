@@ -56,7 +56,9 @@ PYEOF
 PORT=8731
 python3 "$SRV" "$PORT" "$REPO" >/dev/null 2>"$WORK/srv.log" &
 SRVPID=$!
-trap 'kill "$SRVPID" 2>/dev/null' EXIT INT TERM
+# PUT-006: reap the server, then rm getcase.sh's pid scratch on clean exit (0);
+# keep it on failure for debugging (merged into this trap, not a 2nd EXIT trap).
+trap 'rc=$?; kill "$SRVPID" 2>/dev/null; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT INT TERM
 # Wait for the listener (the python prints "up" after bind).
 i=0; while [ $i -lt 50 ]; do
   grep -q up "$WORK/srv.log" 2>/dev/null && break

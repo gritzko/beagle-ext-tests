@@ -34,6 +34,8 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 # `jab help` resolve the extension via jab's upward be/-scan from the wt cwd.
 : > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+# PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
+SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 
 _fail() { echo "FAIL [bro/$NAME] $*" >&2; exit 1; }
 
