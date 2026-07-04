@@ -125,6 +125,100 @@ p3.setHunks(big);
 p3.key(0x3a); p3.key(0x1b);
 check("addr-esc", p3.mode === "scroll" && p3.cmd === "");
 
+//  --- 4b. bracketed paste into the address bar -------------------------------
+//  A paste arrives via _feed as a byte burst ESC[200~ <text> ESC[201~.  The
+//  payload must land in this.cmd VERBATIM; a pasted ESC/newline must NOT cancel
+//  or submit the bar (the bug: the leading ESC dropped you out of the bar).
+const BEG = [0x1b,0x5b,0x32,0x30,0x30,0x7e], END = [0x1b,0x5b,0x32,0x30,0x31,0x7e];
+function pbytes() {                                       // build a byte burst
+  const a = [];
+  for (let k = 0; k < arguments.length; k++) { const x = arguments[k];
+    if (typeof x === "string") for (let j = 0; j < x.length; j++) a.push(x.charCodeAt(j));
+    else if (typeof x === "number") a.push(x);
+    else for (let j = 0; j < x.length; j++) a.push(x[j]); }
+  return Uint8Array.from(a);
+}
+const pp = new pager.Pager(-1, { color: false });
+pp.setHunks(big); pp.key(0x3a);                           // ':' opens the bar
+pp._feed(pbytes(BEG, "be://host/path?main", END));
+check("paste-captured", pp.cmd === "be://host/path?main");
+check("paste-stays-open", pp.mode === "command");
+
+//  A pasted trailing NEWLINE is dropped, not submitted; the bar stays open.
+const pp2 = new pager.Pager(-1, { color: false });
+pp2.setHunks(big); pp2.key(0x3a);
+pp2._feed(pbytes(BEG, "cat:foo", 0x0a, END));
+check("paste-newline-nosubmit", pp2.cmd === "cat:foo" && pp2.mode === "command");
+
+//  A paste SPLIT across two reads (end marker straddles): the carry/pend path
+//  (return used; re-feed the tail) preserves the capture state.
+const pp3 = new pager.Pager(-1, { color: false });
+pp3.setHunks(big); pp3.key(0x3a);
+const full = pbytes(BEG, "diff:x", END);
+const used = pp3._feed(full.slice(0, full.length - 3));   // cut inside END marker
+pp3._feed(full.slice(used));                              // re-feed the tail
+check("paste-straddle", pp3.cmd === "diff:x" && pp3.mode === "command");
+
+//  A lone Esc keypress must STILL cancel the bar (the paste probe never swallows
+//  a solitary ESC into a hang).
+const pp4 = new pager.Pager(-1, { color: false });
+pp4.setHunks(big); pp4.key(0x3a);
+pp4._feed(Uint8Array.from([0x1b]));
+check("paste-lone-esc-cancels", pp4.mode === "scroll" && pp4.cmd === "");
+
+//  --- 4c. URI-011: the word(context_uri,…rest) spell composer (a–g) ----------
+//  _composeCall(spell) classifies each token against the tracked context URI: a
+//  leading `.`/`/`/`?`/`#` or a `scheme:` SHAPES arg 0 (one component merges, ≥2
+//  of {scheme,auth,path} resets, `?ref`/`#frag` always merge); every other token
+//  is REST (raw).  Table: set a context (verb+uri), type a spell, assert the call.
+function ccPager(verb, uri) {
+  const p = new pager.Pager(-1, { color: false });
+  p.setHunks(big); p.view.verb = verb; p.view.uri = uri;
+  return p;
+}
+function cc(verb, uri, spell) { return ccPager(verb, uri)._composeCall(spell); }
+function eqCall(name, got, verb, arg0, rest) {
+  const ok = got && got.verb === verb && got.arg0 === arg0 &&
+             JSON.stringify(got.rest) === JSON.stringify(rest);
+  check(name, ok);
+  if (!ok) w("   got " + JSON.stringify(got) + " want {verb:" + JSON.stringify(verb) +
+             ", arg0:" + JSON.stringify(arg0) + ", rest:" + JSON.stringify(rest) + "}\n");
+}
+eqCall("cc-a-bareverb",   cc("cat","//HERE/src/x.c","status"),        "status","//HERE/src/x.c",[]);
+eqCall("cc-b-pathedit",   cc("ls","//HERE/dir","./sub"),              "ls","//HERE/dir/sub",[]);
+eqCall("cc-c-authmerge",  cc("status","//HERE/src","//OTHER"),        "status","//OTHER/src",[]);
+eqCall("cc-c2-authreset", cc("status","//HERE/src","//OTHER/"),       "status","//OTHER/",[]);
+eqCall("cc-d-refmerge",   cc("log","//HERE/x.c","?feat"),             "log","//HERE/x.c?feat",[]);
+eqCall("cc-d2-reffrag",   cc("cat","//HERE/x.c","?feat#L20"),         "cat","//HERE/x.c?feat#L20",[]);
+eqCall("cc-e-schemereset",cc("status","//HERE","post ssh://blah"),    "post","ssh://blah",[]);
+eqCall("cc-f-message",    cc("ls","//HERE","post 'fix bug'"),         "post","//HERE",["fix bug"]);
+eqCall("cc-g-urimsg",     cc("ls","//HERE","post //OTHER 'fix bug'"), "post","//OTHER",["fix bug"]);
+eqCall("cc-put-multi",    cc("ls","//THERE/dir","put a.txt b/c.txt"), "put","//THERE/dir",["a.txt","b/c.txt"]);
+eqCall("cc-put-pathedit", cc("ls","//THERE/dir","put ./file"),        "put","//THERE/dir/file",[]);
+
+//  --- 4d. URI-011: the SHARED composer's CLI entry (composeArgv: verb known,
+//  tokens pre-split, arg 0 = the cwd/`//WT` context).  Same classifier as the bar.
+const SPELL = require("shared/spell.js");
+function ac(uri, verb, toks) { return SPELL.composeArgv(uri, verb, toks); }
+eqCall("ca-cli-bareverb",  ac("//URI-011","status",[]),               "status","//URI-011",[]);
+eqCall("ca-cli-message",   ac("//URI-011","post",["fix bug"]),        "post","//URI-011",["fix bug"]);
+eqCall("ca-cli-authmerge", ac("//HERE/src","status",["//OTHER"]),     "status","//OTHER/src",[]);
+eqCall("ca-cli-multipath", ac("//T/dir","put",["a.txt","b/c.txt"]),   "put","//T/dir",["a.txt","b/c.txt"]);
+
+//  --- 4e. URI-011: put/delete bind rest UNDER arg 0 (the verb's file-vs-dir
+//  oracle is mocked here: `dirs` names the directories).  Dir base drops + rest
+//  joins under it; a FILE base is a target + rest joins its parent (equivalence).
+function bindT(name, argv, dirs, want) {
+  const got = SPELL.bindRest(argv, function (p) { return dirs.indexOf(p) >= 0; });
+  const ok = JSON.stringify(got) === JSON.stringify(want);
+  check(name, ok);
+  if (!ok) w("   got " + JSON.stringify(got) + " want " + JSON.stringify(want) + "\n");
+}
+bindT("bind-dir-base",  ["dir","a.txt","b/c.txt"], ["dir"], ["dir/a.txt","dir/b/c.txt"]);
+bindT("bind-file-base", ["dir/a.txt","b/c.txt"],   [],      ["dir/a.txt","dir/b/c.txt"]);
+bindT("bind-single",    ["dir"],                   ["dir"], ["dir"]);
+bindT("bind-ref-skip",  ["dir","a.txt","?feat"],   ["dir"], ["dir/a.txt","?feat"]);
+
 //  --- 5. BRO-005: a LEFT-CLICK on a `U`-tagged token navigates to ITS URI -----
 //  Build a hunk whose first row carries a hidden `U` click-target: the visible
 //  token "open" is followed by a `U` token over the URI bytes "cat:foo.txt"
