@@ -219,6 +219,30 @@ bindT("bind-file-base", ["dir/a.txt","b/c.txt"],   [],      ["dir/a.txt","dir/b/
 bindT("bind-single",    ["dir"],                   ["dir"], ["dir"]);
 bindT("bind-ref-skip",  ["dir","a.txt","?feat"],   ["dir"], ["dir/a.txt","?feat"]);
 
+//  --- 4f. URI-012: a followed/clicked RELATIVE click-target inherits the
+//  CONTEXT authority.  A `//JS-072`-scoped status view bakes bare `diff:<path>`
+//  (no authority); following/clicking it MUST drive `diff://JS-072/<path>` — not
+//  the scope-less target that resolves against cwd → `no hunks`.  RED pre-fix.
+function droveOnFollow(ctxUri, target) {
+  let drove = null;
+  const p = new pager.Pager(-1, { color: false, driveSpell: function (s) {
+    drove = s;
+    return [{ uri: s, verb: "hunk", text: utf8.Encode("x\n"), toks: new Uint32Array(0), kind: "file" }];
+  } });
+  p.setHunks(big); p.view.uri = ctxUri;                  // the tracked context URI
+  p._runSpell(target);                                   // the follow/click choke point
+  return drove;
+}
+check("follow-inherit-authority",
+      droveOnFollow("status://JS-072", "diff:shared/patchscope.js") ===
+        "diff://JS-072/shared/patchscope.js");
+//  Idempotent: a target that ALREADY carries an authority passes through unchanged.
+check("follow-authority-idempotent",
+      droveOnFollow("status://JS-072", "diff://OTHER/a.c") === "diff://OTHER/a.c");
+//  No context authority (launch/cwd tree) → the bare target is driven UNCHANGED.
+check("follow-no-authority-noop",
+      droveOnFollow("status:", "diff:a.c") === "diff:a.c");
+
 //  --- 5. BRO-005: a LEFT-CLICK on a `U`-tagged token navigates to ITS URI -----
 //  Build a hunk whose first row carries a hidden `U` click-target: the visible
 //  token "open" is followed by a `U` token over the URI bytes "cat:foo.txt"
