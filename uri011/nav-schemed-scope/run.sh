@@ -1,15 +1,14 @@
 #!/bin/sh
-# URI-011 test/uri011/nav-schemed-scope — a SCHEMED nav spell (`status://NAME`,
-# `diff://NAME/path`) must scope status/diff to the NAMED tree, NOT the launch cwd.
+# URI-011 test/uri011/nav-schemed-scope — a SCHEMED click-target spell
+# (`diff://NAME/path`, a baked projector click-target) must scope to the NAMED
+# tree, NOT the launch cwd; a bare `//NAME` (verb form) must scope too.
 #
-# REPRO of the DIS-060 authority leak on the bro pager RE-ENTRY: typing `//NAME`
-# in the address bar makes the pager re-compose the spell as `<verb> <verb>://NAME`
-# (verb + a SCHEMED URI carrying the authority).  loop.js::authorityRepo scopes a
-# scheme-LESS `//NAME` but SKIPS the schemed form (its `u.scheme` guard), so
-# be.repo stays the launch cwd → status prints the CWD tree's files (spurious
-# `mis`/wrong content) and diff resolves the base against the WRONG tree ("all
-# green").  status.js/diff.js::navScope re-scope be.repo/be.authority off the arg
-# authority.  SUT=loop (jab main.js); JS-ONLY.  Modelled on test/uri011/nav-navnone.
+# NOTE (URI-012/URI-013): `status://NAME` is NOT a valid form — `status` is a VERB,
+# not a scheme (views are verbs; only diff:/cat:/commit: bake as click-target
+# schemes).  Typing `//NAME` on a status view composes `status //NAME` (leg a),
+# never `status://NAME`; that stale leg (b) was dropped.  loop.js::authorityRepo
+# scopes a scheme-LESS `//NAME` AND a schemed click-target (`diff://NAME/path`)
+# off its authority.  SUT=loop (jab main.js); JS-ONLY.  Modelled on nav-navnone.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/uri011/nav-schemed-scope
@@ -31,8 +30,6 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall + the `be -> <be/>` shard symlink (jab's upward be/-scan).
 : > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
-# PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
-SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
@@ -59,20 +56,6 @@ grep -q 'only-here.txt' "$WORK/s-none.out" \
     && _fail "(a) status //THERE LEAKED HERE's file:
 $(cat "$WORK/s-none.out")"
 echo "ok: status //THERE scopes to THERE"
-
-# (b) STATUS schemed `status://THERE` (the pager-composed spell) must ALSO scope
-#     to THERE — the bug rendered HERE (cwd).
-( cd "$WORK/HERE" && "$JABC" "$M" status 'status://THERE' --plain ) >"$WORK/s-sch.out" 2>&1 || true
-grep -q 'only-there.txt' "$WORK/s-sch.out" \
-    || _fail "(b) status status://THERE did not show THERE's file (leaked to cwd?):
-$(cat "$WORK/s-sch.out")"
-grep -q 'only-here.txt' "$WORK/s-sch.out" \
-    && _fail "(b) status status://THERE LEAKED HERE's file (the DIS-060 leak):
-$(cat "$WORK/s-sch.out")"
-grep -q 'status://THERE' "$WORK/s-sch.out" \
-    || _fail "(b) status status://THERE lost the //THERE authority in its banner:
-$(cat "$WORK/s-sch.out")"
-echo "ok: status status://THERE scopes to THERE (schemed pager spell)"
 
 # (c) DIFF schemed `diff://THERE/only-there.txt` reads THERE's wt blob, not HERE's.
 #     The put-staged file has no committed base → shown as wholly-added, so the
