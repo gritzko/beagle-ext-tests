@@ -8,13 +8,13 @@
 # origin commits, carrying real syntax tags (comment/keyword/number).  We drive
 # `jab why why:f.js --tlv` (the on-wire HUNK stream the pager consumes), reparse
 # it via the pager's hunksFromTlv, and (check.js) assert:
-#   (a) the shaded runs cover 3 DISTINCT origin commits, each hue a pastel at ONE
-#       uniform intensity (bro.hueOf → aBg256, bm===2);
+#   (a) the shaded runs cover 3 DISTINCT origin commits, each a `#rrggbb` the VIEW
+#       baked (why.js whyRgb) → a truecolor wash (bm===3);
 #   (b) each shaded run's U-target is `commit ?<sha40>` of its inserter commit;
 #   (c) per-token SYNTAX tags survive buildBody (not flattened to one 'S' span) —
 #       AND the pager STRING render (bro.paintWhyRowStr) carries both a syntax fg
-#       SGR and >=2 distinct 48;5;NNN bg washes.
-# Plus `--color` must carry 3 DISTINCT `48;5;NNN` bg codes AND a syntax fg SGR
+#       SGR and >=2 distinct 48;2;R;G;B bg washes.
+# Plus `--color` must carry 3 DISTINCT `48;2;R;G;B` bg codes AND a syntax fg SGR
 # (the RENDER seam, not just the DATA).  RED before the render fix; GREEN after.
 set -eu
 
@@ -90,7 +90,7 @@ _body=$(tail -n +2 "$WORK/color")
 # WHY-001: the 3 fixture commits share one pinned time (one shade), so their washes
 # differ by HUE; >=2 distinct proves per-commit colour (exact 3 not required — hues
 # may collide on the cube, and age-shade is covered by the age test).
-_nbg=$(printf '%s' "$_body" | grep -oaE '48;5;[0-9]+' | sort -u | wc -l | tr -d ' ')
+_nbg=$(printf '%s' "$_body" | grep -oaE '48;2;[0-9]+;[0-9]+;[0-9]+' | sort -u | wc -l | tr -d ' ')
 [ "$_nbg" -ge 2 ] || { cat -v "$WORK/color" | head -10; _fail "--color: want >=2 distinct body bg hues, got $_nbg"; }
 # A syntax fg SGR: a basic 3x/9x fg (comment gray 90 / keyword blue 94) OR a 38;5;
 # 256-fg — anything but a bare bg-only code.  The pre-fix flat render had none.

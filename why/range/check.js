@@ -1,7 +1,7 @@
 //  WHY-001 test/why/range/check.js — assert a `why:<path>?<a>..<b>` hunk shades ONLY
 //  the (a,b] changes incl deletes (O-token model): for c1..c2 the ONE origin commit c2
 //  is shaded — its inserted `BETA` and the surfaced removed `beta` each get a hidden
-//  `O` = `commit ?<c2hashlet>#<shade>`; `alpha`/`gamma` render PLAIN (no O); `delta`
+//  `O` = `#rrggbb commit ?<c2hashlet>`; `alpha`/`gamma` render PLAIN (no O); `delta`
 //  (a c3 token) is absent.  argv[2] = captured `--tlv` bytes.
 "use strict";
 
@@ -51,9 +51,9 @@ for (let i = 0; i < toks.length; i++) {
   if (i + 1 < toks.length && tagOf(toks[i + 1]) === "O") {
     washed++;
     const spell = utf8.Decode(text.slice(hi, endOf(toks[i + 1])));
-    const m = /^commit \?([0-9a-f]{6,40})#([0-9]+)$/.exec(spell);
-    ok(!!m, "range O spell is `commit ?<hashlet>#<shade>`: " + spell);
-    shas[m[1]] = true;
+    const m = /^#([0-9a-fA-F]{6}) commit \?([0-9a-f]{6,40})$/.exec(spell);
+    ok(!!m, "range O spell is `#rrggbb commit ?<hashlet>`: " + spell);
+    shas[m[2]] = true;
     const span = utf8.Decode(text.slice(prev, hi));
     ok(span.indexOf("alpha") < 0 && span.indexOf("gamma") < 0,
        "unchanged base (`alpha`/`gamma`) is NOT washed: " + span);

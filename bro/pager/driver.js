@@ -398,6 +398,20 @@ const t5 = new pager.Pager(-1, { color: false });
 t5.setHunks([lh]); t5.key(0x3a); t5.cmd = "cat re";
 t5.key(0x09);
 check("tab-keeps-verb-word", t5.cmd === "cat readme.md");
+//  NESTED view //WHY-001/shared: a bare stem completes to the FULL wt-relative
+//  path, a `./` stem to the view-relative path — both nav to //WHY-001/shared/util
+//  (not //WHY-001/util, the pre-fix bug of inserting only the last segment).
+const nh = lsHunk([["util/", "ls //WHY-001/shared/util/", true],
+                   ["spell.js", "cat //WHY-001/shared/spell.js", false]]);
+nh.uri = "ls //WHY-001/shared";
+const t6 = new pager.Pager(-1, { color: false });
+t6.setHunks([nh]); t6.view.verb = "ls"; t6.view.uri = "//WHY-001/shared";
+t6.key(0x3a); t6.cmd = "u"; t6.key(0x09);
+check("tab-nested-wtrel", t6.cmd === "shared/util/");
+const t7 = new pager.Pager(-1, { color: false });
+t7.setHunks([nh]); t7.view.verb = "ls"; t7.view.uri = "//WHY-001/shared";
+t7.key(0x3a); t7.cmd = "./u"; t7.key(0x09);
+check("tab-nested-ctxrel", t7.cmd === "./util/");
 
 tty.size = realSize;                                     // restore the stub
 w("DONE\n");

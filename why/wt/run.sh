@@ -54,9 +54,9 @@ grep -q '^gamma$' "$WORK/fplain" || _fail "uncommitted add 'gamma' missing (wt n
 #    PLAIN (no bg) — the whole point of "account for uncommitted changes".
 ( cd "$WT" && "$JABC" why "why:f.txt" --color ) >"$WORK/fcolor" 2>/dev/null \
     || _fail "why:f.txt --color failed"
-grep -a 'alpha' "$WORK/fcolor" | grep -qaE '48;5;[0-9]+' \
+grep -a 'alpha' "$WORK/fcolor" | grep -qaE '48;2;[0-9]+;[0-9]+;[0-9]+' \
     || _fail "committed 'alpha' got no commit bg wash"
-grep -a 'gamma' "$WORK/fcolor" | grep -qaE '48;5;[0-9]+' \
+grep -a 'gamma' "$WORK/fcolor" | grep -qaE '48;2;[0-9]+;[0-9]+;[0-9]+' \
     && _fail "uncommitted 'gamma' was washed — must render PLAIN"
 
 # 3. wholly-new uncommitted file: content SHOWS (not `no hunks`) and is all-plain.
@@ -66,7 +66,7 @@ grep -a 'gamma' "$WORK/fcolor" | grep -qaE '48;5;[0-9]+' \
 grep -q 'newfile line' "$WORK/gplain" || _fail "new-file content missing from why:g.txt"
 ( cd "$WT" && "$JABC" why "why:g.txt" --color ) >"$WORK/gcolor" 2>/dev/null \
     || _fail "why:g.txt --color failed"
-_gbg=$(tail -n +2 "$WORK/gcolor" | grep -oaE '48;5;[0-9]+' | sort -u | wc -l | tr -d ' ')
+_gbg=$(tail -n +2 "$WORK/gcolor" | grep -oaE '48;2;[0-9]+;[0-9]+;[0-9]+' | sort -u | wc -l | tr -d ' ')
 [ "$_gbg" -eq 0 ] || _fail "wholly-new file must be all-plain, got $_gbg bg hue(s)"
 
 echo "PASS [$NAME]"
