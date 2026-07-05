@@ -167,10 +167,10 @@ pp4._feed(Uint8Array.from([0x1b]));
 check("paste-lone-esc-cancels", pp4.mode === "scroll" && pp4.cmd === "");
 
 //  --- 4c. URI-011: the word(context_uri,…rest) spell composer (a–g) ----------
-//  _composeCall(spell) classifies each token against the tracked context URI: a
-//  leading `.`/`/`/`?`/`#` or a `scheme:` SHAPES arg 0 (one component merges, ≥2
-//  of {scheme,auth,path} resets, `?ref`/`#frag` always merge); every other token
-//  is REST (raw).  Table: set a context (verb+uri), type a spell, assert the call.
+//  _composeCall(spell) classifies each token against the tracked context URI: the
+//  FIRST unquoted token shapes arg 0 — a bareword is a WT-RELATIVE path, `./x` is
+//  context-relative, `//`/`?`/`#`/`scheme:` merge/reset as before; a leading `-`
+//  = default context + raw REST, a quoted token stays a REST message.
 function ccPager(verb, uri) {
   const p = new pager.Pager(-1, { color: false });
   p.setHunks(big); p.view.verb = verb; p.view.uri = uri;
@@ -193,12 +193,23 @@ eqCall("cc-d2-reffrag",   cc("cat","//HERE/x.c","?feat#L20"),         "cat","//H
 eqCall("cc-e-schemereset",cc("status","//HERE","post ssh://blah"),    "post","ssh://blah",[]);
 eqCall("cc-f-message",    cc("ls","//HERE","post 'fix bug'"),         "post","//HERE",["fix bug"]);
 eqCall("cc-g-urimsg",     cc("ls","//HERE","post //OTHER 'fix bug'"), "post","//OTHER",["fix bug"]);
-eqCall("cc-put-multi",    cc("ls","//THERE/dir","put a.txt b/c.txt"), "put","//THERE/dir",["a.txt","b/c.txt"]);
+eqCall("cc-put-multi",    cc("ls","//THERE/dir","put a.txt b/c.txt"), "put","//THERE/a.txt",["b/c.txt"]);
 eqCall("cc-put-pathedit", cc("ls","//THERE/dir","put ./file"),        "put","//THERE/dir/file",[]);
+//  URI-011b: the pager reads a bareword as a WT-RELATIVE URI part (fixes `:why
+//  main.js` staying on the old view + `:put test`'s spurious arg 0); `-` = raw REST.
+eqCall("cc-retarget-file",cc("why","view/bro.js","why main.js"),      "why","main.js",[]);
+eqCall("cc-retarget-root",cc("status","/","put test"),               "put","test",[]);
+eqCall("cc-bare-wtrel",   cc("cat","core/loop.js","cat theme.js"),   "cat","theme.js",[]);
+eqCall("cc-dash-rest",    cc("post","//HERE","post - fix the bug"),  "post","//HERE",["fix","the","bug"]);
 
 //  --- 4d. URI-011: the SHARED composer's CLI entry (composeArgv: verb known,
 //  tokens pre-split, arg 0 = the cwd/`//WT` context).  Same classifier as the bar.
 const SPELL = require("shared/spell.js");
+//  URI-011b: with an isVerb probe a leading NON-verb bareword is a path, not a verb
+//  (`verbs` in `ls //WHY-001` → `ls //WHY-001/verbs`, not a stray 2nd `ls` hunk).
+const isVerbT = function (w) { return w === "ls" || w === "cat" || w === "why"; };
+eqCall("cc-nonverb-path", SPELL.compose("//WHY-001","ls","verbs",isVerbT), "ls","//WHY-001/verbs",[]);
+eqCall("cc-realverb-kept",SPELL.compose("//WHY-001","ls","cat x",isVerbT), "cat","//WHY-001/x",[]);
 function ac(uri, verb, toks) { return SPELL.composeArgv(uri, verb, toks); }
 eqCall("ca-cli-bareverb",  ac("//URI-011","status",[]),               "status","//URI-011",[]);
 eqCall("ca-cli-message",   ac("//URI-011","post",["fix bug"]),        "post","//URI-011",["fix bug"]);
@@ -320,6 +331,73 @@ const pmo = new pager.Pager(-1, { color: false, driveSpell: function (s) { click
 pmo.setHunks([uhunk]); pmo.rows(80); pmo.mouse = false;
 pmo._mouse("0;2;2", true);
 check("mouse-off-noclick", clicked3 === null);
+
+//  --- 8. BRO-013: address-bar Tab path-completion from hunk U/F tokens --------
+//  Build an `ls`-shaped hunk: each row is  <visible-name><nav-spell>\n  with an
+//  F tok over the visible name, a P tok (dir only), a U tok over the hidden nav
+//  spell `verb //auth/path`.  Completion walks these and fills this.cmd's last
+//  word — a dir gets a trailing '/', a file none; many matches CYCLE on Tab.
+function lsRow(parts, spans, off, name, navSpell, isDir) {
+  const nameB = utf8.Encode(name), navB = utf8.Encode(navSpell), nlB = utf8.Encode("\n");
+  parts.push(nameB); parts.push(navB); parts.push(nlB);
+  const eName = off + nameB.length;
+  spans.push(packTok("F", eName));
+  if (isDir) spans.push(packTok("P", eName));            // F+P ⇒ dir
+  spans.push(packTok("U", eName + navB.length));         // hidden nav spell
+  spans.push(packTok("S", eName + navB.length + nlB.length));
+  return nameB.length + navB.length + nlB.length;
+}
+function lsHunk(rows) {                                   // rows: [name, navSpell, isDir]
+  const parts = [], spans = []; let off = 0;
+  for (const r of rows) off += lsRow(parts, spans, off, r[0], r[1], r[2]);
+  let n = 0; for (const p of parts) n += p.length;
+  const text = new Uint8Array(n); let k = 0;
+  for (const p of parts) { text.set(p, k); k += p.length; }
+  return { uri: "ls //WHY-001", verb: "ls", text: text, toks: Uint32Array.from(spans), kind: "dir" };
+}
+const lh = lsHunk([
+  ["verbs/",  "ls //WHY-001/verbs/",  true],
+  ["version.js", "cat //WHY-001/version.js", false],
+  ["view/",   "ls //WHY-001/view/",   true],
+  ["readme.md", "cat //WHY-001/readme.md", false],
+]);
+//  Unique match: `re` → the sole `readme.md` (a FILE, no trailing slash).
+const t1 = new pager.Pager(-1, { color: false });
+t1.setHunks([lh]); t1.key(0x3a); t1.cmd = "re";
+t1.key(0x09);
+check("tab-unique-file", t1.cmd === "readme.md");
+//  Dir completion appends a trailing '/'.
+const t2 = new pager.Pager(-1, { color: false });
+t2.setHunks([lh]); t2.key(0x3a); t2.cmd = "verb";
+t2.key(0x09);
+check("tab-unique-dir-slash", t2.cmd === "verbs/");
+//  Shared prefix: `ve` matches verbs/ + version.js → EXTEND to the common prefix
+//  `ver` first (both share it, no cycle yet).
+const t3 = new pager.Pager(-1, { color: false });
+t3.setHunks([lh]); t3.key(0x3a); t3.cmd = "ve";
+t3.key(0x09);
+check("tab-shared-prefix-extends", t3.cmd === "ver");
+//  From the divergence point `ver`, Tab CYCLES the two candidates; a further Tab
+//  advances, and after wrapping the cycle returns to the first candidate.
+t3.key(0x09);
+const first = t3.cmd;
+t3.key(0x09);
+const second = t3.cmd;
+check("tab-cycle-advances", first !== second &&
+      (first === "verbs/" || first === "version.js") &&
+      (second === "verbs/" || second === "version.js"));
+t3.key(0x09);                                            // wrap back to the first
+check("tab-cycle-wraps", t3.cmd === first);
+//  A non-Tab key RESETS cycle state; re-Tab starts fresh from the stem.
+const t4 = new pager.Pager(-1, { color: false });
+t4.setHunks([lh]); t4.key(0x3a); t4.cmd = "vi";
+t4.key(0x09);
+check("tab-only-word-completes", t4.cmd === "view/");
+//  A leading verb word is KEPT — only the tail word completes.
+const t5 = new pager.Pager(-1, { color: false });
+t5.setHunks([lh]); t5.key(0x3a); t5.cmd = "cat re";
+t5.key(0x09);
+check("tab-keeps-verb-word", t5.cmd === "cat readme.md");
 
 tty.size = realSize;                                     // restore the stub
 w("DONE\n");
