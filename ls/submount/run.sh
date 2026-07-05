@@ -50,8 +50,10 @@ echo "ok   ls: submodule shown as navigable dir row"
 #     boundary — its files listed RELATIVE to the sub hunk (c.txt, lib/, …) ---
 rm -f "$PWD/.be/queue" 2>/dev/null || true
 "$JABC" lsr "lsr:" > "$WORK/lsr.out" 2>/dev/null
-for _need in '^lsr:chsub/$' ' eq  c.txt$' '        dir lib/$' \
-             '^lsr:chsub/lib/$' ' eq  l.txt$'; do
+# URI-014: the per-dir banner is now the `word URI` spell (`lsr chsub/`), the
+# verb OUT of the scheme — native still bakes `lsr:` (C follow-up).
+for _need in '^lsr chsub/$' ' eq  c.txt$' '        dir lib/$' \
+             '^lsr chsub/lib/$' ' eq  l.txt$'; do
     grep -q "$_need" "$WORK/lsr.out" \
         || { echo "--- lsr: ---"; cat -A "$WORK/lsr.out"; _fail "lsr: missing /$_need/"; }
 done

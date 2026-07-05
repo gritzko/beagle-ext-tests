@@ -51,7 +51,10 @@ printf 'three\n' > c.txt; "$BE" put c.txt >/dev/null 2>&1; "$BE" post 'third com
 # lookup over the keeper).  The trunk tip is row 0; rebuild the chain order by
 # walking native `be log: --tlv` strings (the C oracle already carries the URIs).
 "$BE" log: --tlv 2>/dev/null > "$WORK/nat.tlv"
-# Pull the C-emitted commit:?<sha> targets, newest-first (the oracle order).
+# Pull the C-emitted commit:?<sha> targets, newest-first (the oracle order).  The
+# scheme-form (no space) survives $WANT word-splitting into one arg/row; check.js
+# re-shapes each to the URI-014 word spell (`commit ?<sha>`) it asserts against
+# (the C oracle still bakes `commit:?<sha>` — C follow-up pending).
 WANT=$(strings "$WORK/nat.tlv" | grep -o 'commit:?[0-9a-f]\{40\}' || true)
 [ -n "$WANT" ] || _fail "native be log: --tlv carries no commit:?<sha> targets (oracle)"
 NWANT=$(printf '%s\n' "$WANT" | wc -l | tr -d ' ')

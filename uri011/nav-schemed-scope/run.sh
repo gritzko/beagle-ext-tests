@@ -75,8 +75,10 @@ echo "ok: diff diff://THERE/... scopes to THERE (schemed pager spell)"
 grep -q 'only-here.txt' "$WORK/s-bare.out" \
     || _fail "(d) bare status from HERE did not show HERE's file:
 $(cat "$WORK/s-bare.out")"
-grep -q '^status:$' "$WORK/s-bare.out" \
-    || _fail "(d) bare status banner is not the bare 'status:' (authority hijacked?):
+# URI-014: the banner is the `word URI` spell — a no-authority bare status is the
+# bare verb `status` (was `status:`; the verb left the scheme slot).
+grep -q '^status$' "$WORK/s-bare.out" \
+    || _fail "(d) bare status banner is not the bare 'status' (authority hijacked?):
 $(cat "$WORK/s-bare.out")"
 echo "ok: bare status stays cwd (no authority hijack)"
 

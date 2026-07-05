@@ -52,7 +52,7 @@ printf 'A2\n' >> a.txt          # mod a.txt
 printf 'NEW\n' > new.txt        # unk new.txt
 rm gone.txt                     # mis gone.txt (rm without be delete)
 "$BE" put b.txt#c.txt >/dev/null 2>&1   # rename b.txt -> c.txt → rmv b + mov c
-ls_js  "dirty ls: (mod/unk/RENAME-pair/mis)" 'ls:' 'ls:
+ls_js  "dirty ls: (mod/unk/RENAME-pair/mis)" 'ls:' 'ls
  DATE  mod a.txt
  DATE  rmv b.txt
  DATE  mov c.txt
@@ -62,7 +62,7 @@ ls_js  "dirty ls: (mod/unk/RENAME-pair/mis)" 'ls:' 'ls:
         dir sub/'
 # lsr: only the ROOT hunk diverges (the rename pair); the subdir hunks still
 # equal native ls: of that dir (all `eq`), so mix the JS root golden with native.
-lsr_mixed "dirty lsr: (mod/unk/RENAME-pair/mis)" 'lsr:' 'lsr:
+lsr_mixed "dirty lsr: (mod/unk/RENAME-pair/mis)" 'lsr:' 'lsr
  DATE  mod a.txt
  DATE  rmv b.txt
  DATE  mov c.txt

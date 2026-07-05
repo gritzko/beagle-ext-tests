@@ -63,8 +63,10 @@ case "$SHA" in *[!0-9a-f]*|"") _fail "tip sha not 40-hex: '$SHA'" ;; esac
 ( cd "$WT" && "$BE"   commit "commit:?$SHA" --plain ) >"$WORK/nat.plain" 2>/dev/null \
     || _fail "native be commit --plain failed"
 [ -s "$WORK/jab.plain" ] || _fail "jab commit --plain emitted ZERO bytes"
-# The U URI bytes must NEVER leak into the visible plain text.
-grep -q ':?' "$WORK/jab.plain" && _fail "U URI bytes leaked into --plain output"
+# The U URI bytes must NEVER leak into the visible plain text.  URI-014: catch
+# the word spell (` ?<sha40>`) as well as the retired scheme form (`:?`).
+grep -qE ':\?|[[:space:]]\?[0-9a-f]{40}' "$WORK/jab.plain" \
+    && _fail "U URI bytes leaked into --plain output"
 # jab metadata sans its trailing separator must be a byte-exact prefix of native.
 _n=$(wc -c <"$WORK/jab.plain"); _m=$((_n - 1))
 head -c "$_m" "$WORK/jab.plain" >"$WORK/jab.meta"
@@ -89,11 +91,14 @@ PARENT=$(awk '$1=="parent"{print $2; exit}' "$WORK/jab.plain")
     || _fail "jab commit --tlv failed ($(cat "$WORK/jab.err2"))"
 [ -s "$WORK/jab.tlv" ] || _fail "jab commit --tlv emitted ZERO bytes"
 
-"$JABC" "$_CASE/check.js" "$WORK/jab.tlv" "tree:?$TREE" "commit:?$PARENT" \
+# URI-014: the U-targets are now WORD-URI spells (`tree ?<sha>`, `commit ?<sha>`,
+# verb OUT of the scheme); pass the expected word form (a space survives the
+# quoted single arg).  The C oracle still bakes the scheme form (C follow-up).
+"$JABC" "$_CASE/check.js" "$WORK/jab.tlv" "tree ?$TREE" "commit ?$PARENT" \
     >"$WORK/check.out" 2>&1 \
     || { cat "$WORK/check.out" >&2; _fail "U-target assertions failed"; }
 grep -q "test/commit/links OK" "$WORK/check.out" \
     || { cat "$WORK/check.out" >&2; _fail "check.js did not report OK"; }
-echo "ok: tree → tree:?<sha>, parent → commit:?<sha> (U targets via _uriAt)"
+echo "ok: tree → tree ?<sha>, parent → commit ?<sha> (U targets via _uriAt)"
 
 echo "PASS [$NAME]"

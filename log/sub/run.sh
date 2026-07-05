@@ -96,12 +96,20 @@ grep -q "^$PARTIP8 " "$WORK/jab.sub" && {
     _fail "parent tip $PARTIP8 (the gitlink-bump) leaked into the SUB log"; } || true
 echo "ok: jab log:vendor/sub lists the SUB's own commits, not the super-repo's"
 
-# 2. Byte-parity with the C oracle `be log:vendor/sub` (the parity target).
-cmp -s "$WORK/nat.sub" "$WORK/jab.sub" || {
+# 2. Body-parity with the C oracle `be log:vendor/sub` (the history rows).
+#    URI-014: the JS banner is now the WORD spell `log vendor/sub` (verb OUT of
+#    the scheme); the C oracle still bakes `log:vendor/sub` (C follow-up pending),
+#    so assert the JS banner shape directly + compare the banner-stripped bodies.
+head -n1 "$WORK/jab.sub" | grep -qx "log vendor/sub" \
+    || { echo "--- jab banner ---"; head -n1 "$WORK/jab.sub"; \
+         _fail "jab log:vendor/sub banner is not the word spell 'log vendor/sub'"; }
+tail -n +2 "$WORK/nat.sub" > "$WORK/nat.sub.body"
+tail -n +2 "$WORK/jab.sub" > "$WORK/jab.sub.rows"
+cmp -s "$WORK/nat.sub.body" "$WORK/jab.sub.rows" || {
     echo "--- native be log:vendor/sub ---"; cat -A "$WORK/nat.sub"
     echo "--- jab    log:vendor/sub ---";    cat -A "$WORK/jab.sub"
-    _fail "jab log:vendor/sub differs from C be log:vendor/sub"; }
-echo "ok: jab log:vendor/sub byte-matches C be log:vendor/sub"
+    _fail "jab log:vendor/sub rows differ from C be log:vendor/sub"; }
+echo "ok: jab log:vendor/sub banner=word spell, rows byte-match C be log:vendor/sub"
 
 # 3. The sub's body (minus the `log:<path>` banner) equals `cd sub && jab log:`.
 tail -n +2 "$WORK/jab.sub"   > "$WORK/jab.sub.body"
@@ -123,20 +131,34 @@ echo "ok: jab log:./vendor/sub descends the mount too"
 #    byte-parity with C be log:vendor/sub/lib.c.
 ( cd "$PWT" && "$BE"   log:vendor/sub/lib.c --plain ) >"$WORK/nat.file" 2>/dev/null || true
 ( cd "$PWT" && "$JABC" log:vendor/sub/lib.c --plain ) >"$WORK/jab.file" 2>/dev/null || true
-cmp -s "$WORK/nat.file" "$WORK/jab.file" || {
+# URI-014: word-spell banner (`log vendor/sub/lib.c`) vs C scheme form — assert
+# the JS banner shape + compare the banner-stripped history rows (C follow-up).
+head -n1 "$WORK/jab.file" | grep -qx "log vendor/sub/lib.c" \
+    || { echo "--- jab banner ---"; head -n1 "$WORK/jab.file"; \
+         _fail "jab log:vendor/sub/lib.c banner is not the word spell"; }
+tail -n +2 "$WORK/nat.file" > "$WORK/nat.file.body"
+tail -n +2 "$WORK/jab.file" > "$WORK/jab.file.body"
+cmp -s "$WORK/nat.file.body" "$WORK/jab.file.body" || {
     echo "--- native be log:vendor/sub/lib.c ---"; cat -A "$WORK/nat.file"
     echo "--- jab    log:vendor/sub/lib.c ---";    cat -A "$WORK/jab.file"
-    _fail "jab log:vendor/sub/lib.c differs from C (sub-relative file history)"; }
+    _fail "jab log:vendor/sub/lib.c rows differ from C (sub-relative file history)"; }
 echo "ok: jab log:vendor/sub/lib.c logs the file WITHIN the sub"
 
 # 6. NO REGRESSION: a NON-sub path keeps current-repo behaviour — byte-parity
 #    with C be log:main.c.
 ( cd "$PWT" && "$BE"   log:main.c --plain ) >"$WORK/nat.main" 2>/dev/null || true
 ( cd "$PWT" && "$JABC" log:main.c --plain ) >"$WORK/jab.main" 2>/dev/null || true
-cmp -s "$WORK/nat.main" "$WORK/jab.main" || {
+# URI-014: word-spell banner (`log main.c`) vs C scheme form — assert the JS
+# banner shape + compare the banner-stripped rows (C follow-up pending).
+head -n1 "$WORK/jab.main" | grep -qx "log main.c" \
+    || { echo "--- jab banner ---"; head -n1 "$WORK/jab.main"; \
+         _fail "jab log:main.c banner is not the word spell 'log main.c'"; }
+tail -n +2 "$WORK/nat.main" > "$WORK/nat.main.body"
+tail -n +2 "$WORK/jab.main" > "$WORK/jab.main.body"
+cmp -s "$WORK/nat.main.body" "$WORK/jab.main.body" || {
     echo "--- native be log:main.c ---"; cat -A "$WORK/nat.main"
     echo "--- jab    log:main.c ---";    cat -A "$WORK/jab.main"
-    _fail "jab log:main.c (non-sub) differs from C (regression)"; }
+    _fail "jab log:main.c (non-sub) rows differ from C (regression)"; }
 echo "ok: non-sub log:main.c unchanged (no regression)"
 
 echo "PASS [log/$NAME]"

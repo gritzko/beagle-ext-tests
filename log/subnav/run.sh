@@ -73,21 +73,23 @@ EOF
 [ -f "$PWT/vendor/sub/.be" ] || _fail "sub anchor not a file (mount failed)"
 
 # --- 1. EMIT: the row `U` target carries the descent prefix -------------------
-# Extract the first `commit:` U-target from `jab log:vendor/sub --tlv`.  It MUST
-# read `commit:vendor/sub?<sha>` (base-relative), NOT the bare `commit:?<sha>`.
+# URI-014: the U-target is a `word URI` spell — `commit vendor/sub?<sha>` (verb
+# OUT of the scheme).  It MUST be base-relative, NOT the bare `commit ?<sha>`.
 UTGT=$( ( cd "$PWT" && "$JABC" log:vendor/sub --tlv ) 2>/dev/null \
-        | strings | grep -o 'commit:[0-9a-zA-Z/]*?[0-9a-f]\{40\}' | head -1 )
-[ -n "$UTGT" ] || _fail "no commit: U-target found in jab log:vendor/sub --tlv"
+        | strings | grep -o 'commit [0-9a-zA-Z/]*?[0-9a-f]\{40\}' | head -1 )
+[ -n "$UTGT" ] || _fail "no commit U-target found in jab log:vendor/sub --tlv"
 NAVSHA=${UTGT##*\?}
 case "$UTGT" in
-  commit:vendor/sub?*) echo "ok: EMIT — descended row links to $UTGT (base-relative prefix)";;
-  commit:?*) _fail "EMIT still store-agnostic: $UTGT (missing the vendor/sub prefix)";;
+  "commit vendor/sub?"*) echo "ok: EMIT — descended row links to $UTGT (base-relative prefix)";;
+  "commit ?"*) _fail "EMIT still store-agnostic: $UTGT (missing the vendor/sub prefix)";;
   *) _fail "unexpected U-target shape: $UTGT";;
 esac
 
 # --- 2. RESOLVE round-trip: feed the target back FROM THE PARENT root ---------
+# URI-014: a word spell rides as argv — UNQUOTED $UTGT shell-splits into `commit`
+# + `vendor/sub?<sha>`, exactly as the pager's spellCall→argline splits a click.
 # RED before the fix: commit.js was sub-blind → COMMITNONE.  GREEN after.
-( cd "$PWT" && "$JABC" "$UTGT" --plain ) >"$WORK/nav.parent" 2>"$WORK/nav.err" \
+( cd "$PWT" && "$JABC" $UTGT --plain ) >"$WORK/nav.parent" 2>"$WORK/nav.err" \
   && RC=0 || RC=$?
 [ "$RC" = 0 ] || { echo "--- stderr ---"; cat "$WORK/nav.err"; \
     _fail "round-trip $UTGT from parent root failed (rc=$RC) — sub-blind commit view"; }
@@ -109,28 +111,28 @@ echo "ok: PARITY — commit:vendor/sub?<sha> == cd vendor/sub && jab commit:?<sh
 # From inside the sub the base IS the sub — descent delta is "" — so the link
 # must stay `commit:?<sha>` (prefixing `vendor/sub` there would be WRONG).
 CDUTGT=$( ( cd "$PWT/vendor/sub" && "$JABC" log: --tlv ) 2>/dev/null \
-          | strings | grep -o 'commit:[0-9a-zA-Z/]*?[0-9a-f]\{40\}' | head -1 )
-[ -n "$CDUTGT" ] || _fail "no commit: U-target in cd sub && jab log: --tlv"
+          | strings | grep -o 'commit [0-9a-zA-Z/]*?[0-9a-f]\{40\}' | head -1 )
+[ -n "$CDUTGT" ] || _fail "no commit U-target in cd sub && jab log: --tlv"
 case "$CDUTGT" in
-  commit:?*) echo "ok: cwd-INVARIANT — cd sub link stays unprefixed ($CDUTGT)";;
+  "commit ?"*) echo "ok: cwd-INVARIANT — cd sub link stays unprefixed ($CDUTGT)";;
   *) _fail "cwd-invariant BROKEN: cd sub link is prefixed: $CDUTGT";;
 esac
 CDNAVSHA=${CDUTGT##*\?}
-( cd "$PWT/vendor/sub" && "$JABC" "$CDUTGT" --plain ) >"$WORK/cd.nav" 2>/dev/null || true
+( cd "$PWT/vendor/sub" && "$JABC" $CDUTGT --plain ) >"$WORK/cd.nav" 2>/dev/null || true
 grep -q "^commit $CDNAVSHA" "$WORK/cd.nav" \
   || _fail "cd sub unprefixed link did not round-trip"
 echo "ok: cwd-INVARIANT — the unprefixed link round-trips inside the sub"
 
 # --- 5. NO REGRESSION: top-level log→commit round-trip is unprefixed ----------
 PARUTGT=$( ( cd "$PWT" && "$JABC" log: --tlv ) 2>/dev/null \
-           | strings | grep -o 'commit:[0-9a-zA-Z/]*?[0-9a-f]\{40\}' | head -1 )
-[ -n "$PARUTGT" ] || _fail "no commit: U-target in jab log: (parent)"
+           | strings | grep -o 'commit [0-9a-zA-Z/]*?[0-9a-f]\{40\}' | head -1 )
+[ -n "$PARUTGT" ] || _fail "no commit U-target in jab log: (parent)"
 case "$PARUTGT" in
-  commit:?*) : ;;
+  "commit ?"*) : ;;
   *) _fail "non-descended top log link got a spurious prefix: $PARUTGT";;
 esac
 PARNAVSHA=${PARUTGT##*\?}
-( cd "$PWT" && "$JABC" "$PARUTGT" --plain ) >"$WORK/par.nav" 2>/dev/null || true
+( cd "$PWT" && "$JABC" $PARUTGT --plain ) >"$WORK/par.nav" 2>/dev/null || true
 grep -q "^commit $PARNAVSHA" "$WORK/par.nav" \
   || _fail "top-level commit:?<sha> round-trip regressed"
 echo "ok: NO REGRESSION — top-level log→commit round-trip unprefixed & green"

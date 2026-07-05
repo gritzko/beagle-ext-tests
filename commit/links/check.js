@@ -32,10 +32,12 @@ io.readAll(fd, rb, sz);
 io.close(fd);
 const tlv = rb.data().slice();
 
+//  URI-014: the expected U-targets are WORD-URI spells (`tree ?<sha>`,
+//  `commit ?<sha>`) — the verb OUT of the scheme, a SPACE before the addressing.
 const wantTree   = process.argv[3];
 const wantParent = process.argv[4];
-ok(wantTree && wantTree.indexOf("tree:?") === 0, "expected tree:?<sha> arg");
-ok(wantParent && wantParent.indexOf("commit:?") === 0, "expected commit:?<sha> arg");
+ok(wantTree && wantTree.indexOf("tree ?") === 0, "expected tree ?<sha> arg");
+ok(wantParent && wantParent.indexOf("commit ?") === 0, "expected commit ?<sha> arg");
 
 const hunks = pager.hunksFromTlv(tlv);
 //  COMMIT-006: the metadata is the FIRST hunk; a non-merge commit now relays
@@ -79,20 +81,23 @@ for (let i = 0; i < toks.length; i++) {
   targets.push(uri);
 }
 
-//  Exactly two U targets: tree (tree:?<sha>) and parent (commit:?<sha>).  The
+//  Exactly two U targets: tree (tree ?<sha>) and parent (commit ?<sha>).  The
 //  synthetic `commit <sha>` header carries NO U (it IS the page).
 eq(targets.length, 2, "exactly two U targets (tree + parent)");
-eq(targets[0], wantTree,   "tree sha → tree:?<sha40>");
-eq(targets[1], wantParent, "parent sha → commit:?<sha40>");
+eq(targets[0], wantTree,   "tree sha → tree ?<sha40>");
+eq(targets[1], wantParent, "parent sha → commit ?<sha40>");
 
 //  COMMIT-003/004/005 preservation: the visible text is the plain metadata, the
-//  `commit ` line stays first with no U leak, and no `:?` URI bytes show.
+//  `commit ` line stays first with no U leak, and no URI-014 spell bytes show.
 const vis = visibleText(text, toks);
-ok(vis.indexOf("commit " + wantParent.slice("commit:?".length)) !== 0,
+ok(vis.indexOf("commit " + wantParent.slice("commit ?".length)) !== 0,
    "the synthetic commit line is the resolved sha, not the parent");
 ok(vis.indexOf("\ntree ") >= 0, "visible tree header survives");
 ok(vis.indexOf("\nparent ") >= 0, "visible parent header survives");
 ok(vis.indexOf("\nauthor ") >= 0, "visible author header survives");
-ok(vis.indexOf(":?") < 0, "U URI bytes stay hidden from the visible text");
+//  URI-014: the hidden spell is `<verb> ?<sha>` — assert neither it nor the
+//  retired scheme `:?` form leaks into the visible metadata text.
+ok(vis.indexOf(" ?") < 0 && vis.indexOf(":?") < 0,
+   "U URI bytes stay hidden from the visible text");
 
 io.log("test/commit/links OK (tree+parent U targets, U hidden)\n");

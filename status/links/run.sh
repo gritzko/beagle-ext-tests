@@ -109,14 +109,17 @@ echo "ok: jab status --plain shows the DIS-057 rmv/mov pair (U bytes hidden)"
 # cat:<path>.  The move PAIR is two rows — `rmv b.txt` → diff:b.txt (the deletion
 # diff; move-row nav RESTORED) and `mov m.txt` → cat:m.txt.  Order-independent
 # (the asserter set-compares).
+# URI-014: U click-targets are now `word URI` spells — `<verb> <scheme-less uri>`
+# (the verb OUT of the scheme slot; the pager dispatches `diff`/`cat` as a spell).
+# Scope-less here (no nav authority) → `diff a.txt` / `cat n.txt`.
 cat > "$WORK/expect" <<EOF
-diff:a.txt
-diff:d/c.txt
-diff:b.txt
-diff:r.txt
-diff:k.txt
-cat:n.txt
-cat:m.txt
+diff a.txt
+diff d/c.txt
+diff b.txt
+diff r.txt
+diff k.txt
+cat n.txt
+cat m.txt
 EOF
 "$JABC" "$_CASE/assert_u.js" "$WORK/jab.tlv" "$WORK/expect" \
     || _fail "U click-targets missing/incorrect (see assert above)"

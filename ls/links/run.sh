@@ -87,18 +87,22 @@ _check() {
     echo "ok: $_desc — plain stable (U hidden) + every row emits a U nav target"
 }
 
-# ls: root — file rows → cat:, the subdir row → ls:.  Root scope: plain ==
-# native byte-for-byte (entry names render full there).
-_check "ls: root"  ls  "ls:"      eq       "ls:"      cat:a.txt cat:b.txt ls:sub/
-# ls:sub/ — the scoped file row → cat:<full-path> (re-openable by the pager).
-# JS scoped ls renders names RELATIVE to scope (s.txt), a separate divergence
-# from native's full path — so assert plain is stable, not native-equal.
-_check "ls:sub/"   ls  "ls:sub/"  nonempty "ls:sub/"  cat:sub/s.txt
-# lsr: — per-dir hunks (BFS): root (cat:a/cat:b/ls:sub/) then sub/ (cat:sub/s).
-_check "lsr:"      lsr "lsr:"      nonempty "ls:"      cat:a.txt cat:b.txt ls:sub/ cat:sub/s.txt
-# tree: root — blob rows → blob:, the subdir → tree: (native tree nav scheme).
-_check "tree:"     tree "tree:"    eq       "tree:"    blob:a.txt blob:b.txt tree:sub/
-# tree:sub/ — the scoped blob → blob:<full-path> (the `..` row carries NO U).
-_check "tree:sub/" tree "tree:sub/" nonempty "tree:sub/" blob:sub/s.txt
+# URI-014: ls/lsr U-targets + banners are now the `word URI` spell (`cat a.txt`,
+# `ls sub/`) — the verb OUT of the scheme.  Native still bakes `ls:` banners (C
+# follow-up), so the plain banner DIVERGES from native → assert plain is stable
+# (`nonempty`), not native byte-equal.  tree: below is unchanged (native-parity).
+# ls: root — file rows → `cat <path>`, the subdir row → `ls <sub>/`.
+_check "ls: root"  ls  "ls:"      nonempty "ls:"      "cat a.txt" "cat b.txt" "ls sub/"
+# ls:sub/ — the scoped file row → `cat <full-path>` (re-openable by the pager).
+_check "ls:sub/"   ls  "ls:sub/"  nonempty "ls:sub/"  "cat sub/s.txt"
+# lsr: — per-dir hunks (BFS): root (cat a/cat b/ls sub/) then sub/ (cat sub/s).
+_check "lsr:"      lsr "lsr:"      nonempty "ls:"      "cat a.txt" "cat b.txt" "ls sub/" "cat sub/s.txt"
+# URI-014: tree U-targets/banners are the `word URI` spell too (`blob <path>`,
+# `tree <sub>/`); its banner diverges from native's `tree:` (C follow-up) so the
+# plain check is `nonempty`, not native-equal.
+# tree: root — blob rows → `blob <path>`, the subdir → `tree <sub>/`.
+_check "tree:"     tree "tree:"    nonempty "tree:"    "blob a.txt" "blob b.txt" "tree sub/"
+# tree:sub/ — the scoped blob → `blob <full-path>` (the `..` row carries NO U).
+_check "tree:sub/" tree "tree:sub/" nonempty "tree:sub/" "blob sub/s.txt"
 
 echo "PASS [$NAME]"

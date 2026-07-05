@@ -57,16 +57,18 @@ new_wt() {
 }
 
 # native_rel VERB DIR — native `be ls:DIR --plain` re-expressed RELATIVE to
-# DIR: the DIR prefix stripped off each row's path column, the banner scheme
-# set to VERB, blank lines dropped.  This is the per-hunk ORACLE for the
-# relative-path listing: each hunk names its directory in the banner and lists
-# entries BY NAME, so native ls: of that directory with the prefix stripped IS
-# the expected hunk (root DIR="" strips nothing).  A clean subdir-only tree has
-# no gitlink quirks, so native ls: is a faithful oracle here.
+# DIR: the DIR prefix stripped off each row's path column, the banner rewritten
+# to the URI-014 `word URI` spell (`<verb>` at root, `<verb> <dir>` for a scope),
+# blank lines dropped.  This is the per-hunk ORACLE for the relative-path
+# listing: each hunk names its directory in the banner and lists entries BY NAME,
+# so native ls: of that directory with the prefix stripped IS the expected hunk
+# (root DIR="" strips nothing).  URI-014: native still bakes the `ls:` scheme
+# banner (C follow-up); the JS view emits the word spell, so the oracle rewrites
+# the banner to match (verb OUT of the scheme).
 native_rel() {
     "$BE" "ls:$2" --plain 2>/dev/null | awk -v d="$2" -v verb="$1" '
         $0=="" { next }
-        NR==1  { sub(/^ls:/, verb ":"); print; next }
+        NR==1  { sub(/^ls:/, ""); print (($0=="") ? verb : verb " " $0); next }
         { head=substr($0,1,12); path=substr($0,13);
           if (d!="" && index(path,d)==1) path=substr(path,length(d)+1);
           print head path }'

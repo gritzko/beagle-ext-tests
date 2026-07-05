@@ -27,8 +27,14 @@ io.readAll(fd, rb, sz);
 io.close(fd);
 const tlv = rb.data().slice();
 
-//  The expected per-row URIs (newest-first), one CLI arg each.
-const want = process.argv.slice(3);
+//  The expected per-row URIs (newest-first), one CLI arg each.  URI-014: the JS
+//  view now bakes the WORD-URI spell (`commit ?<sha>`, verb OUT of the scheme);
+//  the C oracle still hands us the scheme form (`commit:?<sha>`), so re-shape
+//  each expected target to the word form here (a space can't survive $WANT
+//  word-splitting, so the arg arrives scheme-form and is rewritten in-JS).
+const want = process.argv.slice(3).map(function (u) {
+  return u.indexOf("commit:?") === 0 ? "commit ?" + u.slice("commit:?".length) : u;
+});
 ok(want.length >= 1, "need at least one expected URI");
 
 const hunks = pager.hunksFromTlv(tlv);
@@ -107,7 +113,10 @@ for (const h of hunks) {
   //  carries one '<sha8> <date> <summary> (<author>)' line per expected row.
   const vis = visibleText(text, toks);
   ok(vis.indexOf("\n") >= 0, "visible rows survive (LOG-001 plain output)");
-  ok(vis.indexOf("commit:?") < 0, "U bytes stay hidden from the visible text");
+  //  URI-014: the hidden target is now the word spell `commit ?<sha>` — assert
+  //  neither the word nor the retired scheme form leaks into the visible text.
+  ok(vis.indexOf("commit ?") < 0 && vis.indexOf("commit:?") < 0,
+     "U bytes stay hidden from the visible text");
 }
 
 eq(rowIdx, want.length, "exactly one U-target per commit row");

@@ -15,6 +15,9 @@
 
 const { eq, ok, bytesEq } = require("../../lib/assert.js");
 const diff = require("views/diff/diff.js");
+//  URI-014: the click-target is finalised in diffOut.feed via navRelink (the C
+//  `diff:` uri re-baked to the word spell `diff <uri>`) BEFORE withUTarget runs.
+const navlib = require("shared/nav.js");
 
 //  --- build ONE real diff hunk via the weave bindings (the diffFile path) ----
 //  base `f.c` -> edited `f.c`: a single changed middle line, so emitDiff yields
@@ -51,7 +54,14 @@ ok(typeof diff.withUTarget === "function",
    "BRO-006: diff.js exports withUTarget (the U click-target builder)");
 eq(diff.TAG_U, 20, "BRO-006: TAG_U is 'U'-'A' = 20");
 
-const aug = diff.withUTarget(uri, text, toks);
+//  URI-014: diffOut.feed re-bakes the C `diff:f.c` uri to the word spell
+//  `diff f.c…` (verb OUT of the scheme) BEFORE appending the U-target.
+const link = navlib.navRelink(uri);
+eq(link, "diff " + uri.slice("diff:".length),
+   "URI-014: navRelink turns diff:f.c… into the word spell `diff f.c…`");
+ok(link.indexOf("diff //") !== 0, "URI-014: no-authority link is scheme-less `diff f.c…`");
+
+const aug = diff.withUTarget(link, text, toks);
 
 //  The augmented toks are the original side toks PLUS exactly one trailing tok.
 eq(aug.toks.length, toks.length + 1, "BRO-006: exactly one extra token appended");
@@ -66,11 +76,13 @@ const uEnd = last & 0xffffff;
 eq(uEnd, aug.text.length, "BRO-006: U token end == augmented text length");
 eq(prevEnd, text.length, "BRO-006: U bytes start right after the visible text");
 const target = utf8.Decode(aug.text.slice(prevEnd, uEnd));
-eq(target, uri, "BRO-006: the U click-target decodes to the hunk file URI");
+eq(target, link, "URI-014: the U click-target decodes to the word spell `diff f.c…`");
 
 //  --- plain output unchanged: the U bytes are HIDDEN in the render ----------
 //  Re-feed the augmented record and render `.plain`; it MUST byte-match the
 //  un-augmented baseline (HUNK.c skips 'U' spans), so the diff text is intact.
+//  URI-014: the RECORD uri stays C `diff:` scheme form (HUNK.c hunk_uri_is_diff
+//  gates the unified render on it) — plain/color UNAFFECTED; only U-target moved.
 const sink = abc.ram("HUNK", 1 << 18);
 sink.feed(uri, aug.text, aug.toks, "", 0n);
 sink.rewind();

@@ -16,8 +16,8 @@
 //  jumps need a symbol index cat.js lacks — deferred (see the ticket).
 //
 //    RED  (pre-fix): cat.js emits no `U` token → no nav target.
-//    GREEN (post-fix): grepable tokens carry `U` → `grep:#<token>`; the
-//                      visible plain text is byte-identical (U bytes hidden).
+//    GREEN (post-fix): grepable tokens carry `U` → the `grep #<token>` spell
+//                      (URI-014 word-URI shape); visible plain text unchanged.
 
 "use strict";
 
@@ -79,21 +79,23 @@ for (let i = 1; i < toks.length; i++) {
 //  target — pre-fix there are ZERO `U` tokens, so links is empty (RED).
 ok(links.length > 0, "BRO-006: cat emits at least one U click-target");
 
-//  Every U target points at a project-wide grep for its token (the C
-//  right-click form `grep:#<word>`).
+//  URI-014: every U target is the `word URI` spell `grep #<word>` (verb OUT of
+//  the scheme; C right-click was `grep:#<word>` — now the space-separated spell).
 function findSym(sym) {
-  for (const l of links) if (l.uri === "grep:#" + sym) return l;
+  for (const l of links) if (l.uri === "grep #" + sym) return l;
   return null;
 }
-ok(findSym("add"),    "BRO-006: the `add` identifier carries U -> grep:#add");
-ok(findSym("puts"),   "BRO-006: the `puts` call carries U -> grep:#puts");
-ok(findSym("int"),    "BRO-006: the `int` keyword carries U -> grep:#int");
-ok(findSym("return"), "BRO-006: the `return` keyword carries U -> grep:#return");
+ok(findSym("add"),    "URI-014: the `add` identifier carries U -> grep #add");
+ok(findSym("puts"),   "URI-014: the `puts` call carries U -> grep #puts");
+ok(findSym("int"),    "URI-014: the `int` keyword carries U -> grep #int");
+ok(findSym("return"), "URI-014: the `return` keyword carries U -> grep #return");
 
 //  Pure-punctuation / whitespace tokens get NO U (not grepable): the `U`
-//  count equals the grepable-token count, never the total token count.
+//  count equals the grepable-token count, never the total token count.  Each
+//  target is the `grep #<word>` spell (URI-014: "grep #" prefix, 6 bytes).
 for (const l of links)
-  ok(/[A-Za-z0-9_]/.test(l.uri.slice(6)), "every U target is grep:#<word>, got " + l.uri);
+  ok(/^grep #/.test(l.uri) && /[A-Za-z0-9_]/.test(l.uri.slice(6)),
+     "every U target is grep #<word>, got " + l.uri);
 
 //  --- PLAIN output is unchanged: the U bytes stay HIDDEN ------------------
 //  The hunk BODY is the SAME bytes in both modes (U bytes live in body only
