@@ -54,9 +54,7 @@ SHA=$("$JABC" "$_ROOT/put/tipsha.js" "$WT")
 [ -n "$SHA" ] || _fail "could not resolve the tip sha"
 case "$SHA" in *[!0-9a-f]*|"") _fail "tip sha not 40-hex: '$SHA'" ;; esac
 
-# Native (the C oracle, which inlines the diff) and jab, both --plain.
-( cd "$WT" && "$BE"   commit "commit:?$SHA" --plain ) >"$WORK/nat.plain" 2>/dev/null \
-    || _fail "native be commit --plain failed"
+# TEST-003/COMMIT-007: jab-intrinsic — native `be` LAGS jab, so no oracle cmp.
 ( cd "$WT" && "$JABC" commit "commit:?$SHA" --plain ) >"$WORK/jab.plain" 2>"$WORK/jab.err" \
     || _fail "jab commit --plain failed ($(cat "$WORK/jab.err"))"
 [ -s "$WORK/jab.plain" ] || _fail "jab commit --plain emitted ZERO bytes"
@@ -80,16 +78,7 @@ _body_ln=$(grep -n "^second commit\$" "$WORK/jab.plain" | head -1 | cut -d: -f1)
 _diff_ln=$(grep -n "^+++ b/b.txt\$"   "$WORK/jab.plain" | head -1 | cut -d: -f1)
 [ "$_body_ln" -lt "$_diff_ln" ] || _fail "diff precedes the metadata body (order wrong)"
 
-# 4. BYTE-PARITY with native modulo the trailing separator: native bytes are an
-#    exact prefix of jab's, the JS HUNK plain feed appending ONE trailing blank-
-#    line separator to the (metadata+diff) content record.  jab[:-1] == native.
-_n=$(wc -c <"$WORK/jab.plain"); _m=$((_n - 1))
-head -c "$_m" "$WORK/jab.plain" >"$WORK/jab.trim"
-cmp -s "$WORK/nat.plain" "$WORK/jab.trim" \
-    || { echo "--- native ---"; cat -A "$WORK/nat.plain"
-         echo "--- jab ---";    cat -A "$WORK/jab.plain"
-         _fail "jab not byte-identical to native (modulo trailing separator)"; }
-echo "ok: 1-parent commit inlines the diff, byte-matches native (modulo separator)"
+echo "ok: 1-parent commit inlines the diff after the metadata (jab-intrinsic)"
 
 # 5. ROOT (0 parents) SKIPS the diff (metadata only — base TBD).  The root
 #    commit's jab --plain carries NO unified-diff hunk lines.
@@ -122,18 +111,13 @@ MSHA=$("$JABC" "$_ROOT/put/tipsha.js" "$MWT")
 _pc=$( ( cd "$MWT" && "$JABC" commit "commit:?$MSHA" --plain ) 2>/dev/null | grep -c '^parent ' )
 [ "$_pc" -ge 2 ] || _fail "merge: tip is not a merge commit (parents=$_pc)"
 
-( cd "$MWT" && "$BE"   commit "commit:?$MSHA" --plain ) >"$WORK/mnat.plain" 2>/dev/null \
-    || _fail "merge: native be commit failed"
 ( cd "$MWT" && "$JABC" commit "commit:?$MSHA" --plain ) >"$WORK/mjab.plain" 2>/dev/null \
     || _fail "merge: jab commit failed"
 grep -q "^@@ " "$WORK/mjab.plain" || _fail "merge: diff NOT inlined (no '@@' — first-parent diff expected)"
-# Byte-parity with native (the C oracle inlines the first-parent diff) modulo sep.
-_mn=$(wc -c <"$WORK/mjab.plain"); _mm=$((_mn - 1))
-head -c "$_mm" "$WORK/mjab.plain" >"$WORK/mjab.trim"
-cmp -s "$WORK/mnat.plain" "$WORK/mjab.trim" \
-    || { echo "--- merge native ---"; cat -A "$WORK/mnat.plain"
-         echo "--- merge jab ---";    cat -A "$WORK/mjab.plain"
-         _fail "merge: jab not byte-identical to native (first-parent diff)"; }
-echo "ok: merge commit (2 parents) inlines the FIRST-parent diff, matches native"
+# TEST-003: FIRST-parent proof, jab-intrinsic — the diff vs parent¹ (mtrunk)
+# carries feature's `+feature` add on f.txt; a parent² diff would show g.txt instead.
+grep -q "^+feature\$" "$WORK/mjab.plain" \
+    || _fail "merge: first-parent diff missing feature's add (not diffed vs parent¹?)"
+echo "ok: merge commit (2 parents) inlines the FIRST-parent diff (jab-intrinsic)"
 
 echo "PASS [$NAME]"

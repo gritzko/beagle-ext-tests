@@ -413,5 +413,22 @@ t7.setHunks([nh]); t7.view.verb = "ls"; t7.view.uri = "//WHY-001/shared";
 t7.key(0x3a); t7.cmd = "./u"; t7.key(0x09);
 check("tab-nested-ctxrel", t7.cmd === "./util/");
 
+//  BRO-013: a directory-qualified stem (a "/" past any leading `./`) is a real
+//  PATH prefix — complete from the FS one segment at a time, NEVER a wrong-dir
+//  on-screen token.  wt_root = the be/ tree (up 3 from views/bro/pager.js).  A
+//  DECOY hunk token `views/commit/commit.js` (basename starts `co`/`com`) must
+//  not hijack a `views/co…` stem, and the segment must stop at `views/commit/`.
+let _pg = process.argv[2]; if (_pg[0] !== "/") _pg = io.cwd() + "/" + _pg;
+const beRoot = _pg.replace(/\/views\/bro\/pager\.js$/, "");
+const decoy = lsHunk([["commit.js", "cat //X/views/commit/commit.js", false]]);
+function fsTab(cmd) {
+  const p = new pager.Pager(-1, { color: false, be: { wt_root: beRoot } });
+  p.setHunks([decoy]); p.key(0x3a); p.cmd = cmd; p.key(0x09); return p.cmd;
+}
+check("tab-dir-fs-segment", fsTab("put views/br") === "put views/bro/");
+check("tab-dir-fs-nohijack", fsTab("put views/co") === "put views/commit/");
+check("tab-dir-fs-verb-kept", fsTab("cat test/comm") === "cat test/commit/");
+check("tab-dir-fs-miss", fsTab("put views/commit/zz") === "put views/commit/zz");
+
 tty.size = realSize;                                     // restore the stub
 w("DONE\n");

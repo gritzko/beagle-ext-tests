@@ -48,10 +48,7 @@ case "$SHA" in
 esac
 SHORT=$(printf '%s' "$SHA" | cut -c1-8)
 
-# native `be commit "commit:#<short>"` (the C keeper oracle) vs bareword
-# `jab commit` (the loop view), resolved from the worktree cwd.
-( cd "$WT" && "$BE"   commit "commit:#$SHORT" ) >"$WORK/nat.out" 2>/dev/null \
-    || _fail "native be commit failed"
+# TEST-003/COMMIT-007: jab-intrinsic — native `be` LAGS jab, so no oracle cmp.
 ( cd "$WT" && "$JABC" commit "commit:#$SHORT" ) >"$WORK/jab.out" 2>"$WORK/jab.err" \
     || _fail "jab commit failed (stderr: $(cat "$WORK/jab.err"))"
 
@@ -61,15 +58,8 @@ grep -q "^commit $SHA\$"  "$WORK/jab.out" || _fail "missing 'commit <sha40>' lin
 grep -q "^tree "          "$WORK/jab.out" || _fail "missing tree header"
 grep -q "^author "        "$WORK/jab.out" || _fail "missing author header"
 grep -q "^first commit\$" "$WORK/jab.out" || _fail "missing message body"
-
-# Byte-parity with native modulo the trailing separator: native bytes prefix the
-# JS bytes exactly (the JS HUNK content render appends ONE blank-line separator,
-# a binding-level constant shared by cat/blob/grep — see commit.js).
-_n=$(wc -c <"$WORK/nat.out")
-head -c "$_n" "$WORK/jab.out" >"$WORK/jab.trim"
-cmp -s "$WORK/nat.out" "$WORK/jab.trim" \
-    || { echo "--- native ---"; cat -A "$WORK/nat.out"
-         echo "--- jab ---";    cat -A "$WORK/jab.out"
-         _fail "jab content not byte-identical to native (modulo separator)"; }
+# COMMIT-007: the author date is HUMAN (ron.date), not the raw git `<epoch> <tz>`.
+grep -qE '^author .*[0-9]{10} [+-][0-9]{4}[[:space:]]*$' "$WORK/jab.out" \
+    && _fail "author line still shows a raw 10-digit epoch (human date expected)"
 
 echo "PASS [$NAME]"

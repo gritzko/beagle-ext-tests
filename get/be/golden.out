@@ -20,7 +20,7 @@ C
 --- ./m.txt ---
 M
 === status ===
-status:
+status
 ?	4 ok
 === get stdout ===
 ?#H
@@ -46,5 +46,5 @@ M2
 --- ./z.txt ---
 Z
 === status ===
-status:
+status
 ?	4 ok

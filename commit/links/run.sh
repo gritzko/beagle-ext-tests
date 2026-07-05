@@ -53,29 +53,17 @@ SHA=$("$JABC" "$_ROOT/put/tipsha.js" "$WT")
 [ -n "$SHA" ] || _fail "could not resolve the tip sha"
 case "$SHA" in *[!0-9a-f]*|"") _fail "tip sha not 40-hex: '$SHA'" ;; esac
 
-# 1. PLAIN parity: capture jab + native metadata.  jab's standalone view emits
-#    ONLY the keeper metadata (COMMIT-002's inline-diff relay is the dispatcher's
-#    job, absent from `jab commit:`); native plain continues into the diff.  So
-#    jab plain == native's metadata prefix, plus the ONE trailing blank-line
-#    separator the JS HUNK content render appends (a binding-level constant).
+# 1. PLAIN: jab-intrinsic (TEST-003/COMMIT-007 — native `be` LAGS jab, no oracle
+#    cmp).  jab's standalone view emits ONLY the keeper metadata; the hidden U
+#    URI bytes must NEVER leak into the visible plain text.
 ( cd "$WT" && "$JABC" commit "commit:?$SHA" --plain ) >"$WORK/jab.plain" 2>"$WORK/jab.err" \
     || _fail "jab commit --plain failed ($(cat "$WORK/jab.err"))"
-( cd "$WT" && "$BE"   commit "commit:?$SHA" --plain ) >"$WORK/nat.plain" 2>/dev/null \
-    || _fail "native be commit --plain failed"
 [ -s "$WORK/jab.plain" ] || _fail "jab commit --plain emitted ZERO bytes"
-# The U URI bytes must NEVER leak into the visible plain text.  URI-014: catch
-# the word spell (` ?<sha40>`) as well as the retired scheme form (`:?`).
+# URI-014: catch the word spell (` ?<sha40>`) and the retired scheme form (`:?`).
 grep -qE ':\?|[[:space:]]\?[0-9a-f]{40}' "$WORK/jab.plain" \
     && _fail "U URI bytes leaked into --plain output"
-# jab metadata sans its trailing separator must be a byte-exact prefix of native.
-_n=$(wc -c <"$WORK/jab.plain"); _m=$((_n - 1))
-head -c "$_m" "$WORK/jab.plain" >"$WORK/jab.meta"
-head -c "$_m" "$WORK/nat.plain" >"$WORK/nat.meta"
-cmp -s "$WORK/jab.meta" "$WORK/nat.meta" \
-    || { echo "--- jab ---"; cat -A "$WORK/jab.plain"
-         echo "--- native ---"; cat -A "$WORK/nat.plain"
-         _fail "jab plain not byte-identical to native metadata (U must stay hidden)"; }
-echo "ok: jab commit --plain byte-matches native metadata (U bytes hidden)"
+grep -q "^commit $SHA\$" "$WORK/jab.plain" || _fail "missing 'commit <sha40>' line"
+echo "ok: jab commit --plain shows metadata, U bytes hidden (jab-intrinsic)"
 
 # Extract the tip commit's tree + parent shas (the U-target operands) from the
 # plain headers; build the expected `tree:?<sha>` / `commit:?<sha>` U targets.

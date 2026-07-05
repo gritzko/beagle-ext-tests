@@ -26,8 +26,9 @@ if ! diff -u "$WORK/status.out" "$WORK/head.out" >"$WORK/diff.out" 2>&1; then
   echo "--- diff ---";   cat "$WORK/diff.out"
   _fail "bare head output differs from status"
 fi
-#  Non-empty guard: the status view actually produced a hunk (a `status:` line).
-grep -q "status:" "$WORK/head.out" \
+#  Non-empty guard: the status view actually produced a hunk (a `status` banner;
+#  URI-014 dropped the scheme colon, so it is bare `status`, not `status:`).
+grep -q "^status" "$WORK/head.out" \
   || { cat "$WORK/head.out"; _fail "bare head did not emit the status view"; }
 
 #  (b) read-only: no packlog written by a bare head (it is the status check).

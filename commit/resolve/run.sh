@@ -53,23 +53,15 @@ SHA=$("$JABC" "$_ROOT/put/tipsha.js" "$WT")
 case "$SHA" in *[!0-9a-f]*|"") _fail "tip sha not 40-hex: '$SHA'" ;; esac
 SHORT=$(printf '%s' "$SHA" | cut -c1-8)
 
-# parity <label> <form> — assert `be commit:<form>` == `jab commit:<form>`
-# (native bytes a prefix of jab bytes + the single trailing-separator '\n').
+# parity <label> <form> — jab-intrinsic: `jab commit:<form>` RESOLVES + SHOWS the
+# tip commit (TEST-003/COMMIT-007 — native `be` LAGS jab, so no oracle cmp).
 parity() {
     _lbl="$1"; _form="$2"
-    ( cd "$WT" && "$BE"   commit "commit:$_form" ) >"$WORK/nat.$_lbl" 2>/dev/null \
-        || _fail "[$_lbl] native be commit:'$_form' failed (rc=$?)"
     ( cd "$WT" && "$JABC" commit "commit:$_form" ) >"$WORK/jab.$_lbl" 2>"$WORK/err.$_lbl" \
         || _fail "[$_lbl] jab commit:'$_form' failed (rc=$?, stderr: $(cat "$WORK/err.$_lbl"))"
     [ -s "$WORK/jab.$_lbl" ] || _fail "[$_lbl] jab emitted ZERO bytes for '$_form'"
-    _n=$(wc -c <"$WORK/nat.$_lbl")
-    head -c "$_n" "$WORK/jab.$_lbl" >"$WORK/trim.$_lbl"
-    cmp -s "$WORK/nat.$_lbl" "$WORK/trim.$_lbl" || {
-        echo "--- [$_lbl] form 'commit:$_form' ---"
-        echo "--- native ---"; cat -A "$WORK/nat.$_lbl"
-        echo "--- jab ---";    cat -A "$WORK/jab.$_lbl"
-        _fail "[$_lbl] jab not byte-identical to native (modulo separator)"
-    }
+    grep -q "^commit $SHA\$" "$WORK/jab.$_lbl" \
+        || _fail "[$_lbl] jab did not resolve 'commit:$_form' to the tip $SHA"
 }
 
 # bare — the SPEC deviation: jab shows the cur tip, native KEEPFAILs.  Assert
@@ -87,10 +79,8 @@ parity qh-full    "?#$SHA"
 parity f-short     "#$SHORT"
 parity f-full      "#$SHA"
 
-# All resolvable forms must agree on the SAME commit (the tip) byte-for-byte.
+# All resolvable forms must agree on the SAME commit (the tip).
 for _l in branch q-short q-full qh-short qh-full f-short f-full; do
-    cmp -s "$WORK/nat.branch" "$WORK/nat.$_l" \
-        || _fail "[$_l] native form disagrees with ?<branch> — bad fixture"
     grep -q "^commit $SHA\$" "$WORK/jab.$_l" \
         || _fail "[$_l] jab did not resolve to the requested commit $SHA"
 done
@@ -103,9 +93,6 @@ for _bad in "#deadbeef" "#$ZERO" "?nosuchbranch12345" "?deadbeef" "?#$ZERO"; do
         && _fail "[neg] jab commit:'$_bad' SUCCEEDED (should fail cleanly)"
     [ -s "$WORK/bad.out" ] \
         && _fail "[neg] jab commit:'$_bad' emitted bytes (silent cur-tip fallback?)"
-    # native is the oracle: it too must fail on these.
-    ( cd "$WT" && "$BE" commit "commit:$_bad" ) >/dev/null 2>&1 \
-        && _fail "[neg] native be commit:'$_bad' SUCCEEDED — bad negative fixture"
 done
 
 echo "PASS [$NAME]"

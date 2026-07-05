@@ -16,7 +16,7 @@ B
 --- ./d/c.txt ---
 C
 === status ===
-status:
+status
 ?master	3 ok
 === get stdout ===
 ?master#H
@@ -37,5 +37,5 @@ C
 --- ./n.txt ---
 N
 === status ===
-status:
+status
 ?master	3 ok

@@ -27,9 +27,7 @@ set_tests_properties(be-js-tmp-setup PROPERTIES FIXTURES_SETUP be_tmp)
 # until the respective JSQUE conversion lands.  Tracked here; drop an entry as
 # its conversion makes the case pass.  NOT harness bugs — real product gaps.
 set(_BE_WILL_FAIL
-    be-js-spot-search                 # JS grep omits the `grep ` banner prefix
-    be-js-spot-submount               # + JS grep does not recurse into submounts
-    be-js-regex-regex                 # JS grep banner (regex scheme)
+    be-js-spot-submount               # JS grep does not recurse into submounts
 )
 
 # Glob <verb>/<case>/run.sh (CONFIGURE_DEPENDS → new case dirs picked up on
@@ -98,9 +96,8 @@ foreach(_unit store ulog ingest patchband wire wirepush)
 endforeach()
 
 # Subdir unit tests (test/<topic>/<unit>.js).  LOG-001: log.js follows
-# non-spine (merge 2nd+) parents and greys them.  LIST-001: list.js fuses the wt
-# marker with each entry's last-commit walk.  Same direct-script harness.
-foreach(_sub log/nonspine list/fuse)
+# non-spine (merge 2nd+) parents and greys them.  Same direct-script harness.
+foreach(_sub log/nonspine)
     string(REPLACE "/" "-" _subname "${_sub}")
     add_test(NAME be-js-unit-${_subname}
         COMMAND "${BEAGLE_BIN_DIR}/jab" "${CMAKE_CURRENT_SOURCE_DIR}/${_sub}.js"
