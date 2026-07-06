@@ -22,7 +22,9 @@ ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
 } )
 
 # A tracked file with a full conflict triple → POSTCFLCT, no write.
-mkdir "$WORK/c"; ( cd "$WORK/c" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
+# TEST-003: jab-seeded store is unnamed-project, so clone bare `file://<store>`
+# (no `?/org` selector — jab never mints a named `org` shard).
+mkdir "$WORK/c"; ( cd "$WORK/c" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
 { printf '<<<<\ntheirs\n||||\nours\n>>>>\n'; } > "$WORK/c/a.txt"
 ( cd "$WORK/c" && "$BE" put a.txt >/dev/null 2>&1 )
 C_TIP0=$(_tip "$WORK/c")
@@ -38,7 +40,7 @@ grep -q POSTCFLCT "$WORK/c.err" || _fail "conflict post refused but not POSTCFLC
 [ "$(_tip "$WORK/c")" != "$C_TIP0" ] || _fail "--force post did not advance the tip"
 
 # A bare `<<<<` in prose (no partners) is NOT a conflict → posts fine.
-mkdir "$WORK/p"; ( cd "$WORK/p" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
+mkdir "$WORK/p"; ( cd "$WORK/p" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
 printf 'a diff shows <<<< as an open marker in docs\n' > "$WORK/p/a.txt"
 ( cd "$WORK/p" && "$BE" put a.txt >/dev/null 2>&1 )
 ( cd "$WORK/p" && "$JABC" post '#prose' ) >"$WORK/p.out" 2>"$WORK/p.err" \

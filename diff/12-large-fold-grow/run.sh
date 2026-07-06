@@ -17,7 +17,8 @@ cd "$W"
 # 256 KB WEAVE fold buffer — folding ONE revision already threw pre-fix.
 awk 'BEGIN { for (i = 1; i <= 2800; i++)
     printf "line %04d original content padding padding padding padding xyz\n", i }' > big.txt
-"$BE" put big.txt >/dev/null 2>&1
+# TEST-003: bare bootstrap post (no pre-put — a leading `jab put` corrupts the
+# store bootstrap; `post ?trunk` auto-stages the fresh file).
 "$BE" post -m v1 '?trunk' >/dev/null 2>&1
 
 # v2: change EVERY line — a large diff whose weave fold overflows the old cap.
@@ -25,9 +26,9 @@ sed 's/original/MASSIVELY-CHANGED-LINE-CONTENT-AAAA/' big.txt > big.txt.t && mv 
 "$BE" put big.txt >/dev/null 2>&1
 "$BE" post -m v2 '?trunk' >/dev/null 2>&1
 
-SHA=$("$BE" 'log:' --plain 2>/dev/null \
-        | grep -vE 'Suppress|count|libjavascript|^---|^$|^log:' \
-        | head -1 | awk '{print $1}')
+# TEST-003: resolve the v2 tip via jab's sha1: (log:'s header row breaks the old
+# awk column grab; sha1:'?trunk' is the jab-native tip lookup).
+SHA=$("$JABC" sha1:'?trunk' 2>/dev/null | grep -oE '^[0-9a-f]{40}')
 [ -n "$SHA" ] || _fail "could not resolve v2 commit sha"
 
 # Drive the live repro: `jab commit:?<sha>` (COMMIT-006 inline diff over the
@@ -55,9 +56,7 @@ echo "ok   large-fold diff renders ($n changed lines, exit $rc, no out-full)"
 printf 'a\nb\nc\n' > tiny.txt
 "$BE" put tiny.txt >/dev/null 2>&1
 "$BE" post -m v3 '?trunk' >/dev/null 2>&1
-SHA3=$("$BE" 'log:' --plain 2>/dev/null \
-        | grep -vE 'Suppress|count|libjavascript|^---|^$|^log:' \
-        | head -1 | awk '{print $1}')
+SHA3=$("$JABC" sha1:'?trunk' 2>/dev/null | grep -oE '^[0-9a-f]{40}')
 rc=0
 "$JABC" "commit:?$SHA3" --plain >"$WORK/out3.txt" 2>"$WORK/err3.txt" || rc=$?
 [ "$rc" = 0 ] || _fail "small-diff commit:?<sha> regressed (exit $rc)"

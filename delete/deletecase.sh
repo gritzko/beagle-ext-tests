@@ -22,16 +22,18 @@ set -eu
 # --- locate binaries + the delete.js extension ------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/delete/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)           # repo root
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "deletecase: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab), so the whole
+# harness runs on jab: locate jab, and alias BE=$JABC so any legacy `"$BE"` seed
+# call in a case seeds with jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "deletecase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
 BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "deletecase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "deletecase: no jab at $JABC" >&2; exit 2; }
 export BE JABC DELJS
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
@@ -63,13 +65,12 @@ seed_baseline() {
     ( cd "$BASE" && mkdir .be && eval "$1" && "$BE" post 'base' >/dev/null 2>&1 )
 }
 
-# JAB-003 fork_pair — copy $BASE into the JS side ($JS) and re-anchor its
-# row-0 at its OWN `.be` (cp -a leaves the anchor pinned at $BASE; reanchor.js
-# repoints it).  Single side now — the native oracle is retired.
+# TEST-003 fork_pair — copy $BASE into the JS side ($JS).  A jab-seeded baseline
+# is a self-contained COLOCATED primary (`.be` dir, store==wt), so `cp -a` is
+# enough — no reanchor (that was for native's store-redirect row-0, now retired).
 fork_pair() {
     JS="$WORK/js"; rm -rf "$JS"
     cp -a "$BASE" "$JS"
-    "$JABC" "$_CASE/../../lib/reanchor.js" "$JS"
 }
 
 # JAB-003 delete_both ARGS… — run `jab delete ARGS` in $JS, capturing

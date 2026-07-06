@@ -8,14 +8,15 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/get/oddname
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "oddname: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — locate jab directly, drop the native `be` gate (native
+# LAGS jab).  This case ingests a git pack (named `src` shard), so its clone URI
+# keeps `?/src` — that shard IS named, unlike a jab-post-seeded source.
+JABC=${JABC:-${JAB:-${BIN:+$BIN/jab}}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "oddname: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
 [ -f "$BEDIR/main.js" ] || { echo "oddname: SKIP — no $BEDIR/main.js" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "oddname: no jab at $JABC" >&2; exit 2; }
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP

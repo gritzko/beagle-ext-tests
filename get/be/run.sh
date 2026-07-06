@@ -20,7 +20,13 @@ case "$SRC" in
     "$HOME"/*) RELBE="${SRC#$HOME/}/.be" ;;
     *) echo "SKIP [be] scratch not under \$HOME ($SRC)"; exit 0 ;;
 esac
-REMOTE="be://localhost/$RELBE?/src"
+# TEST-003: the be:// transport spawns a `keeper upload-pack` peer over ssh; with
+# no compatible keeper on PATH the be-store wire cannot serve — SKIP cleanly
+# (server absent), never a false FAIL.  Also drop `?/src`: a jab-seeded source is
+# a single-shard UNNAMED-project primary, so the clone URI carries no `?/name`.
+command -v ssh >/dev/null 2>&1 || { echo "SKIP [be] no ssh"; exit 0; }
+command -v keeper >/dev/null 2>&1 || { echo "SKIP [be] no keeper on PATH"; exit 0; }
+REMOTE="be://localhost/$RELBE"
 mkdir "$WORK/nT" "$WORK/jT"
 
 get_both "$REMOTE" "$WORK/nT" "$WORK/jT"

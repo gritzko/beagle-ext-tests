@@ -4,13 +4,13 @@
 # bytes are the link target verbatim (hashed via lstat+readlink, NEVER followed);
 # its tree mode is `120000`; it is a LEAF, never a submodule.
 #
-# Commit `link -> some/target` (a relative target) in a `be:` store, `jab get`
-# it, and assert: (a) the checked-out `link` is a SYMLINK whose readlink == the
-# committed target verbatim, and (b) the committed tree entry is mode `120000`
-# kind `l` (a blob), NEVER a `160000` gitlink / mount.
+# Commit `link -> some/target` (a relative target) in a `file://` store, `jab
+# get` it, and assert: (a) the checked-out `link` is a SYMLINK whose readlink ==
+# the committed target verbatim, and (b) the committed tree entry is mode
+# `120000` kind `l` (a blob), NEVER a `160000` gitlink / mount.
 #
-# RED before GET-039's symlink-leaf path; green after.  Pure local `be:` keeper
-# wire (no git, no network) — CI-friendly.
+# RED before GET-039's symlink-leaf path; green after.
+# TEST-003: local project-less `file://` clone (no keeper); no submodule mount.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 SLSTORE="$WORK/proj"
@@ -51,7 +51,7 @@ _modekind=$("$JABC" "$WORK/.mode.js" "$SLSTORE" "$BEDIR" 2>/dev/null)
 # path (io.symlink), readlink-identical to the committed target.
 # ============================================================================
 T1="$WORK/get1"
-_rc=$(sc_jget "$T1" "be:$SLSTORE/.be?/proj")
+_rc=$(sc_jget "$T1" "file://$SLSTORE/.be")
 [ "$_rc" = 0 ] || { echo "--- get1 err ---"; cat "$WORK/last.err"; _fail "get1 exit $_rc"; }
 
 [ -L "$T1/link" ] || _fail "get1: \`link\` is not a symlink (a 120000 blob must check out via io.symlink)"

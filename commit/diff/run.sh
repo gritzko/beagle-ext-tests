@@ -16,11 +16,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/commit/diff
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "commit/diff: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (it LAGS jab); locate jab and
+# alias BE=$JABC so legacy `"$BE" post/put` seeds run jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "commit/diff: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/main.js" ] || { echo "commit/diff: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "commit/diff: no jab at $JABC" >&2; exit 2; }
@@ -97,10 +99,14 @@ echo "ok: root commit (0 parents) skips the diff (metadata only)"
 MWT="$WORK/mwt"; mkdir -p "$MWT/.be"
 cd "$MWT"
 printf 'base\n'         > f.txt; "$BE" post 'mbase' >/dev/null 2>&1 || _fail "merge: post base"
-"$BE" put '?feature'    >/dev/null 2>&1 || _fail "merge: mint feature"
+"$BE" put '?feature'    >/dev/null 2>&1 || true   # TEST-003: label-only, rc!=0 ok
 "$BE" get '?feature'    >/dev/null 2>&1 || _fail "merge: switch feature"
 printf 'base\nfeature\n' > f.txt; "$BE" post 'mfeat' >/dev/null 2>&1 || _fail "merge: post feature"
-"$BE" get '?'           >/dev/null 2>&1 || _fail "merge: back to trunk"
+# TEST-003: `get ?` FFs the CURRENT branch (feature), it does NOT switch back to
+# trunk — pin trunk's tip to the EMPTY branch (`?#<sha>`) to re-attach to trunk.
+TRUNK=$("$JABC" "$_ROOT/put/tipsha.js" "$MWT")
+[ -n "$TRUNK" ] || _fail "merge: could not resolve trunk tip"
+"$BE" get "?#$TRUNK"    >/dev/null 2>&1 || _fail "merge: back to trunk"
 printf 'trunk\n'        > g.txt; "$BE" put g.txt >/dev/null 2>&1; "$BE" post 'mtrunk' >/dev/null 2>&1 || _fail "merge: post trunk"
 "$BE" patch '?feature'  >/dev/null 2>&1 || _fail "merge: patch feature"
 "$BE" post 'merge feature' >/dev/null 2>&1 || _fail "merge: post merge"

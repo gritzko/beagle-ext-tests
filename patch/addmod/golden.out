@@ -1,10 +1,10 @@
 === stdout ===
-#fd27f72eef45e3dbccee8de8a6c0e08f006287ae
+#f6554a58f077b02b883a47c83b64d1f8aa9d6cea
         merged keep.txt
         applied new.txt
 
 === patch row ===
-T	patch	#fd27f72eef45e3dbccee8de8a6c0e08f006287ae
+T	patch	#f6554a58f077b02b883a47c83b64d1f8aa9d6cea
 === status ===
 pat new.txt
 mrg keep.txt

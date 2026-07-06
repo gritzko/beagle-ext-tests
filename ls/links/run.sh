@@ -17,11 +17,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/ls/links
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "ls/links: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so the legacy `"$BE" post` baseline seed runs jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "ls/links: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
 [ -f "$BEDIR/main.js" ] || { echo "ls/links: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 { [ -f "$BEDIR/views/ls/ls.js" ] || [ -f "$BEDIR/verbs/ls/ls.js" ]; } \

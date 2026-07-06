@@ -2,7 +2,7 @@
 # test/sub/cycle — DIS-058 (D1-D9): the JS get/post submodule RECURSION cycle.
 # A parent store COMMITS a sub as a gitlink (+ `.gitmodules`).  The cycle:
 #
-#   1. GET (pre-order): `jab get be:<parstore>?/par` clones the parent AND
+#   1. GET (pre-order): `jab get file://<parstore>/.be` clones the parent AND
 #      mounts the sub — fetches the child shard from the SAME source, clones it
 #      as a sibling shard, writes the sub wtlog anchor (<wt>/<path>/.be), and
 #      checks out the commit named by the parent gitlink.  Assert the sub is on
@@ -13,8 +13,8 @@
 #      parent.  Assert the sub tip ADVANCED and the parent gitlink BUMPED to it.
 #   3. RE-GET: a fresh clone reproduces the nested tree at the new pins.
 #
-# Pure local `be:` keeper wire (no git, no network).  Asserts the spec, not
-# native parity.  RED before DIS-058; green after.
+# TEST-003 FLAGGED: needs the JS-keeper feature — the mounted sub CHILD is
+# fetched over the git/keeper WIRE (submount.mount), no keeper-free local path.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 # --- build the parent+sub fixture -------------------------------------------
@@ -24,7 +24,7 @@ sc_build_parent
 # 1. GET pre-order: clone the parent, mount + checkout the sub.
 # ============================================================================
 T1="$WORK/get1"
-_rc=$(sc_jget "$T1" "be:$PARSTORE/.be?/par")
+_rc=$(sc_jget "$T1" "file://$PARSTORE/.be")
 [ "$_rc" = 0 ] || { echo "--- get1 err ---"; cat "$WORK/last.err"; _fail "get1 exit $_rc"; }
 
 # parent files present.
@@ -79,9 +79,9 @@ echo "ok   2. POST post-order: child commit ($SUBTIP1) + parent gitlink bump"
 # ============================================================================
 # 3. RE-GET: a fresh clone reproduces the nested tree at the new pins.
 # ============================================================================
-# Re-clone the PARENT from T1's own store (it is a primary `be:` store now).
+# Re-clone the PARENT from T1's own store (a project-less `file://` store now).
 T2="$WORK/get2"
-_rc=$(sc_jget "$T2" "be:$T1/.be?/par")
+_rc=$(sc_jget "$T2" "file://$T1/.be")
 [ "$_rc" = 0 ] || { echo "--- get2 err ---"; cat "$WORK/last.err"; _fail "get2 exit $_rc"; }
 [ -f "$T2/vendor/sub/.be" ]   || _fail "get2: sub mount anchor missing on re-clone"
 _got=$(cat "$T2/vendor/sub/lib.c")

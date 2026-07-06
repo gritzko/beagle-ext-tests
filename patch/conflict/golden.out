@@ -1,9 +1,9 @@
 === stdout ===
-#b3b51488eff573d69c56834b14d844706a3f5923
+#56cfcde00bb3376e3f28d2bdf0d7be4d569df364
         cnf f.txt
 
 === patch row ===
-T	patch	#b3b51488eff573d69c56834b14d844706a3f5923
+T	patch	#56cfcde00bb3376e3f28d2bdf0d7be4d569df364
 === status ===
 cnf f.txt
 === file bytes ===

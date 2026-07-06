@@ -27,7 +27,8 @@ set_tests_properties(be-js-tmp-setup PROPERTIES FIXTURES_SETUP be_tmp)
 # until the respective JSQUE conversion lands.  Tracked here; drop an entry as
 # its conversion makes the case pass.  NOT harness bugs — real product gaps.
 set(_BE_WILL_FAIL
-    be-js-spot-submount               # JS grep does not recurse into submounts
+    # SUBS-046: be-js-spot-submount now PASSES (local sub mount reuses the store,
+    # no keeper) — dropped from xfail per the "drop an entry when it passes" rule.
 )
 
 # Glob <verb>/<case>/run.sh (CONFIGURE_DEPENDS → new case dirs picked up on

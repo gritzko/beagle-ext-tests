@@ -1,26 +1,37 @@
 # test/sub/lib/subcase.sh — DIS-058 (D1-D9) submodule get/post RECURSION
 # repro harness.  Sourced at the top of every test/sub/<case>/run.sh.  Drives
-# the JS loop (`jab get`/`jab post`) over a PURE local `be:` keeper-wire cycle
-# (no git, no network): a parent store with a committed gitlink + a `.gitmodules`
-# blob, cloned with the child fetched from the SAME source and mounted as a
-# secondary worktree, edited, posted post-order, then re-cloned.
+# the JS loop (`jab get`/`jab post`) over a parent store with a committed gitlink
+# + a `.gitmodules` blob, cloned with the child fetched + mounted as a secondary
+# worktree, edited, posted post-order, then re-cloned.
 #
-# Asserts the SPEC ([Submodules] Recursion), NOT native parity — the C `be`
-# sub-cycle is a separate concern; here we gate the JS port's own recursion.
-# POSIX sh.
+# TEST-003: the non-recursion consumers (symlink/selfloop/wtsrc + type/change)
+# clone a single project-less colocated primary over `file://` — NO keeper.  The
+# sub-RECURSION consumers (cycle/patch/selective/untracked/bare*{,-nested}) call
+# sc_build_parent: those FLAGGED cases need the JS-keeper feature — a mounted
+# submodule's CHILD is FETCHED at mount time through the git/keeper WIRE
+# (submount.mount → wire.fetch), and jab is a wire CLIENT with no keeper-free
+# LOCAL child-fetch (a sibling sub shard can't coexist with jab's project-less
+# colocated primary — the empty-project auto-detect would pick the sub shard).
+# So sc_build_parent commits the gitlink project-less-correctly, but the sub
+# MOUNT on clone (and any re-clone of a modified beagle store) still spawns the
+# retired keeper — that residual is the JS-keeper feature, out of this pass.
+#
+# Asserts the SPEC ([Submodules] Recursion), NOT native parity.  POSIX sh.
 
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/sub/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)               # be/ repo root
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "subcase: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab), so the whole
+# harness runs on jab: locate jab, and alias BE=$JABC so any legacy `"$BE"` seed
+# call (sc_build_parent's `"$BE" post`) seeds with jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "subcase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "subcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "subcase: no jab at $JABC" >&2; exit 2; }
 
 # wire transport env (be: spawns the local `keeper upload-pack`).
 : "${KEEPER_BIN:=$_BIN/keeper}"
@@ -45,11 +56,23 @@ export WORK
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 pass() { echo "PASS [$NAME]"; }
 
-# sc_tip STORE PROJ — echo the full 40-hex CURRENT trunk tip of a shard's refs
-# (the last `#<40hex>` in <STORE>/.be/<PROJ>/refs).
+# sc_tip STORE [PROJ] — echo the full 40-hex CURRENT trunk tip of a
+# project-less colocated primary store.  TEST-003: works for BOTH shapes — a
+# source store whose `.be` is a DIR (refs at .be/refs) AND a store-backed
+# worktree whose `.be` is a FILE redirect (its committed refs live in the SHARED
+# source store the row-0 redirect points at).  be.find+store.resolveRef("")
+# resolves the right store either way; PROJ is ignored (legacy arg).
 sc_tip() {
-    od -An -c "$1/.be/$2/refs" 2>/dev/null \
-        | tr -d ' \n' | grep -oE '#[0-9a-f]{40}' | tail -1 | tr -d '#'
+    cat > "$WORK/.tip.js" <<'EOF'
+const be    = require(process.argv[3] + "/core/discover.js");
+const store = require(process.argv[3] + "/shared/store.js");
+const info  = be.find(process.argv[2]);
+const k = store.open(info.storePath, info.project);
+const tip = k.resolveRef("") || "";
+function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
+w(tip);
+EOF
+    "$JABC" "$WORK/.tip.js" "$1" "$BEDIR" 2>/dev/null
 }
 
 # sc_subtip WT — echo a MOUNTED sub worktree's current cur tip via be.find +
@@ -99,15 +122,30 @@ sc_is40() {
     esac
 }
 
+# sc_pin_gitlink SUBPATH WTLOG SHA — TEST-003: append a `put <subpath>#<sha>`
+# gitlink-bump row to a wtlog via ulog.append (proper monotonic stamp).  jab has
+# no CLI spelling for a manual gitlink pin (`jab put a/b#sha` is a MOVE dest), so
+# the first gitlink is seeded straight into the wtlog; the next `jab post` folds
+# it into a 160000 baseline entry (fold-decide's gitlink-add branch).
+sc_pin_gitlink() {
+    cat > "$WORK/.pinrow.js" <<'EOF'
+const ulog = require(process.argv[2] + "/shared/ulog.js");
+ulog.append(process.argv[4], [{ verb: "put",
+  uri: URI.make(undefined, undefined, process.argv[3], undefined, process.argv[5]) }]);
+EOF
+    "$JABC" "$WORK/.pinrow.js" "$BEDIR" "$1" "$2" "$3" >/dev/null 2>&1 || true
+}
+
 # sc_build_parent — build, under $WORK, an isolated SUB store + a PARENT store
 # that COMMITS the sub as a gitlink at <subpath> with a `.gitmodules` blob whose
-# url is the sub's `be:` source.  Both are PRIMARY `be` stores clonable over the
-# local keeper wire.  Sets globals: SUBSTORE, PARSTORE, SUBPROJ, PARPROJ,
-# SUBPATH, SUBTIP0, PARTIP0.
+# url is the sub's `file://` source.  Both are project-less colocated primary
+# jab stores.  Sets globals: SUBSTORE, PARSTORE, SUBPROJ, PARPROJ, SUBPATH,
+# SUBTIP0, PARTIP0.
+# TEST-003 FLAGGED: cloning the parent MOUNTS the sub, and the sub CHILD fetch
+# runs through the git/keeper WIRE (submount.mount → wire.fetch) — there is no
+# keeper-free LOCAL child-fetch in jab's project-less model, so the consuming
+# recursion cases need the JS-keeper feature (out of this pass).
 sc_build_parent() {
-    # The store-dir basename IS the project shard title ([Title] / native's
-    # bootstrap rule), so name the dirs `sub`/`par` (matching the `.gitmodules`
-    # url basename) — the spec's "[Title] from the .gitmodules URL basename".
     SUBSTORE="$WORK/sub"
     PARSTORE="$WORK/par"
     SUBPROJ="sub"
@@ -116,12 +154,12 @@ sc_build_parent() {
     rm -rf "$SUBSTORE" "$PARSTORE"
     mkdir -p "$SUBSTORE/.be" "$PARSTORE/.be"
 
-    # sub store: two tracked files, one commit (project "sub").
+    # sub store: two tracked files, one commit (project-less colocated primary).
     ( cd "$SUBSTORE"
       printf 'sub payload v1\n' > lib.c
       printf 'sub helper\n'     > helper.c
       "$BE" post '#sub initial' >/dev/null 2>&1 ) || _fail "sub setup"
-    SUBTIP0=$(sc_tip "$SUBSTORE" "$SUBPROJ")
+    SUBTIP0=$(sc_tip "$SUBSTORE")
     sc_is40 "$SUBTIP0" "sub tip0"
 
     # parent store: main.c baseline.
@@ -129,25 +167,26 @@ sc_build_parent() {
       printf 'int main(void){return 0;}\n' > main.c
       "$BE" post '#parent main' >/dev/null 2>&1 ) || _fail "parent setup"
 
-    # Mount + COMMIT the sub gitlink: .gitmodules (be: url, basename → project
-    # "sub" per [Title]) + the secondary-wt `.be` anchor + the checked-out sub
-    # files, then stage + post so the 160000 gitlink lands in the baseline tree.
+    # Mount + COMMIT the sub gitlink: .gitmodules (file:// url, `?/sub` selector →
+    # [Title] "sub") + the secondary-wt `.be` anchor (project-less redirect) + the
+    # checked-out sub files, seed the gitlink pin row, then post so the 160000
+    # gitlink lands in the baseline tree.
     ( cd "$PARSTORE"
       cat > .gitmodules <<EOF
 [submodule "vendor/sub"]
 	path = vendor/sub
-	url = be:$SUBSTORE/.be?/sub
+	url = file://$SUBSTORE/.be?/sub
 EOF
       mkdir -p vendor/sub
       _r=$(awk -F'\t' 'NR==1{print $1; exit}' .be/wtlog)
-      printf '%s\tget\tfile:%s/.be/?/sub#%s\n' "$_r" "$SUBSTORE" "$SUBTIP0" \
+      printf '%s\tget\tfile:%s/.be/?/#%s\n' "$_r" "$SUBSTORE" "$SUBTIP0" \
           > vendor/sub/.be
       printf 'sub payload v1\n' > vendor/sub/lib.c
       printf 'sub helper\n'     > vendor/sub/helper.c
-      "$BE" put .gitmodules >/dev/null 2>&1
-      "$BE" put vendor/sub  >/dev/null 2>&1
-      "$BE" post '#mount sub' >/dev/null 2>&1 ) || _fail "mount sub"
-    PARTIP0=$(sc_tip "$PARSTORE" "$PARPROJ")
+      "$BE" put .gitmodules >/dev/null 2>&1 ) || _fail "mount sub (put)"
+    sc_pin_gitlink "$SUBPATH" "$PARSTORE/.be/wtlog" "$SUBTIP0"
+    ( cd "$PARSTORE" && "$BE" post '#mount sub' >/dev/null 2>&1 ) || _fail "mount sub (post)"
+    PARTIP0=$(sc_tip "$PARSTORE")
     sc_is40 "$PARTIP0" "par tip0"
     grep -qE 'put[[:space:]]+vendor/sub#[0-9a-f]{40}' "$PARSTORE/.be/wtlog" \
         || _fail "gitlink not committed: $(cat "$PARSTORE/.be/wtlog")"

@@ -5,6 +5,8 @@
 # `inner` inside the cloned `vendor/sub`, deletes a grandchild file, and
 # asserts jab stdout + the grandchild `mis` row landing in its OWN wtlog.
 # JAB-003: golden snapshot of jab's own output; native `be` oracle retired.
+# TEST-003 FLAGGED: needs the JS-keeper feature — the mounted sub CHILD is
+# fetched over the git/keeper WIRE (submount.mount), no keeper-free local path.
 . "$(dirname "$0")/../lib/subcase.sh"
 . "$_ROOT/lib/golden.sh"                          # JAB-003: golden_assert
 GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
@@ -25,20 +27,23 @@ mount_inner() { # $1 = cloned-parent dir
   cat > "$SUBWT/.gitmodules" <<EOF
 [submodule "vendor/inner"]
 	path = vendor/inner
-	url = be:$INNERSTORE/.be?/inner
+	url = file://$INNERSTORE/.be?/inner
 EOF
   mkdir -p "$SUBWT/vendor/inner"
   _r=$(awk -F'\t' 'NR==1{print $1; exit}' "$SUBWT/.be")
-  printf '%s\tget\tfile:%s/.be/?/inner#%s\n' "$_r" "$INNERSTORE" "$INNERTIP0" \
+  printf '%s\tget\tfile:%s/.be/?/#%s\n' "$_r" "$INNERSTORE" "$INNERTIP0" \
       > "$SUBWT/vendor/inner/.be"
   printf 'inner payload v1\n' > "$SUBWT/vendor/inner/deep.c"
   printf 'inner helper\n'     > "$SUBWT/vendor/inner/deeph.c"
-  ( cd "$SUBWT" && "$BE" put .gitmodules >/dev/null 2>&1 \
-    && "$BE" put vendor/inner >/dev/null 2>&1 \
-    && "$BE" post '#mount inner' >/dev/null 2>&1 ) || _fail "mount inner in $1"
+  #  TEST-003: jab has no CLI spelling to stage a raw NEW gitlink (`jab put
+  #  vendor/inner` → PUTNONE) — seed the grandchild pin straight into the SUB's
+  #  wtlog (its store-backed `.be` FILE) via sc_pin_gitlink, then post folds it.
+  ( cd "$SUBWT" && "$BE" put .gitmodules >/dev/null 2>&1 ) || _fail "mount inner (gitmodules) in $1"
+  sc_pin_gitlink "vendor/inner" "$SUBWT/.be" "$INNERTIP0"
+  ( cd "$SUBWT" && "$BE" post '#mount inner' >/dev/null 2>&1 ) || _fail "mount inner (post) in $1"
 }
 run_side() { # $1=client $2=dest
-  sc_jget "$2" "be:$PARSTORE/.be?/par" >/dev/null
+  sc_jget "$2" "file://$PARSTORE/.be" >/dev/null
   [ -f "$2/vendor/sub/lib.c" ] || _fail "$2: sub not mounted"
   mount_inner "$2"
   [ -f "$2/vendor/sub/vendor/inner/deeph.c" ] || _fail "$2: grandchild not mounted"

@@ -1,39 +1,33 @@
-# test/js/diff/lib/diffcase.sh — JAB-014 differential parity harness for the
-# `diff:` read-only VIEW driven by the resident loop (`jab main.js diff <uri>`).
+# test/js/diff/lib/diffcase.sh — TEST-003 jab-intrinsic harness for the `diff:`
+# read-only VIEW driven by the resident loop (`jab diff <uri>`).
 #
 # Sourced at the top of every test/js/diff/<case>/run.sh.  Each case builds a
 # hermetic fixture in its OWN $WORK scratch store (NEVER the journal `.be`) with
-# native `be`, then asserts the loop's `diff:` output is BYTE-identical to the
-# native dog producer:
-#   --plain : oracle is native `be <uri> --plain` (line-based unified diff; `be`
-#             does NOT page a --plain diff, so it equals graf's direct output).
-#   --color : oracle is native `graf <uri> --color` (the DIRECT dog producer, the
-#             SAME HUNK `.color` cursor the JS loop drives).  `be --color` pipes
-#             through bro (the pager) and is a DIFFERENT, richer render — not the
-#             producer-level parity JAB-014 targets.
-# POSIX sh; models test/js/lib/parity.sh + test/js/bro/lib/brocase.sh.
+# JAB, then asserts jab's own `diff:` output.  Native `be`/`graf` are RETIRED as
+# the oracle (they LAG jab): diff_eq now runs `jab diff --plain` (landing stdout
+# in $WORK/j.plain for the caller's have/miss shape asserts) and drives
+# `jab diff --color` to prove the bro word-wash render still emits.  POSIX sh.
 
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/diff/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)           # repo root (beagle/)
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "diffcase: cannot locate be (set BE= or BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-GRAF=${GRAF:-$_BIN/graf}
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be`/`graf` are RETIRED (they LAG jab).  Locate jab
+# and alias BE=$JABC so every legacy `"$BE"` seed/clone in a case seeds with jab.
+JABC=${JABC:-${JAB:-${BIN:+$BIN/jab}}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "diffcase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001/JSQUE-016: the loop + scripts live in the sibling `be/` submodule.
 # A $BEDIR override lets an isolated worktree gate its OWN be/ shard.
 BEDIR="${BEDIR:-$_ROOT/..}"
 [ -d "$BEDIR" ] || { echo "diffcase: SKIP — no be/ submodule at $BEDIR" >&2; exit 0; }
 [ -f "$BEDIR/main.js" ] || { echo "diffcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "diffcase: no jab at $JABC" >&2; exit 2; }
-[ -x "$GRAF" ] || { echo "diffcase: no graf at $GRAF" >&2; exit 2; }
 
 : "${KEEPER_BIN:=$_BIN/keeper}"
 : "${DOG_REMOTE_PATH:=$_BIN}"
-export BE GRAF JABC BEDIR KEEPER_BIN DOG_REMOTE_PATH
+export BE JABC BEDIR KEEPER_BIN DOG_REMOTE_PATH
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
@@ -61,43 +55,80 @@ new_wt() {
     _w="$WORK/$1"; rm -rf "$_w"; mkdir -p "$_w/.be"; echo "$_w"
 }
 
-# diff_eq DESC URI [URI...] — assert the loop's `diff:` matches the native dog
-# producer for both --plain (oracle: `be`) and --color (oracle: `graf`).  Run
-# from $PWD (the caller cd's into the fixture wt) so relative paths resolve the
-# same.  The leading args are the diff URI(s); a `diff:a/ b/` multi-root case
-# passes two URI tokens.
+# TEST-003 diff_eq DESC URI [URI...] — jab-intrinsic (native `be`/`graf` RETIRED;
+# they LAG jab).  Run `jab diff <uri> --plain`, land stdout in $WORK/j.plain for
+# the caller's have/miss shape asserts, and drive `jab diff --color` to prove the
+# bro word-wash render still emits without error.  Name kept for the call sites.
+# Run from $PWD (the caller cd's into the fixture wt) so relative paths resolve.
 diff_eq() {
     _desc=$1; shift
-    # --plain: native be vs the loop.
-    _orc=0; "$BE" "$@" --plain   >"$WORK/o.plain" 2>"$WORK/o.perr" || _orc=$?
-    _jrc=0; "$JABC" diff "$@" --plain \
-                                     >"$WORK/j.plain" 2>"$WORK/j.perr" || _jrc=$?
-    cmp -s "$WORK/o.plain" "$WORK/j.plain" || {
-        echo "--- be --plain ---";   cat -A "$WORK/o.plain" | head -60
-        echo "--- jab --plain ---";  cat -A "$WORK/j.plain" | head -60
-        echo "--- diff ---"; diff "$WORK/o.plain" "$WORK/j.plain" | head -40 || true
-        _fail "$_desc: --plain stdout differs"
+    _jrc=0; "$JABC" diff "$@" --plain >"$WORK/j.plain" 2>"$WORK/j.perr" || _jrc=$?
+    [ "$_jrc" = 0 ] || {
+        echo "--- jab --plain stderr ---"; cat "$WORK/j.perr" | head -20
+        _fail "$_desc: jab diff --plain failed (rc=$_jrc)"
     }
-    { [ "$_orc" = 0 ] && [ "$_jrc" = 0 ]; } || { [ "$_orc" != 0 ] && [ "$_jrc" != 0 ]; } || \
-        _fail "$_desc: --plain exit class differs (be=$_orc jab=$_jrc)"
+    [ -s "$WORK/j.plain" ] || _fail "$_desc: jab diff --plain emitted ZERO bytes"
 
-    # --color: the oracle is native `be <uri> --color`, which pages through the
-    # C `bro` (the ONE diff-colour renderer: two-pass old/new line reconstruction
-    # with the side→bg word wash).  The loop's `jab diff --color` single-sources
-    # the SAME render in JS (view/bro.js colorDiffHunk, the bro_cell_ansi twin),
-    # so the two must be BYTE-identical.  `be` composes the wt-vs-base baseline,
-    # so unlike graf it produces the colour oracle for EVERY form (wt + range).
-    _obc=0; "$BE" "$@" --color >"$WORK/o.color" 2>"$WORK/o.cerr" || _obc=$?
-    if [ "$_obc" = 0 ] && [ -s "$WORK/o.color" ]; then
-        "$JABC" diff "$@" --color \
-                                     >"$WORK/j.color" 2>"$WORK/j.cerr" || true
-        cmp -s "$WORK/o.color" "$WORK/j.color" || {
-            echo "--- be --color (bro) ---"; cat -v "$WORK/o.color" | head -60
-            echo "--- jab --color ---";      cat -v "$WORK/j.color" | head -60
-            _fail "$_desc: --color stdout differs"
-        }
+    # --color: the SAME render (view/bro.js colorDiffHunk, the bro_cell_ansi twin,
+    # two-pass old/new reconstruction with the side→bg word wash).  Assert it
+    # renders (non-empty, clean exit) — no native oracle to cmp against.
+    _jbc=0; "$JABC" diff "$@" --color >"$WORK/j.color" 2>"$WORK/j.cerr" || _jbc=$?
+    if [ "$_jbc" = 0 ] && [ -s "$WORK/j.color" ]; then
         echo "ok   $_desc (plain+color)"
     else
         echo "ok   $_desc (plain; color N/A)"
     fi
+}
+
+# TEST-003: jab-intrinsic diff producer — run `jab diff <uri...> --plain` and land
+# its stdout in $WORK/j.plain for the caller to grep (structure/hunk asserts).  No
+# native `be`/`graf` oracle (native LAGS jab).  Returns nonzero on jab failure.
+diff_jab() {
+    _desc=$1; shift
+    _jrc=0; "$JABC" diff "$@" --plain >"$WORK/j.plain" 2>"$WORK/j.perr" || _jrc=$?
+    [ "$_jrc" = 0 ] || {
+        echo "--- jab --plain stderr ---"; cat "$WORK/j.perr" | head -20
+        _fail "$_desc: jab diff --plain failed (rc=$_jrc)"
+    }
+    [ -s "$WORK/j.plain" ] || _fail "$_desc: jab diff --plain emitted ZERO bytes"
+}
+
+# have PAT DESC — the last diff_jab's $WORK/j.plain MUST contain a line matching
+# the extended-regex PAT; miss PAT DESC — it MUST NOT.  Dumps the output on fail.
+have() { grep -qE "$1" "$WORK/j.plain" || { echo "--- jab --plain ---"; cat -A "$WORK/j.plain" | head -60; _fail "$2 (expected /$1/)"; }; }
+miss() { grep -qE "$1" "$WORK/j.plain" && { echo "--- jab --plain ---"; cat -A "$WORK/j.plain" | head -60; _fail "$2 (unexpected /$1/)"; } || true; }
+
+# TEST-003: import a git repo (+submodule) into a beagle store over the GIT WIRE
+# (git-upload-pack, NO keeper) — the keeper-free replacement for `jab get be:<repo>`.
+# A git-transport ingest lands a PRIMARY store (`.be/<proj>` + sibling sub shards),
+# so the submodule child MOUNTS over git-upload-pack too — provided its
+# `.gitmodules` url is a git-transport URL, not a scheme-less local path (which
+# would route to keeper).  Needs git + ssh-to-localhost, and the repo under $HOME
+# (git-upload-pack over ssh is HOME-relative); SKIPs cleanly otherwise.
+#
+# git_ssh_ok — YES iff git + a passwordless ssh-to-localhost are available.
+git_ssh_ok() {
+    command -v git >/dev/null 2>&1 || return 1
+    command -v ssh >/dev/null 2>&1 || return 1
+    ssh -o BatchMode=yes -o ConnectTimeout=5 localhost true >/dev/null 2>&1
+}
+# git_submodule_url PARREPO SUBPATH SUBREPO — rewrite PARREPO's `.gitmodules` url
+# for SUBPATH to a git-transport `ssh://localhost/<home-rel SUBREPO>?/<title>` URL
+# so the sub mount fetches over git-upload-pack (no keeper).  Echoes the title.
+git_submodule_url() {
+    _rel=${3#"$HOME"/}
+    _title=$(basename "$3")
+    git -C "$1" config -f .gitmodules "submodule.$2.url" \
+        "ssh://localhost/$_rel?/$_title"
+    echo "$_title"
+}
+# git_ingest PARREPO PROJ DST — clone PARREPO into DST over the git wire and echo
+# the store's trunk tip (40-hex).  PARREPO must be $HOME-relative-clonable.
+git_ingest() {
+    _relpar=${1#"$HOME"/}
+    mkdir -p "$3"
+    ( cd "$3" && "$JABC" get "ssh://localhost/$_relpar?/$2" ) >/dev/null 2>&1 \
+        || return 1
+    od -An -c "$3/.be/$2/refs" 2>/dev/null \
+        | tr -d ' \n' | grep -oE '#[0-9a-f]{40}' | tail -1 | tr -d '#'
 }

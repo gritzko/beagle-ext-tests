@@ -13,11 +13,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/why/range
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "why/range: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (it LAGS jab); locate jab and
+# alias BE=$JABC so legacy `"$BE" post/put` seeds run jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "why/range: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
 [ -f "$BEDIR/main.js" ] || { echo "why/range: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "why/range: no jab at $JABC" >&2; exit 2; }
@@ -35,16 +37,21 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
 # WHY-001: pin commit time (jabc ron.now() rides SOURCE_DATE_EPOCH) for stable shas.
-: "${SOURCE_DATE_EPOCH:=1467331200}"; export SOURCE_DATE_EPOCH
+# TEST-003: ADVANCE the epoch PER commit — a FROZEN epoch gives every separate `jab
+# post` process the same ron.now(), so all 3 keeper.idx files collide (same name) and
+# only the last pack indexes → c1/c2 objects unreadable, `jab log:` shows only 1 sha.
+SDE0=1467331200
 
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 cd "$WT"
 printf 'alpha\nbeta\ngamma\n' > f.txt
-"$BE" post 'c1 seed'          >/dev/null 2>&1 || _fail "post c1"
+SOURCE_DATE_EPOCH=$SDE0 "$BE" post 'c1 seed'          >/dev/null 2>&1 || _fail "post c1"
 printf 'alpha\nBETA\ngamma\n' > f.txt
-"$BE" put f.txt >/dev/null 2>&1; "$BE" post 'c2 edit line2' >/dev/null 2>&1 || _fail "post c2"
+SOURCE_DATE_EPOCH=$((SDE0+60))  "$BE" put f.txt >/dev/null 2>&1
+SOURCE_DATE_EPOCH=$((SDE0+60))  "$BE" post 'c2 edit line2' >/dev/null 2>&1 || _fail "post c2"
 printf 'alpha\nBETA\ngamma\ndelta\n' > f.txt
-"$BE" put f.txt >/dev/null 2>&1; "$BE" post 'c3 add line4' >/dev/null 2>&1 || _fail "post c3"
+SOURCE_DATE_EPOCH=$((SDE0+120)) "$BE" put f.txt >/dev/null 2>&1
+SOURCE_DATE_EPOCH=$((SDE0+120)) "$BE" post 'c3 add line4' >/dev/null 2>&1 || _fail "post c3"
 
 # The three short shas, tip-first (log order): c3, c2, c1.
 "$BE" log: --plain 2>/dev/null | grep -oaE '^[0-9a-f]{8}' >"$WORK/shas"

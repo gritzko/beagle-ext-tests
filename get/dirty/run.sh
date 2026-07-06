@@ -18,7 +18,8 @@ printf 'l1\nl2\nl3\nl4\nl5\n' > f.txt
 printf 'l1\nl2\nl3\nl4\nL5\n' > f.txt            # theirs: l5 -> L5 (last line)
 "$BE" put f.txt >/dev/null 2>&1
 "$BE" post 'c2' >/dev/null 2>&1
-C1=$(nth_sha "$SRC/.be/src" 1); C2=$(nth_sha "$SRC/.be/src" 2)
+# TEST-003: jab-seeded source is single-shard/unnamed — refs sit at `.be/refs`.
+C1=$(nth_sha "$SRC/.be" 1); C2=$(nth_sha "$SRC/.be" 2)
 [ -n "$C1" ] && [ -n "$C2" ] && [ "$C1" != "$C2" ] || _fail "two-commit setup"
 # Clone, then pin back to c1 so the wt baseline is c1 (f.txt = l1..l5).
 gr_jclone "$SRC" "$WORK/A"

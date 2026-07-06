@@ -15,11 +15,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/bro/ticket
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "bro/ticket: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so the legacy `"$BE" post` fixture commit runs jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "bro/ticket: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/main.js" ] || { echo "bro/ticket: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -f "$BEDIR/views/bro/pager.js" ] || { echo "bro/ticket: SKIP — no pager.js" >&2; exit 0; }
@@ -57,6 +59,11 @@ for t in envtree curtree opentree; do
   printf '#   %s: fixture ticket in %s\nbody\n' "$CODE" "$t" > "$SRC/$t/todo/ABC/$CODE.mkd"
 done
 export SRC_ROOT="$SRC"
+# TEST-003: CONFINE discovery to the sibling-tree root.  navCwd/topWt name a tree
+# by climbing to the OUTERMOST `.be` anchor below $HOME; a repo-setup firewall at
+# dirname($TMP) would make topWt overshoot SRC_ROOT (naming //tmp not //envtree).
+# Setting HOME=$SRC stops the walk AT the sibling trees, so `//<tree>` resolves.
+export HOME="$SRC"
 
 # The log-view fixture lives in the OPEN/launch tree (opentree): a commit whose
 # SUMMARY carries the ticket code.  Built with `be post` exactly like

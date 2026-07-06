@@ -24,7 +24,9 @@ ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
 } )
 
 # --- empty commit: a clean clone with no staged change must POSTNONE -------
-mkdir "$WORK/e"; ( cd "$WORK/e" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
+# TEST-003: jab-seeded store is unnamed-project, so clone bare `file://<store>`
+# (no `?/org` selector — jab never mints a named `org` shard).
+mkdir "$WORK/e"; ( cd "$WORK/e" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
 E_TIP0=$(_tip "$WORK/e")
 if ( cd "$WORK/e" && "$JABC" post '#noop' ) >"$WORK/e.out" 2>"$WORK/e.err"; then
     _fail "empty post did NOT refuse (expected POSTNONE): $(cat "$WORK/e.out")"
@@ -36,8 +38,8 @@ grep -q POSTNONE "$WORK/e.err" || _fail "empty post refused but not via POSTNONE
 #     parented at the stale tip → our JS post must POSTNOFF, no write. --------
 # clone X (redirect → origin store), then a sibling redirect Y of X's store;
 # Y posts, advancing the shared origin store past X's c1 parent.
-mkdir "$WORK/x"; ( cd "$WORK/x" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
-mkdir "$WORK/y"; ( cd "$WORK/y" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
+mkdir "$WORK/x"; ( cd "$WORK/x" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
+mkdir "$WORK/y"; ( cd "$WORK/y" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
 ( cd "$WORK/y" && printf 'A2\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 && "$BE" post '#adv' >/dev/null 2>&1 )
 # the shared origin store tip is now y's commit; x's wtlog parent is still c1.
 X_TIP_BEFORE=$(_tip "$WORK/x")

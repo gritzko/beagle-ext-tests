@@ -9,7 +9,8 @@
 #      entry type FROM->TO in place (the harder case — get must drop a stale dir
 #      to write a file/link, or vice versa).
 # RED where a baseline type shadows the new one; GREEN when every transition
-# round-trips on both fresh-clone AND in-place-update.  Pure local `be:` wire.
+# round-trips on both fresh-clone AND in-place-update.
+# TEST-003: project-less local `file://` clone (no keeper); single project, no sub.
 . "$(dirname "$0")/../../sub/lib/subcase.sh"
 
 X=item                       # the path whose entry type changes
@@ -37,14 +38,14 @@ one() {                      # one FROM TO
 
     # the OLD clone — sits at v1 until we update it with `jab get` at the end
     TOLD="$S/old"
-    [ "$(sc_jget "$TOLD" "be:$S/.be?/$PROJ")" = 0 ] \
+    [ "$(sc_jget "$TOLD" "file://$S/.be")" = 0 ] \
         || { FAILS="$FAILS $tag(get-old)"; return; }
     r=$(why_$FROM "$TOLD/$X"); [ -z "$r" ] \
         || { FAILS="$FAILS $tag(old-v1:$r)"; return; }
 
     # v2: in a WORK clone, change `item` FROM->TO, then PUT + POST
     TW="$S/work"
-    [ "$(sc_jget "$TW" "be:$S/.be?/$PROJ")" = 0 ] \
+    [ "$(sc_jget "$TW" "file://$S/.be")" = 0 ] \
         || { FAILS="$FAILS $tag(get-work)"; return; }
     ( cd "$TW"; mk_$TO "$X" ) || { FAILS="$FAILS $tag(edit)"; return; }
     ( cd "$TW" && "$JABC" put "$X" ) >"$WORK/.put" 2>&1 || true
@@ -53,14 +54,14 @@ one() {                      # one FROM TO
 
     # 1. FRESH clone of v2 — the new type must materialise
     TNEW="$S/new"
-    [ "$(sc_jget "$TNEW" "be:$TW/.be?/$PROJ")" = 0 ] \
+    [ "$(sc_jget "$TNEW" "file://$TW/.be")" = 0 ] \
         || { FAILS="$FAILS $tag(get-new)"; return; }
     r=$(why_$TO "$TNEW/$X"); [ -z "$r" ] \
         || { FAILS="$FAILS $tag(new:$r)"; return; }
 
     # 2. NEW PART: UPDATE the OLD v1 clone with `jab get` — its on-disk entry
     #    type must flip FROM->TO in place (get drops the stale dir / leaf).
-    _rc=0; ( cd "$TOLD" && "$JABC" get "be:$TW/.be?/$PROJ" ) >"$WORK/.upd" 2>&1 || _rc=$?
+    _rc=0; ( cd "$TOLD" && "$JABC" get "file://$TW/.be" ) >"$WORK/.upd" 2>&1 || _rc=$?
     [ "$_rc" = 0 ] || { FAILS="$FAILS $tag(update:$_rc)"; return; }
     r=$(why_$TO "$TOLD/$X"); [ -z "$r" ] \
         || { FAILS="$FAILS $tag(updated-old:$r)"; return; }

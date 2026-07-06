@@ -15,11 +15,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/log/subnav
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "log/subnav: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it LAGS jab); locate jab and
+# alias BE=$JABC so legacy `"$BE" post/put` seeds run jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "log/subnav: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/main.js" ] || { echo "log/subnav: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "log/subnav: no jab at $JABC" >&2; exit 2; }
@@ -46,7 +48,9 @@ mkdir -p "$SUBSTORE/.be" "$PWT/.be"
 # sub store: THREE of its OWN commits (the history the nav must round-trip to).
 ( cd "$SUBSTORE"
   printf 'a\n' > lib.c; printf 'h\n' > helper.c
-  "$BE" put lib.c helper.c >/dev/null 2>&1; "$BE" post '#sub c1' >/dev/null 2>&1
+  # TEST-003: post auto-adds; an explicit `put` before the FIRST post breaks jab's
+  # first writePack ("Not a directory"), so seed the first commit via post alone.
+  "$BE" post '#sub c1' >/dev/null 2>&1
   printf 'b\n' > lib.c; "$BE" put lib.c >/dev/null 2>&1; "$BE" post '#sub c2' >/dev/null 2>&1
   printf 'c\n' > lib.c; "$BE" put lib.c >/dev/null 2>&1; "$BE" post '#sub c3' >/dev/null 2>&1 ) \
     || _fail "sub setup"
@@ -56,16 +60,19 @@ case "$SUBTIP" in ????????????????????????????????????????) ;; *) _fail "sub tip
 # parent store: a baseline, then MOUNT + COMMIT the sub gitlink at vendor/sub.
 ( cd "$PWT"
   printf 'int main(void){return 0;}\n' > main.c
-  "$BE" put main.c >/dev/null 2>&1; "$BE" post '#parent main' >/dev/null 2>&1 ) || _fail "parent setup"
+  # TEST-003: first-post auto-adds (no pre-post `put`, jab writePack wrinkle).
+  "$BE" post '#parent main' >/dev/null 2>&1 ) || _fail "parent setup"
 ( cd "$PWT"
   cat > .gitmodules <<EOF
 [submodule "vendor/sub"]
 	path = vendor/sub
-	url = file://$SUBSTORE/.be?/substore
+	url = file://$SUBSTORE/.be
 EOF
   mkdir -p vendor/sub
   RONTS=$(awk -F'\t' 'NR==1{print $1; exit}' .be/wtlog)
-  printf '%s\tget\tfile:%s/.be/?/substore#%s\n' "$RONTS" "$SUBSTORE" "$SUBTIP" > vendor/sub/.be
+  # TEST-003: the sub store is an UNNAMED single-shard jab repo — the mount
+  # anchor must NOT name a `substore` project (be.find would open a missing shard).
+  printf '%s\tget\tfile:%s/.be#%s\n' "$RONTS" "$SUBSTORE" "$SUBTIP" > vendor/sub/.be
   printf 'c\n' > vendor/sub/lib.c; printf 'h\n' > vendor/sub/helper.c
   "$BE" put .gitmodules >/dev/null 2>&1
   "$BE" put vendor/sub  >/dev/null 2>&1

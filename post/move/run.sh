@@ -14,14 +14,14 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/post/move
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "post/move: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (LAGS jab); alias BE=$JABC so the
+# legacy `"$BE"` seeds run jab.
+JABC=${JABC:-${JAB:-${BIN:+$BIN/jab}}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "post/move: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC"); BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
 [ -f "$BEDIR/main.js" ] || { echo "post/move: SKIP — no $BEDIR/main.js" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "post/move: no jab at $JABC" >&2; exit 2; }
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 
 : "${TMP:=/tmp}"; export TMP

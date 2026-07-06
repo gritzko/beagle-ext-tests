@@ -20,11 +20,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/why/blame
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "why/blame: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (it LAGS jab); locate jab and
+# alias BE=$JABC so legacy `"$BE" post/put` seeds run jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "why/blame: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/main.js" ] || { echo "why/blame: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "why/blame: no jab at $JABC" >&2; exit 2; }
@@ -46,18 +48,23 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
 # WHY-001: pin commit time (jabc ron.now() rides SOURCE_DATE_EPOCH) so the fixture's
 # 3 commit shas — hence hueOf's pastels — are DETERMINISTIC, not order/time flaky.
-: "${SOURCE_DATE_EPOCH:=1467331200}"; export SOURCE_DATE_EPOCH
+# TEST-003: ADVANCE the epoch PER commit — a FROZEN epoch gives every separate `jab
+# post` process the same ron.now(), so all 3 keeper.idx files collide (same name)
+# and only the last pack indexes → c1/c2 objects unreadable, blame collapses to 1.
+SDE0=1467331200
 
 # 3-commit chain over one SYNTAX-tagged file (f.js) → 3 distinct origin commits
 # alive at the tip, with comment/keyword/number tokens (so the syntax fg survives).
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 cd "$WT"
 printf '// alpha comment\nvar beta = 1;\nfunction gamma() {}\n' > f.js
-"$BE" post 'c1 seed'          >/dev/null 2>&1 || _fail "post c1"
+SOURCE_DATE_EPOCH=$SDE0 "$BE" post 'c1 seed'          >/dev/null 2>&1 || _fail "post c1"
 printf '// alpha comment\nvar BETA = 22;\nfunction gamma() {}\n' > f.js
-"$BE" put f.js >/dev/null 2>&1; "$BE" post 'c2 edit line2' >/dev/null 2>&1 || _fail "post c2"
+SOURCE_DATE_EPOCH=$((SDE0+60))  "$BE" put f.js >/dev/null 2>&1
+SOURCE_DATE_EPOCH=$((SDE0+60))  "$BE" post 'c2 edit line2' >/dev/null 2>&1 || _fail "post c2"
 printf '// alpha comment\nvar BETA = 22;\nfunction gamma() {}\nlet delta = 3;\n' > f.js
-"$BE" put f.js >/dev/null 2>&1; "$BE" post 'c3 add line4' >/dev/null 2>&1 || _fail "post c3"
+SOURCE_DATE_EPOCH=$((SDE0+120)) "$BE" put f.js >/dev/null 2>&1
+SOURCE_DATE_EPOCH=$((SDE0+120)) "$BE" post 'c3 add line4' >/dev/null 2>&1 || _fail "post c3"
 
 # The three commit shas, tip-first (log order), for the U-target expectations.
 "$JABC" "$_ROOT/put/tipsha.js" "$WT" >"$WORK/tip"

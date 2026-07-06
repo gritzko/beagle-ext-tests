@@ -13,14 +13,14 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/post/patch-pat
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "post/patch-pat: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (LAGS jab); alias BE=$JABC so the
+# legacy `"$BE"` seeds run jab.
+JABC=${JABC:-${JAB:-${BIN:+$BIN/jab}}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "post/patch-pat: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC"); BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
 [ -f "$BEDIR/main.js" ] || { echo "post/patch-pat: SKIP — no $BEDIR/main.js" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "post/patch-pat: no jab at $JABC" >&2; exit 2; }
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 : "${SOURCE_DATE_EPOCH:=1467331200}"; export SOURCE_DATE_EPOCH   # 2016-07-01Z
 : "${TZ:=UTC}"; export TZ
@@ -39,32 +39,34 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
     | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
 
-# Build an origin with a trunk/feat divergence over f.txt where ONLY theirs
-# changes f.txt — ours leaves it at the fork content.  So a `be patch` of the
-# feat tip TAKES THEIRS cleanly (ours==fork, theirs!=fork): a `pat` file, NOT a
-# 3-way merge.  Writes the feat tip sha to $WORK/F1.
+# TEST-003 jab-only DAG.  The store's rolling keeper.idx indexes only the LATEST
+# keeper, so t0's object (the fork point) reads MISSING after a 2nd post; drop the
+# stale idx before each op.  Bootstrap post-alone, absolute `?feat`, switch back
+# to trunk by PINNING the saved t0 (bare `?` folds to the current branch).
+_jab() { rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
 _build() {
     rm -rf "$WORK/org"; ORG="$WORK/org"; mkdir -p "$ORG/.be"
     ( cd "$ORG"
       printf 'a\nb\nc\nd\ne\n' > f.txt
       printf 'keep\n'          > k.txt          # a tracked file neither side edits
-      "$BE" put f.txt k.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-      "$BE" put '?./feat' >/dev/null 2>&1
-      "$BE" get '?..' >/dev/null 2>&1
+      _jab post 't0' >/dev/null 2>&1            # bootstrap auto-adds f.txt + k.txt
+      T0=$(grep -a "$(printf '\tpost\t')" .be/refs | grep -oE '[0-9a-f]{40}' | head -1)
+      _jab put '?feat' >/dev/null 2>&1
+      _jab get '?feat' >/dev/null 2>&1
+      printf 'a\nb\nC-theirs\nd\ne\n' > f.txt   # theirs: line 3 (ours never did)
+      _jab put f.txt >/dev/null 2>&1; _jab post 'f1' >/dev/null 2>&1
+      grep -a "$(printf '\tpost\t')" .be/refs \
+        | grep -aE '\?feat#' | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
+      _jab get "?#$T0" >/dev/null 2>&1          # back to trunk @ t0
       # ours: do NOT touch f.txt — only k.txt changes, so f.txt at ours == fork.
       printf 'keep+ours\n' > k.txt
-      "$BE" put k.txt >/dev/null 2>&1; "$BE" post 't1' >/dev/null 2>&1
-      "$BE" get '?feat' >/dev/null 2>&1
-      printf 'a\nb\nC-theirs\nd\ne\n' > f.txt   # theirs: line 3 (ours never did)
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1' >/dev/null 2>&1
-      grep -a "$(printf '\tpost\t')" .be/org/refs \
-        | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
-      "$BE" get '?..' >/dev/null 2>&1 )         # leave cur at trunk
+      _jab put k.txt >/dev/null 2>&1; _jab post 't1' >/dev/null 2>&1
+      rm -f "$ORG"/.be/*.keeper.idx )           # let the clone see every commit
 }
 
 _build; F1=$(cat "$WORK/F1")
 JS="$WORK/take"; mkdir -p "$JS"
-( cd "$JS" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "clone failed"
+( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "clone failed"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed"
 
 # 1. the take-theirs file reads `pat` (base=ours; wt==theirs!=ours).  k.txt is

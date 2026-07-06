@@ -11,20 +11,20 @@
 #  (cmp follows the symlink target bytes; the exec mode shows via be-status).
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
+# TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
+# `?feat` fork, `_trunk` switch by pinned t0, keeper.idx drop per op).
 build() {
     printf 'hello\n' > plain.txt
-    "$BE" put plain.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-    "$BE" put '?./feat' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
-    printf 'HELLO\n' > plain.txt
-    "$BE" put plain.txt >/dev/null 2>&1; "$BE" post 't1' >/dev/null 2>&1
-    "$BE" get '?feat' >/dev/null 2>&1
+    _boot 't0'
+    _fork feat
+    _sw feat
     printf '#!/bin/sh\necho hi\n' > run.sh; chmod 0755 run.sh
     ln -s plain.txt link
-    "$BE" put run.sh link >/dev/null 2>&1; "$BE" post 'f1 add exec + symlink' >/dev/null 2>&1
-    F1=$(grep -a $'\tpost\t' .be/org/refs | grep -oE '[0-9a-f]{40}' | tail -1)
-    export F1
-    "$BE" get '?..' >/dev/null 2>&1
+    _ci 'f1 add exec + symlink' run.sh link
+    F1=$(_tip feat); export F1
+    _trunk
+    printf 'HELLO\n' > plain.txt
+    _ci 't1' plain.txt
 }
 
 # JAB-003 golden snapshot (native oracle retired): run.sh + link are clean

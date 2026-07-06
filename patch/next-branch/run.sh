@@ -12,17 +12,18 @@
 #  match native.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
+# TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
+# `?feat` fork, `_trunk` switch by pinned t0, keeper.idx drop per op).
 build() {
     printf 'a\nb\nc\nd\ne\n' > f.txt
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-    "$BE" put '?./feat' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
-    printf 'A\nb\nc\nd\ne\n' > f.txt
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't1' >/dev/null 2>&1
-    "$BE" get '?feat' >/dev/null 2>&1
+    _boot 't0'
+    _fork feat
+    _sw feat
     printf 'a\nb\nC\nd\ne\n' > f.txt
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1 edit line 3' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
+    _ci 'f1 edit line 3' f.txt
+    _trunk
+    printf 'A\nb\nc\nd\ne\n' > f.txt
+    _ci 't1' f.txt
 }
 
 # JAB-003 golden snapshot (native oracle retired): a clean NEXT-branch absorb

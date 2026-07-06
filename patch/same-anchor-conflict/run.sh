@@ -24,21 +24,22 @@
 #  still asserts row + conf banner match native).  Converges with DOG-005.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
+# TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
+# `?feat` fork, `_trunk` switch by pinned t0, keeper.idx drop per op).
 build() {
     printf 'a\nb\nc\n' > f.txt
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-    "$BE" put '?./feat' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
-    printf 'a\nO1\nc\n' > f.txt                # ours T1: line 2 = O1
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't1 line2=O1' >/dev/null 2>&1
-    printf 'a\nO2\nc\n' > f.txt                # ours T2: line 2 = O2
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't2 line2=O2' >/dev/null 2>&1
-    "$BE" get '?feat' >/dev/null 2>&1
+    _boot 't0'
+    _fork feat
+    _sw feat
     printf 'a\nX1\nc\n' > f.txt                # theirs F1: line 2 = X1
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1 line2=X1' >/dev/null 2>&1
+    _ci 'f1 line2=X1' f.txt
     printf 'a\nX2\nc\n' > f.txt                # theirs F2: line 2 = X2
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f2 line2=X2' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
+    _ci 'f2 line2=X2' f.txt
+    _trunk
+    printf 'a\nO1\nc\n' > f.txt                # ours T1: line 2 = O1
+    _ci 't1 line2=O1' f.txt
+    printf 'a\nO2\nc\n' > f.txt                # ours T2: line 2 = O2
+    _ci 't2 line2=O2' f.txt
 }
 
 # JAB-003 golden snapshot: dog frames theirs (X2) before ours (O2) at this

@@ -16,16 +16,17 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/js/post/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)          # repo root
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "postcase: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so every legacy `"$BE"` seed/clone in a case seeds with jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "postcase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
-BEDIR="$_ROOT/.."
+BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "postcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "postcase: no jab at $JABC" >&2; exit 2; }
 
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
@@ -87,20 +88,27 @@ EOF
     "$JABC" "$WORK/.dump.js" "$1" "$BEDIR" 2>/dev/null
 }
 
-# Each clone is a PRIMARY full clone — its OWN store sits at
-# `<side>/.be/<proj>/refs`, its wtlog at `<side>/.be/wtlog`.  Parity reads
-# the CLONE's store, not the untouched source copy.
-_refs_row() {   # _refs_row SIDE  → the LAST refs row, ts-normalised
-    tail -1 "$WORK/$1/.be/org/refs" 2>/dev/null | sed -E 's/^[^\t]*\t/T\t/'
+# TEST-003: a jab `file://` clone is a SECONDARY wt whose `<side>/.be` is a
+# REDIRECT FILE (itself the wtlog); its refs live in the redirect TARGET store's
+# flat `<target>/refs` (jab is unnamed-project, so no `<proj>/refs`).  Follow the
+# row-0 `get file:<target>/.be/?...` redirect to that target.
+_redirect_be() {   # _redirect_be SIDE → the redirect target `.be` dir (or "")
+    head -1 "$WORK/$1/.be" 2>/dev/null \
+      | sed -nE 's#.*[[:space:]]file:([^?[:space:]]+/\.be)/?.*#\1#p'
 }
-_wtlog_post_row() {   # last post row of a side's primary wtlog
-    grep -a $'\tpost\t' "$WORK/$1/.be/wtlog" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
+_refs_row() {   # _refs_row SIDE  → the LAST refs row of the target store, ts-normalised
+    _tgt=$(_redirect_be "$1")
+    tail -1 "${_tgt:-$WORK/$1/.be}/refs" 2>/dev/null | sed -E 's/^[^\t]*\t/T\t/'
+}
+_wtlog_post_row() {   # last post row of a side's wtlog (the `.be` redirect FILE)
+    grep -a $'\tpost\t' "$WORK/$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
 }
 
 # JAB-003 fold the VOLATILE commit sha (`?#<40hex>` in a row, `?<8hex>#` in the
 # banner) to a stable token; golden_norm folds the date column too.
 _postnorm() { sed -E 's/\?#[0-9a-f]{40}/?#SHA/; s/\?[0-9a-f]{7,40}#/?SHA#/'; }
-_fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be' | sort ); }
+# TEST-003: drop the `.be` redirect FILE and jab's sibling `..be.idx` index.
+_fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be|/\.\.be\.idx|^\./\.\.be\.idx' | sort ); }
 
 # JAB-003 post_parity: build the c1 origin, clone into ONE JS tree, stage +
 # `jab post`, then snapshot the `post:` banner + wtlog post row + refs row +
@@ -110,12 +118,15 @@ _fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be' | sort ); }
 post_parity() {
     _origin_builder=$1; _stage=$2; _msg=$3
     ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && "$_origin_builder" )
-    # JAB-003 single JS-side own-store clone (native fork retired).
-    mkdir -p "$WORK/jstore.be"; cp -a "$ORG/.be/." "$WORK/jstore.be/"
+    # TEST-003: independent own-store clone.  The copied store dir MUST be named
+    # `.be` (jab requires the store basename == `.be`), so copy into `jsrc/.be`.
+    mkdir -p "$WORK/jsrc/.be"; cp -a "$ORG/.be/." "$WORK/jsrc/.be/"
     mkdir "$WORK/jT"
-    #  URI-006 St.2: `file:` is worktree-only; the host-less `be:` local
-    #  keeper wire (St.1) makes the independent own-store clone.
-    ( cd "$WORK/jT" && "$BE" get "be:$WORK/jstore.be?/org" >/dev/null 2>&1 )
+    # TEST-003: jab-seeded stores are UNNAMED-project single shards, so clone
+    # via bare `file://<store>/.be` (no `?/org` selector — that selects a named
+    # shard jab never creates); `be:` wire needs a retired native keeper.
+    ( cd "$WORK/jT" && "$BE" get "file://$WORK/jsrc/.be" >/dev/null 2>&1 ) \
+        || _fail "JS clone failed"
     SEED=$(_mk_seed)
     _seed_wtlog "$WORK/jT" "$SEED"
     ( cd "$WORK/jT" && "$_stage" )

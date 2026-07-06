@@ -15,21 +15,22 @@
 #  conflict markers, byte-identical to native.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
+# TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
+# `?feat` fork, `_trunk` switch by pinned t0, keeper.idx drop per op).
 build() {
     printf 'a\nb\nc\nd\ne\n' > f.txt
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-    "$BE" put '?./feat' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
-    printf 'A\nb\nc\nd\ne\n' > f.txt          # ours: line 1 = A
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't1 line1=A' >/dev/null 2>&1
-    "$BE" get '?feat' >/dev/null 2>&1
+    _boot 't0'
+    _fork feat
+    _sw feat
     printf 'a\nB\nc\nd\ne\n' > f.txt          # F1: line 2 = B
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1 line2=B' >/dev/null 2>&1
+    _ci 'f1 line2=B' f.txt
     printf 'a\nB\nc\nD\ne\n' > f.txt          # F2: line 4 = D
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f2 line4=D' >/dev/null 2>&1
+    _ci 'f2 line4=D' f.txt
     printf 'a\nBB\nc\nD\ne\n' > f.txt         # F3: line 2 = BB (re-edit)
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f3 line2=BB' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
+    _ci 'f3 line2=BB' f.txt
+    _trunk
+    printf 'A\nb\nc\nd\ne\n' > f.txt          # ours: line 1 = A
+    _ci 't1 line1=A' f.txt
 }
 
 # JAB-003 golden snapshot (native oracle retired): a clean multi-revision WHOLE

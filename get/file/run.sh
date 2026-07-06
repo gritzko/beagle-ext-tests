@@ -13,7 +13,9 @@ mkdir d; printf 'C\n' > d/c.txt
 # only re-stages tracked changes → PUTNONE on a fresh repo, fatal under set -e).
 "$BE" post 'c1' >/dev/null 2>&1
 
-REMOTE="file://$SRC/.be?/src"
+# TEST-003: jab-seeded source is a single-shard UNNAMED-project colocated
+# primary, so the clone URI carries NO `?/name` (named `?/x` misses jab's trunk).
+REMOTE="file://$SRC/.be"
 mkdir "$WORK/nT" "$WORK/jT"
 
 # 1. fresh clone — all new (files + nested dirs).

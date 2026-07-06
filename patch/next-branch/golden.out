@@ -1,9 +1,9 @@
 === stdout ===
-?ba823b7030257ddfb59084d4b2b91031cf1a940b
+?dc5b640eb7c29e2de9d7c7c45acd74133c9ec3ac
         merged f.txt
 
 === patch row ===
-T	patch	?ba823b7030257ddfb59084d4b2b91031cf1a940b
+T	patch	?dc5b640eb7c29e2de9d7c7c45acd74133c9ec3ac
 === status ===
 mrg f.txt
 === file bytes ===

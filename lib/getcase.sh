@@ -17,16 +17,18 @@ set -eu
 # --- locate binaries + the get.js extension ---------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/js/get/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)          # repo root
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "getcase: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab), so drop the
+# `[ -x "$BE" ]` gate: locate jab, then alias BE=$JABC so any legacy `"$BE"`
+# seed/put/post/delete in a case seeds with jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "getcase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be), not in
 # beagle/bin/.  GUARD: skip (exit 0) if that cross-submodule path is absent.
 BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "getcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "getcase: no jab at $JABC" >&2; exit 2; }
 
 # wire transport env (be:/ssh: spawn `ssh <host> keeper upload-pack`; local
 # uses $KEEPER_BIN) — point both at the bin dir holding `be`/`keeper`.

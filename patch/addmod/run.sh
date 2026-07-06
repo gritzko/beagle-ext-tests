@@ -12,20 +12,20 @@
 #  (`merged keep.txt` + `applied new.txt`), and the restamp match native.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
+# TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
+# `?feat` fork, `_trunk` switch by pinned t0, keeper.idx drop per op).
 build() {
     printf '1\n2\n3\n4\n' > keep.txt
-    "$BE" put keep.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-    "$BE" put '?./feat' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
-    printf 'ONE\n2\n3\n4\n' > keep.txt          # ours: line 1
-    "$BE" put keep.txt >/dev/null 2>&1; "$BE" post 't1' >/dev/null 2>&1
-    "$BE" get '?feat' >/dev/null 2>&1
+    _boot 't0'                                  # bootstrap trunk @ t0 (saves $BOOT)
+    _fork feat                                  # label feat @ t0
+    _sw feat
     printf '1\n2\nTHREE\n4\n' > keep.txt        # theirs: line 3 (disjoint)
     printf 'brand new\n' > new.txt              # theirs: a new file
-    "$BE" put keep.txt new.txt >/dev/null 2>&1; "$BE" post 'f1' >/dev/null 2>&1
-    F1=$(grep -a $'\tpost\t' .be/org/refs | grep -oE '[0-9a-f]{40}' | tail -1)
-    export F1
-    "$BE" get '?..' >/dev/null 2>&1
+    _ci 'f1' keep.txt new.txt
+    F1=$(_tip feat); export F1
+    _trunk                                      # back to trunk @ t0
+    printf 'ONE\n2\n3\n4\n' > keep.txt          # ours: line 1
+    _ci 't1' keep.txt
 }
 
 # JAB-003 golden snapshot (native oracle retired): new.txt (clean take-theirs

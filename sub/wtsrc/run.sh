@@ -14,11 +14,14 @@
 # the real store dir and record THAT.  An unresolvable worktree source refuses
 # with a friendly string and leaves NO broken/partial wt.
 #
-# Pure local `be:` keeper wire (no git, no network) — CI-friendly.
+# TEST-003: project-less local `file:` clone (no keeper); no submodule mount —
+# the source is a colocated primary store / its worktree, addressed `?/` (no
+# project name — jab is single-shard project-less).
 . "$(dirname "$0")/../lib/subcase.sh"
 
-# --- build a primary `be:` store (the REAL store) ---------------------------
-# Dir basename == project title (the [Title] bootstrap rule sub/lib relies on).
+# --- build a project-less colocated primary store (the REAL store) ----------
+# TEST-003: jab is single-shard project-less — refs live at .be/refs, the clone
+# URI is `file:<store>/.be?/` (no project name).  PROJ kept only for legacy args.
 STORE="$WORK/widget"
 PROJ="widget"
 rm -rf "$STORE"
@@ -32,14 +35,14 @@ sc_is40 "$TIP" "widget tip"
 
 # --- build a WORKTREE of the store (a SECONDARY wt) -------------------------
 # Its `.be` is a wtlog FILE whose row-0 `repo` redirects to the real store —
-# exactly the journal/.be shape (`repo file:<store>/.be/<proj>/`, then the tip).
+# TEST-003: project-less shape (`repo file:<store>/.be/?/`, then the tip).
 # A real `be status` here resolves the baseline (proves it is a valid worktree).
 WTSRC="$WORK/work"
 rm -rf "$WTSRC"; mkdir -p "$WTSRC"
 cp "$STORE/main.c" "$STORE/lib.c" "$WTSRC/"
 _R=$(awk -F'\t' 'NR==1{print $1; exit}' "$STORE/.be/wtlog")
-printf '%s\trepo\tfile:%s/.be/%s/\n%s\tget\t?#%s\n' \
-    "$_R" "$STORE" "$PROJ" "$_R" "$TIP" > "$WTSRC/.be"
+printf '%s\trepo\tfile:%s/.be/?/\n%s\tget\t?#%s\n' \
+    "$_R" "$STORE" "$_R" "$TIP" > "$WTSRC/.be"
 ( cd "$WTSRC" && "$BE" status ) >/dev/null 2>&1 \
     || _fail "worktree fixture: be status failed (not a valid wt)"
 
@@ -48,18 +51,18 @@ printf '%s\trepo\tfile:%s/.be/%s/\n%s\tget\t?#%s\n' \
 # `jab status` MUST classify (NOT all-`unk`).
 # ============================================================================
 T1="$WORK/getwt"
-_rc=$(sc_jget "$T1" "file:$WTSRC?/$PROJ")
+_rc=$(sc_jget "$T1" "file:$WTSRC?/")
 [ "$_rc" = 0 ] || { echo "--- err ---"; cat "$WORK/last.err"; _fail "wt-source get exit $_rc"; }
 
 # the checkout completed (files present).
 [ -f "$T1/main.c" ] || _fail "wt-source get: main.c missing (checkout incomplete)"
 [ -f "$T1/lib.c" ]  || _fail "wt-source get: lib.c missing (checkout incomplete)"
 
-# row-0 anchor is the REAL STORE (`<store>/.be/?/<proj>`), NOT the worktree path.
+# row-0 anchor is the REAL STORE (`<store>/.be/?/`), NOT the worktree path.
 _row0=$(awk -F'\t' 'NR==1{print $3; exit}' "$T1/.be")
 case "$_row0" in
-    file:"$STORE"/.be/?/"$PROJ") ;;
-    *) _fail "wt-source get: row-0 anchor [$_row0] != real store file:$STORE/.be/?/$PROJ" ;;
+    file:"$STORE"/.be/?/) ;;
+    *) _fail "wt-source get: row-0 anchor [$_row0] != real store file:$STORE/.be/?/" ;;
 esac
 # explicitly NOT the worktree URI (the GET-038 bug).
 case "$_row0" in
@@ -76,7 +79,7 @@ echo "ok   jab status classifies against the real baseline (no all-\`unk\`)"
 
 # Contrast: the STORE-form source records the SAME real-store anchor (unchanged).
 T2="$WORK/getstore"
-_rc=$(sc_jget "$T2" "file:$STORE/.be?/$PROJ")
+_rc=$(sc_jget "$T2" "file:$STORE/.be?/")
 [ "$_rc" = 0 ] || { echo "--- err ---"; cat "$WORK/last.err"; _fail "store-form get exit $_rc"; }
 _srow0=$(awk -F'\t' 'NR==1{print $3; exit}' "$T2/.be")
 [ "$_srow0" = "$_row0" ] \
@@ -91,7 +94,7 @@ BADWT="$WORK/badwt"
 rm -rf "$BADWT"; mkdir -p "$BADWT"
 : > "$BADWT/.be"                                 # empty anchor: no row-0 redirect
 T3="$WORK/getbad"
-_rc=$(sc_jget "$T3" "file:$BADWT?/$PROJ")
+_rc=$(sc_jget "$T3" "file:$BADWT?/")
 [ "$_rc" = 0 ] && _fail "unresolvable wt-source get should FAIL, got exit 0"
 grep -q 'GETWTSRC' "$WORK/last.err" \
     || { cat "$WORK/last.err"; _fail "unresolvable wt-source: not the friendly GETWTSRC refuse"; }

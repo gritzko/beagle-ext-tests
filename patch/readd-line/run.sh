@@ -15,21 +15,22 @@
 #  byte-identical to native's GRAFMergeWtFileTunable result.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
+# TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
+# `?feat` fork, `_trunk` switch by pinned t0, keeper.idx drop per op).
 build() {
     printf 'a\nb\nc\n' > f.txt
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-    "$BE" put '?./feat' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
-    printf 'A\nb\nc\n' > f.txt                 # ours: line 1 = A (disjoint)
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't1 line1=A' >/dev/null 2>&1
-    "$BE" get '?feat' >/dev/null 2>&1
+    _boot 't0'
+    _fork feat
+    _sw feat
     printf 'a\nb\nX\nc\n' > f.txt              # F1: add X after b
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1 add X' >/dev/null 2>&1
+    _ci 'f1 add X' f.txt
     printf 'a\nb\nc\n' > f.txt                 # F2: delete X
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f2 del X' >/dev/null 2>&1
+    _ci 'f2 del X' f.txt
     printf 'a\nb\nX\nc\n' > f.txt              # F3: re-add X
-    "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f3 re-add X' >/dev/null 2>&1
-    "$BE" get '?..' >/dev/null 2>&1
+    _ci 'f3 re-add X' f.txt
+    _trunk
+    printf 'A\nb\nc\n' > f.txt                 # ours: line 1 = A (disjoint)
+    _ci 't1 line1=A' f.txt
 }
 
 # JAB-003 golden snapshot (native oracle retired): a clean re-add merge stamps

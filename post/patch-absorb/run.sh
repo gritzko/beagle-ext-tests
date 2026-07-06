@@ -13,14 +13,14 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/post/patch-absorb
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "post/patch-absorb: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (LAGS jab); alias BE=$JABC so the
+# legacy `"$BE"` seeds run jab.
+JABC=${JABC:-${JAB:-${BIN:+$BIN/jab}}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "post/patch-absorb: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC"); BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"
 [ -f "$BEDIR/main.js" ] || { echo "post/patch-absorb: SKIP — no $BEDIR/main.js" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "post/patch-absorb: no jab at $JABC" >&2; exit 2; }
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 # Pin the clock so the builder shas (and the `patch ?<sha>` row uri) are stable.
 : "${SOURCE_DATE_EPOCH:=1467331200}"; export SOURCE_DATE_EPOCH   # 2016-07-01Z
@@ -40,31 +40,34 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
     | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
 
-# Build an origin with a trunk/feat divergence over f.txt, leaving cur at trunk
-# (mirrors patch/cherry's builder).  `_build OURS THEIRS` edits f.txt's line 2
-# (ours) and line 4 (theirs); writes the feat tip sha to $WORK/F1.
+# TEST-003 jab-only DAG.  The store's rolling keeper.idx indexes only the LATEST
+# keeper, so t0's object (the fork point) reads MISSING after a 2nd post; drop the
+# stale idx before each op.  Bootstrap post-alone, absolute `?feat`, and switch
+# back to trunk by PINNING the saved t0 (bare `?` folds to the current branch).
+_jab() { rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
 _build() {   # _build OURS_LINE THEIRS_LINE
     rm -rf "$WORK/org"; ORG="$WORK/org"; mkdir -p "$ORG/.be"
     ( cd "$ORG"
       printf 'a\nb\nc\nd\ne\n' > f.txt
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-      "$BE" put '?./feat' >/dev/null 2>&1
-      "$BE" get '?..' >/dev/null 2>&1
-      printf 'a\n%s\nc\nd\ne\n' "$1" > f.txt          # ours: line 2
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't1' >/dev/null 2>&1
-      "$BE" get '?feat' >/dev/null 2>&1
+      _jab post 't0' >/dev/null 2>&1
+      T0=$(grep -a "$(printf '\tpost\t')" .be/refs | grep -oE '[0-9a-f]{40}' | head -1)
+      _jab put '?feat' >/dev/null 2>&1
+      _jab get '?feat' >/dev/null 2>&1
       printf 'a\nb\nc\n%s\ne\n' "$2" > f.txt          # theirs: line 4
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1' >/dev/null 2>&1
-      grep -a "$(printf '\tpost\t')" .be/org/refs \
-        | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
-      "$BE" get '?..' >/dev/null 2>&1 )               # leave cur at trunk
+      _jab put f.txt >/dev/null 2>&1; _jab post 'f1' >/dev/null 2>&1
+      grep -a "$(printf '\tpost\t')" .be/refs \
+        | grep -aE '\?feat#' | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
+      _jab get "?#$T0" >/dev/null 2>&1               # back to trunk @ t0
+      printf 'a\n%s\nc\nd\ne\n' "$1" > f.txt          # ours: line 2
+      _jab put f.txt >/dev/null 2>&1; _jab post 't1' >/dev/null 2>&1
+      rm -f "$ORG"/.be/*.keeper.idx )                 # let the clone see every commit
 }
 
 # ===== leg 1: a clean MERGE absorb commits =====
 # ours edits line 2, theirs line 4 (disjoint) → a clean 3-way merge → `mrg`.
 _build B D; F1=$(cat "$WORK/F1")
 JS="$WORK/merge"; mkdir -p "$JS"
-( cd "$JS" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "clone failed (merge)"
+( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "clone failed (merge)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (merge)"
 st=$(_jstatus "$JS")
 [ "$st" = "mrg f.txt" ] || _fail "merge-absorb status != 'mrg f.txt':
@@ -94,25 +97,26 @@ echo "ok: the absorb is a MERGE commit (parents = ours-tip + theirs)"
 # ===== leg 2: a CONFLICT absorb refuses, then --force commits =====
 # ours + theirs both edit line 2 differently → a true conflict → `cnf` + markers.
 # (theirs edits line 2 here, not line 4, so it overlaps ours.)
-_build2() {
+_build2() {   # TEST-003 jab-only DAG (see _build note)
     rm -rf "$WORK/org"; ORG="$WORK/org"; mkdir -p "$ORG/.be"
     ( cd "$ORG"
       printf 'a\nb\nc\nd\ne\n' > f.txt
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't0' >/dev/null 2>&1
-      "$BE" put '?./feat' >/dev/null 2>&1
-      "$BE" get '?..' >/dev/null 2>&1
-      printf 'a\nY\nc\nd\ne\n' > f.txt                # ours: line 2 = Y
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 't1' >/dev/null 2>&1
-      "$BE" get '?feat' >/dev/null 2>&1
+      _jab post 't0' >/dev/null 2>&1
+      T0=$(grep -a "$(printf '\tpost\t')" .be/refs | grep -oE '[0-9a-f]{40}' | head -1)
+      _jab put '?feat' >/dev/null 2>&1
+      _jab get '?feat' >/dev/null 2>&1
       printf 'a\nX\nc\nd\ne\n' > f.txt                # theirs: line 2 = X (conflicts)
-      "$BE" put f.txt >/dev/null 2>&1; "$BE" post 'f1' >/dev/null 2>&1
-      grep -a "$(printf '\tpost\t')" .be/org/refs \
-        | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
-      "$BE" get '?..' >/dev/null 2>&1 )
+      _jab put f.txt >/dev/null 2>&1; _jab post 'f1' >/dev/null 2>&1
+      grep -a "$(printf '\tpost\t')" .be/refs \
+        | grep -aE '\?feat#' | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
+      _jab get "?#$T0" >/dev/null 2>&1               # back to trunk @ t0
+      printf 'a\nY\nc\nd\ne\n' > f.txt                # ours: line 2 = Y
+      _jab put f.txt >/dev/null 2>&1; _jab post 't1' >/dev/null 2>&1
+      rm -f "$ORG"/.be/*.keeper.idx )
 }
 _build2; F1=$(cat "$WORK/F1")
 JS="$WORK/conf"; mkdir -p "$JS"
-( cd "$JS" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
+( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (conf)"
 st=$(_jstatus "$JS")
 [ "$st" = "cnf f.txt" ] || _fail "conflict-absorb status != 'cnf f.txt':

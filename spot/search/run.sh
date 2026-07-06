@@ -37,7 +37,9 @@ void f() {
 }
 EOF
 "$BE" post -m base >/dev/null 2>&1 || "$BE" post base >/dev/null 2>&1
-TIP=$("$BE" 'sha1:?' --plain 2>/dev/null | tr -d '[:space:]')
+# TEST-003: jab's `sha1:?` prints `sha1?<hex40>` (scheme prefix); the historic
+# `?ref` trail arg wants BARE hex, so grep the 40-hex tip out.
+TIP=$("$BE" 'sha1:?' --plain 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1)
 
 # --- grep: literal substring (one hit, top region) ------------------------
 spot_eq "grep literal hit"        'grep:.c#beta'
@@ -45,7 +47,7 @@ spot_eq "grep literal hit"        'grep:.c#beta'
 spot_eq "grep multi-file/coalesce" 'grep:.c#int'
 spot_eq "grep return all"         'grep:.c#return'
 # --- grep: zero hits (no hunks, OK exit) ----------------------------------
-spot_eq "grep zero hits"          'grep:.c#zzznotfound'
+spot_zero "grep zero hits"        'grep:.c#zzznotfound'
 # --- regex: native RegExp -------------------------------------------------
 spot_eq "regex match"             'regex:.c#na.es'
 spot_eq "regex anchored"          'regex:.c#^int'
@@ -56,7 +58,7 @@ spot_eq "spot bracket block"      'spot:.c#{A[0], A[1]}'
 # --- spot: lowercase single-token + uppercase block on one needle ---------
 spot_eq "spot lower+upper"        'spot:.c#int a = b'
 # --- spot: zero hits ------------------------------------------------------
-spot_eq "spot zero hits"          'spot:.c#nosuch q = Z'
+spot_zero "spot zero hits"        'spot:.c#nosuch q = Z'
 
 # --- historic ?ref search (canonical trail-arg form: ref is a SEPARATE arg)
 spot_eq "grep historic ?tip"      'grep:.c#alpha' "?$TIP"

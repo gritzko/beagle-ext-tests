@@ -14,8 +14,11 @@ case "$SRC" in "$HOME"/*) RELBE="${SRC#$HOME/}/.be" ;;
     *) echo "SKIP [cached] scratch not under \$HOME"; exit 0 ;; esac
 
 # be:// clone — writes a `get be://localhost/...?#<tip>` remote-tracking row.
+# TEST-003: jab-seeded source is single-shard/unnamed → clone URI drops `?/src`;
+# the be:// wire needs a keeper peer, so a missing/incompatible keeper just makes
+# the clone leave no a.txt → the case SKIPs below (never a false FAIL).
 mkdir "$WORK/jT"; cd "$WORK/jT"
-"$JABC" get "be://localhost/$RELBE?/src" >/dev/null 2>"$WORK/clone.err" || true
+"$JABC" get "be://localhost/$RELBE" >/dev/null 2>"$WORK/clone.err" || true
 [ -f "$WORK/jT/a.txt" ] || { echo "SKIP [cached] no be:// clone (ssh?)"; \
     cat "$WORK/clone.err" >&2; exit 0; }
 

@@ -12,11 +12,14 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/js/ls/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)           # repo root (beagle/)
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "lscase: cannot locate be (set BE= or BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so the legacy `"$BE" post/get` seeds run jab; the `ls:`/`lsr:`
+# oracle is jab's OWN per-dir `ls` (self-consistency), NOT native `be ls:`.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "lscase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001/JSQUE-016: the loop + handlers live in the sibling `be/` submodule.
 # A $BEDIR override lets an isolated worktree gate its OWN be/ shard (JAB-018
 # develops under ~/todo/JAB-018/be, not the landed beagle-ext).
@@ -25,6 +28,7 @@ BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "lscase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
 { [ -f "$BEDIR/views/ls/ls.js" ] || [ -f "$BEDIR/verbs/ls/ls.js" ]; } || { echo "lscase: SKIP — no $BEDIR/{views,verbs}/ls/ls.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "lscase: no jab at $JABC" >&2; exit 2; }
+BE=$JABC
 
 : "${KEEPER_BIN:=$_BIN/keeper}"
 : "${DOG_REMOTE_PATH:=$_BIN}"
@@ -56,22 +60,17 @@ new_wt() {
     _w="$WORK/$1"; rm -rf "$_w"; mkdir -p "$_w/.be"; echo "$_w"
 }
 
-# native_rel VERB DIR — native `be ls:DIR --plain` re-expressed RELATIVE to
-# DIR: the DIR prefix stripped off each row's path column, the banner rewritten
-# to the URI-014 `word URI` spell (`<verb>` at root, `<verb> <dir>` for a scope),
-# blank lines dropped.  This is the per-hunk ORACLE for the relative-path
-# listing: each hunk names its directory in the banner and lists entries BY NAME,
-# so native ls: of that directory with the prefix stripped IS the expected hunk
-# (root DIR="" strips nothing).  URI-014: native still bakes the `ls:` scheme
-# banner (C follow-up); the JS view emits the word spell, so the oracle rewrites
-# the banner to match (verb OUT of the scheme).
+# TEST-003 native_rel VERB DIR — the per-hunk ORACLE, now jab's OWN single-dir
+# `ls DIR` (self-consistency), NOT native `be ls:` (retired, LAGS jab).  jab's
+# `ls:DIR` already emits the URI-014 `word URI` banner (`ls`/`ls DIR`) + rows BY
+# NAME, so the oracle is jab `ls:DIR` with only the banner VERB rewritten (ls ->
+# lsr) and blank lines dropped — asserting the recursive/root hunk equals jab's
+# stand-alone listing of that directory.
 native_rel() {
-    "$BE" "ls:$2" --plain 2>/dev/null | awk -v d="$2" -v verb="$1" '
+    "$JABC" ls "ls:$2" 2>/dev/null | awk -v verb="$1" '
         $0=="" { next }
-        NR==1  { sub(/^ls:/, ""); print (($0=="") ? verb : verb " " $0); next }
-        { head=substr($0,1,12); path=substr($0,13);
-          if (d!="" && index(path,d)==1) path=substr(path,length(d)+1);
-          print head path }'
+        NR==1  { $1=verb; print; next }
+        { print }'
 }
 
 # ls_rel DESC URI — assert `jab main.js <scheme> URI` (one hunk) matches the

@@ -17,20 +17,26 @@
 # RED before D17: patch.js:89/222-225 skip every gitlink, so `jab patch` leaves
 # the sub UNTOUCHED — no file, no pin bump.  GREEN after the descent.
 #
-# Pure local `be:` keeper wire (no git, no network).  Asserts the spec, not
-# native parity.  Builds in its OWN scratch dirs (subcase.sh $WORK).
+# TEST-003 FLAGGED: needs the JS-keeper feature — the mounted sub CHILD is
+# fetched over the git/keeper WIRE (submount.mount), no keeper-free local path.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 # --- build the parent+sub fixture (parent gitlink @ SUBTIP0) -----------------
 sc_build_parent
 
 # ============================================================================
-# 1. Clone the parent at the CURRENT tip (PARTIP0, sub @ SUBTIP0) BEFORE the
-#    advance — the `be:` wire clones the advertised tip, so the clone must
-#    precede the advance to land REFS/cur at the OLD pin.
+# 1. ISOLATE the clone from the source, then clone @ the OLD pin.  TEST-003: a
+#    `file://` local get yields a STORE-BACKED worktree that SHARES the source
+#    store, so advancing the ORIGINAL source would perturb the clone's cur pin.
+#    `cp -a` freezes a COPY of the PARENT store at the OLD baseline; the clone
+#    shares the COPY, so the later advance of the ORIGINAL leaves it put.  (The
+#    sub store stays shared: its cur is PINNED by the mount anchor at SUBTIP0.)
 # ============================================================================
+PARCOPY="$WORK/par.copy"
+rm -rf "$PARCOPY"; cp -a "$PARSTORE" "$PARCOPY"
+
 T1="$WORK/clone"
-_rc=$(sc_jget "$T1" "be:$PARSTORE/.be?/par")
+_rc=$(sc_jget "$T1" "file://$PARCOPY/.be")
 [ "$_rc" = 0 ] || { echo "--- clone err ---"; cat "$WORK/last.err"; _fail "clone exit $_rc"; }
 [ -f "$T1/vendor/sub/lib.c" ]      || _fail "clone: sub not checked out"
 [ ! -f "$T1/vendor/sub/feature.c" ] || _fail "clone: advanced sub file already present"
@@ -38,8 +44,9 @@ PIN0=$(sc_gitlink_pin "$T1" "$SUBPATH")
 [ "$PIN0" = "$SUBTIP0" ] || _fail "clone: gitlink pin [$PIN0] != old [$SUBTIP0]"
 
 # ============================================================================
-# 2. In the SOURCE stores: advance the sub (v2 + a NEW sub file) -> SUBTIP1, then
-#    make a NEW parent commit (child of PARTIP0) THEIRS that bumps the gitlink.
+# 2. In the ORIGINAL SOURCE stores: advance the sub (v2 + a NEW sub file) ->
+#    SUBTIP1, then make a NEW parent commit (child of PARTIP0) THEIRS that bumps
+#    the gitlink.  The clone (on the COPY) is untouched by this.
 # ============================================================================
 ( cd "$SUBSTORE"
   printf 'sub payload v2 ADVANCED\n' > lib.c
@@ -53,7 +60,7 @@ sc_is40 "$SUBTIP1" "sub tip1"
 
 ( cd "$PARSTORE"
   _r=$(awk -F'\t' 'NR==1{print $1; exit}' .be/wtlog)
-  printf '%s\tget\tfile:%s/.be/?/sub#%s\n' "$_r" "$SUBSTORE" "$SUBTIP1" \
+  printf '%s\tget\tfile:%s/.be/?/#%s\n' "$_r" "$SUBSTORE" "$SUBTIP1" \
       > vendor/sub/.be
   printf 'sub payload v2 ADVANCED\n' > vendor/sub/lib.c
   printf 'sub new feature\n'         > vendor/sub/feature.c
@@ -65,24 +72,14 @@ sc_is40 "$THEIRS" "theirs (parent advance commit)"
 echo "ok   1. clone @ old pin ($SUBTIP0); source advanced: sub tip1 ($SUBTIP1), theirs ($THEIRS)"
 
 # ============================================================================
-# 3. Seed the advanced objects into the OLD clone's store: a throwaway clone at
-#    the (now advanced) tip THEIRS holds the FULL closure (PARTIP0+THEIRS+SUBTIP0
-#    +SUBTIP1); OVERWRITE the old clone's par/sub packs with it.  REFS/cur stay at
-#    the OLD pin (refs are NOT copied) — THEIRS becomes locally resolvable while
-#    cur/wt sit behind it.
+# 3. Seed the advanced OBJECTS into the clone's (COPY) store: copy the advanced
+#    keeper packs (+idx) from the ORIGINAL PARSTORE into the frozen PARCOPY,
+#    WITHOUT touching PARCOPY's refs/wtlog — THEIRS becomes locally resolvable
+#    while cur/wt sit behind it at the OLD pin.  The advanced sub objects
+#    (SUBTIP1) already live in the shared $SUBSTORE the sub mount reads.
 # ============================================================================
-T3="$WORK/seed"
-_rc=$(sc_jget "$T3" "be:$PARSTORE/.be?/par")
-[ "$_rc" = 0 ] || { echo "--- seed err ---"; cat "$WORK/last.err"; _fail "seed exit $_rc"; }
-for _proj in par sub; do
-    [ -d "$T3/.be/$_proj" ] || continue
-    mkdir -p "$T1/.be/$_proj"
-    # overwrite packs + idx with the full-closure seed (drop the old idx first so
-    # no stale file_id mapping survives), keep the old REFS untouched.
-    rm -f "$T1/.be/$_proj"/*.keeper "$T1/.be/$_proj"/*.idx 2>/dev/null
-    for _f in "$T3/.be/$_proj"/*.keeper "$T3/.be/$_proj"/*.idx; do
-        [ -f "$_f" ] && cp "$_f" "$T1/.be/$_proj/$(basename "$_f")"
-    done
+for _f in "$PARSTORE/.be"/*.keeper "$PARSTORE/.be"/*.keeper.idx; do
+    [ -f "$_f" ] && cp "$_f" "$PARCOPY/.be/$(basename "$_f")"
 done
 # cur/wt still at the OLD pin (trunk gitlink SUBTIP0, no advanced file on disk).
 PIN0B=$(sc_gitlink_pin "$T1" "$SUBPATH")
@@ -111,9 +108,10 @@ _lib=$(cat "$T1/vendor/sub/lib.c")
 echo "ok   3a. patch descended: the sub's changed + new files landed in the mount"
 
 # (b) the PARENT gitlink bumped to the advanced sub pin (the synthesised
-#     `put <sub>#<newpin>` D7 bump) — recorded in the wtlog.
-grep -qE "put[[:space:]]+vendor/sub#$SUBTIP1" "$T1/.be/wtlog" \
-    || { echo "--- wtlog ---"; cat "$T1/.be/wtlog"; \
+#     `put <sub>#<newpin>` D7 bump) — recorded in the wtlog.  TEST-003:
+#     store-backed clone — the parent wtlog IS the `.be` FILE (rows inline).
+grep -qE "put[[:space:]]+vendor/sub#$SUBTIP1" "$T1/.be" \
+    || { echo "--- wtlog ---"; cat "$T1/.be"; \
          _fail "D17: no 'put vendor/sub#$SUBTIP1' gitlink bump in the wtlog (D7)"; }
 echo "ok   3b. patch bumped the parent gitlink to the advanced sub pin ($SUBTIP1)"
 

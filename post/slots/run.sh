@@ -82,9 +82,11 @@ ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
 } )
 
 # A fresh clone of the origin store with one STAGED change to a.txt.
+# TEST-003: jab-seeded stores are unnamed-project, so all clones here use bare
+# `file://<store>` (no `?/orgN` selector — jab never mints a named shard).
 _clone_staged() {
     rm -rf "$WORK/$1"; mkdir "$WORK/$1"
-    ( cd "$WORK/$1" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
+    ( cd "$WORK/$1" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
     ( cd "$WORK/$1" && printf 'CHANGED\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 )
 }
 
@@ -181,7 +183,7 @@ Q1_OTHER=$(_branch_tip "$WORK/q1" other)
 # Clone, commit locally onto trunk (advance cur), THEN `?feat` advances feat to
 # cur's tip with NO new commit.  feat does not pre-exist → created at cur's tip.
 rm -rf "$WORK/q2"; mkdir "$WORK/q2"
-( cd "$WORK/q2" && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 )
+( cd "$WORK/q2" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
 ( cd "$WORK/q2" && printf 'C2\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 && \
   "$JABC" post '#c2' >/dev/null 2>&1 ) || _fail "q2 local c2 post failed"
 Q2_CUR=$(_tip "$WORK/q2")
@@ -200,7 +202,7 @@ ORG2="$WORK/org2"; mkdir -p "$ORG2"; ( cd "$ORG2" && mkdir .be && {
     "$BE" post '#c1' >/dev/null 2>&1
 } )
 rm -rf "$WORK/p1"; mkdir "$WORK/p1"
-( cd "$WORK/p1" && "$BE" get "file://$ORG2/.be?/org2" >/dev/null 2>&1 )
+( cd "$WORK/p1" && "$BE" get "file://$ORG2/.be" >/dev/null 2>&1 )
 ( cd "$WORK/p1" && printf 'A2\n' > a.txt && printf 'B2\n' > b.txt && \
   "$BE" put a.txt b.txt >/dev/null 2>&1 )
 ( cd "$WORK/p1" && "$JABC" post './a.txt#narrow a only' ) >"$WORK/p1.out" 2>"$WORK/p1.err" \
@@ -216,7 +218,7 @@ ORG3="$WORK/org3"; mkdir -p "$ORG3"; ( cd "$ORG3" && mkdir .be && {
     "$BE" post '#c1' >/dev/null 2>&1
 } )
 rm -rf "$WORK/p2"; mkdir "$WORK/p2"
-( cd "$WORK/p2" && "$BE" get "file://$ORG3/.be?/org3" >/dev/null 2>&1 )
+( cd "$WORK/p2" && "$BE" get "file://$ORG3/.be" >/dev/null 2>&1 )
 ( cd "$WORK/p2" && printf 'X2\n' > src/a.txt && printf 'B2\n' > b.txt && \
   "$BE" put src/a.txt b.txt >/dev/null 2>&1 )
 ( cd "$WORK/p2" && "$JABC" post 'src/a.txt#narrow src' ) >"$WORK/p2.out" 2>"$WORK/p2.err" \

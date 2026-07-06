@@ -52,7 +52,9 @@ spot_eq "regex star quant"         'regex:.c#ga*mma'
 spot_eq "regex plus quant"         'regex:.c#l+pha'
 spot_eq "regex opt quant"          'regex:.c#alpha?'
 # --- counted `{n}` `{n,}` `{n,m}` `{,m}` -----------------------------------
-spot_eq "regex {n} counted"        'regex:.c#l{2}'
+# TEST-003: `l{2}` (=`ll`) has no match in the fixture (alpha has one l); use
+# `m{2}` (=`mm`, in `gamma`) so the `{n}` quantifier genuinely hits.
+spot_eq "regex {n} counted"        'regex:.c#m{2}'
 spot_eq "regex {n,} counted"       'regex:.c#a{1,}'
 spot_eq "regex {n,m} counted"      'regex:.c#l{1,3}'
 spot_eq "regex {,m} counted"       'regex:.c#l{,3}'
@@ -64,9 +66,11 @@ spot_eq "regex grouping"           'regex:.c#(al|ga)'
 spot_eq "regex BOL anchor"         'regex:.c#^int'
 spot_eq "regex EOL anchor"         'regex:.c#3;$'
 # --- zero hits (no hunks, OK exit) ----------------------------------------
-spot_eq "regex zero hits"          'regex:.c#zzznotfound'
+spot_zero "regex zero hits"        'regex:.c#zzznotfound'
 # --- ext gate: only .c searched (txt skipped even though it would match) --
-spot_eq "regex ext gate skips txt" 'regex:.c#line'
+# TEST-003: `line` lives ONLY in note.txt; with the `.c` gate no .c file matches,
+# so the result is EMPTY — proving the txt (which WOULD match) was skipped.
+spot_zero "regex ext gate skips txt" 'regex:.c#line'
 
 # --- bad regex -> stderr 'bad regex' + non-zero exit ----------------------
 spot_err "regex bad pattern"       'regex:.c#a['   'bad regex'

@@ -12,7 +12,8 @@
 #   2. COMMIT-ALL parent + dirty sub → the dirty sub STILL commits + bumps (no
 #      regression of the default post-order recursion / sub/cycle).
 #
-# Pure local `be:` keeper wire, reuses the DIS-058 sub harness (no git/network).
+# TEST-003 FLAGGED: needs the JS-keeper feature — the mounted sub CHILD is
+# fetched over the git/keeper WIRE (submount.mount), no keeper-free local path.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 sc_build_parent
@@ -21,7 +22,7 @@ sc_build_parent
 # 1. SELECTIVE: stage a PARENT file only, dirty-but-UNSTAGED edit in the sub.
 # ============================================================================
 T1="$WORK/get1"
-_rc=$(sc_jget "$T1" "be:$PARSTORE/.be?/par")
+_rc=$(sc_jget "$T1" "file://$PARSTORE/.be")
 [ "$_rc" = 0 ] || { echo "--- get1 err ---"; cat "$WORK/last.err"; _fail "get1 exit $_rc"; }
 [ -f "$T1/vendor/sub/lib.c" ] || _fail "get1: sub not mounted/checked out"
 
@@ -53,7 +54,8 @@ PIN1=$(sc_gitlink_pin "$T1" "$SUBPATH")
 [ "$PIN1" = "$PIN0" ]       || _fail "selective: parent gitlink BUMPED [$PIN0]->[$PIN1] (spurious sub bump)"
 
 #  The staged parent file DID land (selective committed exactly what was staged).
-grep -qE 'put[[:space:]]+main\.c' "$T1/.be/wtlog" \
+#  TEST-003: store-backed clone — the parent wtlog IS the `.be` FILE (rows inline).
+grep -qE 'put[[:space:]]+main\.c' "$T1/.be" \
     || _fail "selective: staged parent main.c not committed"
 echo "ok   1. SELECTIVE: unstaged sub left at pin; staged parent file committed"
 
@@ -64,7 +66,7 @@ echo "ok   1. SELECTIVE: unstaged sub left at pin; staged parent file committed"
 #  just a dirty edit in the sub → the default post-order recursion must commit
 #  the dirty sub and bump the parent gitlink (sub/cycle behaviour preserved).
 T2="$WORK/get2"
-_rc=$(sc_jget "$T2" "be:$PARSTORE/.be?/par")
+_rc=$(sc_jget "$T2" "file://$PARSTORE/.be")
 [ "$_rc" = 0 ] || { echo "--- get2 err ---"; cat "$WORK/last.err"; _fail "get2 exit $_rc"; }
 
 SUBTIPA=$(sc_subtip "$T2/vendor/sub")

@@ -6,14 +6,16 @@
 # a clean-reset that unlinked EVERY path absent from the pin tree (untracked
 # included) REGARDLESS of force → silent data loss ([GET-040] locus, [DIS-058]
 # sub recursion must be read-only).  Force is ONE global flag, uniform across
-# the root and every submodule.  Pure local `be:` keeper wire (no git/network).
+# the root and every submodule.
+# TEST-003 FLAGGED: needs the JS-keeper feature — the mounted sub CHILD is
+# fetched over the git/keeper WIRE (submount.mount), no keeper-free local path.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 sc_build_parent
 
 # Clone the parent; the sub mounts + checks out at vendor/sub (lib.c, helper.c).
 T1="$WORK/get1"
-_rc=$(sc_jget "$T1" "be:$PARSTORE/.be?/par")
+_rc=$(sc_jget "$T1" "file://$PARSTORE/.be")
 [ "$_rc" = 0 ] || { echo "--- get1 err ---"; cat "$WORK/last.err"; _fail "get1 exit $_rc"; }
 [ -f "$T1/vendor/sub/lib.c" ] || _fail "get1: sub not mounted/checked out"
 

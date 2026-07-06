@@ -13,7 +13,7 @@
 #
 # RED before GET-039's symlink-leaf path (the legacy 160000 self-gitlink lives
 # in sub/selflink — GET-037; this is the git-model 120000 form GET-039 adopts).
-# Pure local `be:` keeper wire — CI-friendly.
+# TEST-003: local project-less `file://` clone (no keeper); no submodule mount.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 SLSTORE="$WORK/proj"
@@ -75,7 +75,7 @@ _walk=$("$JABC" "$WORK/.walk.js" "$SLSTORE" 2>/dev/null)
 # (no `be`-name special-case), the checkout COMPLETES, no `?/be` sub fetched.
 # ============================================================================
 T1="$WORK/get1"
-_rc=$(sc_jget "$T1" "be:$SLSTORE/.be?/proj")
+_rc=$(sc_jget "$T1" "file://$SLSTORE/.be")
 [ "$_rc" = 0 ] || { echo "--- get1 err ---"; cat "$WORK/last.err"; _fail "get1 exit $_rc (a 120000 self-link must not abort)"; }
 
 [ -L "$T1/be" ] || _fail "get1: \`be\` is not a symlink (a 120000 blob must check out via io.symlink)"

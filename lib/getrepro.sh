@@ -11,14 +11,15 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/get/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)               # repo root
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "getrepro: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` RETIRED (LAGS jab); drop the `[ -x "$BE" ]`
+# gate, locate jab, and alias BE=$JABC so the source-repo setup seeds with jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "getrepro: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "getrepro: SKIP — no $BEDIR/main.js" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "getrepro: no jab at $JABC" >&2; exit 2; }
 
 : "${KEEPER_BIN:=$_BIN/keeper}"
 : "${DOG_REMOTE_PATH:=$_BIN}"
@@ -50,10 +51,12 @@ gr_src() {
     printf '%s\n' "$_s"
 }
 
-# gr_jclone SRC DST — JS-clone SRC's `/src` shard into the (made) DST dir.
+# gr_jclone SRC DST — JS-clone SRC into the (made) DST dir.  TEST-003: a
+# jab-seeded source is a single-shard UNNAMED-project colocated primary, so the
+# clone URI carries NO `?/name` (a named-project `?/x` misses jab's `?`-trunk).
 gr_jclone() {
     mkdir -p "$2"
-    ( cd "$2" && "$JABC" get "file://$1/.be?/$(basename "$1")" ) >/dev/null 2>&1
+    ( cd "$2" && "$JABC" get "file://$1/.be" ) >/dev/null 2>&1
 }
 
 # gr_jget DIR ARG... — run the JS `be get` in DIR; stdout->$WORK/last.out,
@@ -73,9 +76,10 @@ gr_file_is() {
 }
 
 # gr_tip_sha SRC — echo the full 40-hex CURRENT trunk tip sha of source SRC
-# (the LAST refs row — the newest post).
+# (the LAST refs row — the newest post).  TEST-003: a jab-seeded source is
+# single-shard/unnamed, so refs sits at `.be/refs`, not `.be/<name>/refs`.
 gr_tip_sha() {
-    od -An -c "$1/.be/$(basename "$1")/refs" 2>/dev/null \
+    od -An -c "$1/.be/refs" 2>/dev/null \
         | tr -d ' \n' | grep -oE '#[0-9a-f]{40}' | tail -1 | tr -d '#'
 }
 

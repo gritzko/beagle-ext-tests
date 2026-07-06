@@ -14,16 +14,17 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)              # test/js/patch/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)            # repo root
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "patchcase: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so every legacy `"$BE"` seed/clone in a case seeds with jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "patchcase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001: scripts live in the sibling `be/` submodule ($_ROOT/../be).
 # GUARD: skip (exit 0) if that cross-submodule path is absent.
 BEDIR="${BEDIR:-$_ROOT/..}"
 [ -f "$BEDIR/main.js" ] || { echo "patchcase: SKIP — no $BEDIR/main.js yet" >&2; exit 0; }
-[ -x "$JABC" ] || { echo "patchcase: no jab at $JABC" >&2; exit 2; }
 
 case ":$PATH:" in *":$_BIN:"*) ;; *) PATH="$_BIN:$PATH"; export PATH ;; esac
 export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
@@ -55,6 +56,29 @@ export WORK
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 pass() { echo "PASS [$NAME]"; }
+
+# TEST-003 jab-only DAG seeding.  `jab` here (a fresh primary in cwd, PWD=$ORG).
+# The store's rolling `.keeper.idx` run indexes only the LATEST keeper, so an
+# earlier commit's object (the t0 FORK POINT both branches need) reads MISSING
+# after a 2nd post; drop the stale idx before each op to force a full re-index.
+_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+# _boot MSG: FIRST commit on a fresh repo — post ALONE (put-before-post throws
+# "Not a directory"); it auto-adds the wt.  Saves the trunk tip in $BOOT for a
+# later trunk switch (bare `?` folds to the CURRENT branch, not trunk).
+_boot() { _jab post "$1" >/dev/null 2>&1
+          BOOT=$(grep -a $'\tpost\t' .be/refs | grep -oE '[0-9a-f]{40}' | head -1); }
+# _fork BR: label-only fork at cur (ABSOLUTE `?BR`, not `?./BR` which stores the
+# branch literally as `./BR` and misses resolveRef).  Does NOT switch the wt.
+_fork() { _jab put "?$1" >/dev/null 2>&1; }
+# _sw BR: switch the wt to branch BR.  _trunk: switch back to trunk by PINNING
+# the saved boot tip (`?#<t0>`), since a bare `?` re-resolves the current branch.
+_sw() { _jab get "?$1" >/dev/null 2>&1; }
+_trunk() { _jab get "?#$BOOT" >/dev/null 2>&1; }
+# _ci MSG FILE...: stage the named files then commit on the current branch.
+_ci() { _msg=$1; shift; _jab put "$@" >/dev/null 2>&1; _jab post "$_msg" >/dev/null 2>&1; }
+# _tip BR: newest commit sha on branch BR (trunk = empty BR).  Exports nothing;
+# callers assign (e.g. F1=$(_tip feat)).
+_tip() { grep -a $'\tpost\t' .be/refs | grep -aE "\\?$1#" | grep -oE '[0-9a-f]{40}' | tail -1; }
 
 # the last `patch` wtlog row, ts-normalised (store-backed wt: .be IS the wtlog).
 _patch_row() {  # _patch_row WTDIR
@@ -95,8 +119,11 @@ patch_parity() {
     esac
 
     #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
+    #  TEST-003: drop the origin's stale keeper.idx so the clone sees EVERY commit
+    #  (the rolling idx indexes only the latest keeper — the t0 fork point is hid).
+    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
     JS="$WORK/js"; mkdir -p "$JS"
-    ( cd "$JS"  && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "JS clone failed"
+    ( cd "$JS"  && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "JS clone failed"
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
@@ -134,8 +161,10 @@ patch_js_golden() {
     esac
 
     #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
+    #  TEST-003: drop the origin's stale keeper.idx so the clone sees every commit.
+    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
     JS="$WORK/js"; mkdir -p "$JS"
-    ( cd "$JS"  && "$BE" get "file://$ORG/.be?/org" >/dev/null 2>&1 ) || _fail "JS clone failed"
+    ( cd "$JS"  && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "JS clone failed"
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 

@@ -1,11 +1,11 @@
 === stdout ===
-#2e43e22eb795038bc90a2ef90444a99cbf6858e2
+#20a2f228cfb682bd4960e8290e3ebfd14e3f4e6e
         applied link
         mod plain.txt
         applied run.sh
 
 === patch row ===
-T	patch	#2e43e22eb795038bc90a2ef90444a99cbf6858e2
+T	patch	#20a2f228cfb682bd4960e8290e3ebfd14e3f4e6e
 === status ===
 pat link
 pat run.sh

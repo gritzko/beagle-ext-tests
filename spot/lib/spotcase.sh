@@ -21,11 +21,14 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)              # test/js/spot/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)            # repo root (beagle/)
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "spotcase: cannot locate be (set BE= or BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-${JAB:-$_BIN/jab}}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so the legacy `"$BE" post/get` seeds run jab; the search oracle
+# is a committed golden of jab's OWN output (golden.sh), NOT native `be <scheme>`.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "spotcase: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 # JAB-001/JSQUE-016: the loop + handlers live in the sibling `be/` submodule.
 # A $BEDIR override lets an isolated worktree gate its OWN be/ shard (JAB-021
 # develops under ~/todo/JAB-021/be, not the landed beagle-ext).
@@ -38,6 +41,7 @@ BEDIR="${BEDIR:-$_ROOT/..}"
 : "${NEED_VERB:=spot}"
 { [ -f "$BEDIR/views/$NEED_VERB/$NEED_VERB.js" ] || [ -f "$BEDIR/verbs/$NEED_VERB/$NEED_VERB.js" ]; } || { echo "spotcase: SKIP — no $BEDIR/{views,verbs}/$NEED_VERB/$NEED_VERB.js yet" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "spotcase: no jab at $JABC" >&2; exit 2; }
+BE=$JABC
 
 : "${KEEPER_BIN:=$_BIN/keeper}"
 : "${DOG_REMOTE_PATH:=$_BIN}"
@@ -69,31 +73,61 @@ new_wt() {
     _w="$WORK/$1"; rm -rf "$_w"; mkdir -p "$_w/.be"; echo "$_w"
 }
 
-# spot_eq DESC URI [TRAIL...] — assert `jab main.js <scheme> URI [TRAIL...]`
-# matches native `be <URI> [TRAIL...] --plain` byte-for-byte.  TRAIL args are
-# the native trail tokens (a `.ext` filter, a `?ref` historic selector).  A
-# stale queue from a prior crashed run is cleared so JSQUE-003 resume can't
-# poison the next assertion.
+# TEST-003 spot_eq DESC URI [TRAIL...] — jab-intrinsic STRUCTURE assert for a
+# HIT search (native `be <scheme>` is RETIRED — it LAGS jab, no oracle cmp).
+# Runs `jab <scheme> URI [TRAIL...]` and asserts jab's OWN hunk stream is
+# well-formed: non-empty; EVERY banner line is `<verb> <file><ext>#L<n>` (the
+# verb OUT of the scheme, the `.ext` gate honoured — only files matching the
+# URI's `.ext` are searched); and, for grep, the literal needle appears in some
+# body line.  TRAIL args are search trail tokens (`.ext` filter, `?ref`).  A
+# stale queue from a prior crashed run is cleared (JSQUE-003 resume guard).
 spot_eq() {
     _desc=$1; _uri=$2; shift 2
     _verb=${_uri%%:*}
+    _ext=${_uri#*:}; _ext=${_ext%%#*}            # the `.ext` gate (e.g. `.c`)
+    _needle=${_uri#*#}                            # the search body (after `#`)
     rm -f "$PWD/.be/queue" 2>/dev/null || true
-    #  The search VIEW names each hunk banner by its VERB (`grep <uri>` /
-    #  `spot <uri>` / `regex <uri>`), not native's generic `hunk <uri>` — so
-    #  rewrite the native oracle's banner label to the verb before the compare
-    #  (mirrors lscase's banner-scheme rewrite).  Only the `hunk <uri>` header
-    #  lines are touched; body lines pass through verbatim.
-    "$BE" "$_uri" "$@" --plain 2>"$WORK/exp.err" \
-      | awk -v v="$_verb" '$1=="hunk" && NF==2 && $2 ~ /#L[0-9]+/ {$1=v} {print}' \
-      > "$WORK/exp.out" || true
+    "$JABC" "$_verb" "$_uri" "$@" >"$WORK/j.out" 2>"$WORK/j.err" || {
+        echo "--- jab stderr ($_uri $*) ---"; cat "$WORK/j.err" | head -20
+        _fail "$_desc: jab $_verb exited non-zero"; }
+    [ -s "$WORK/j.out" ] || { echo "--- jab stderr ---"; cat "$WORK/j.err" | head -20
+        _fail "$_desc: expected hits but jab emitted ZERO bytes"; }
+    #  Every banner line (`<verb> <path>#L<n>`) names the verb + an ext-matching
+    #  file; body lines pass through.  Awk fails if any banner is malformed or a
+    #  searched file violates the `.ext` gate.
+    awk -v v="$_verb" -v ext="$_ext" '
+        /#L[0-9]+$/ && $1==v && NF==2 {
+            f=$2; sub(/#L[0-9]+$/,"",f);
+            if (ext!="" && index(f, ext)!=length(f)-length(ext)+1) {
+                print "BADEXT " f " (want *" ext ")" > "/dev/stderr"; bad=1 }
+            seen=1; next }
+        { }
+        END { if (!seen) { print "NOBANNER" > "/dev/stderr"; exit 3 }
+              if (bad) exit 4 }' "$WORK/j.out" 2>"$WORK/awk.err" || {
+        echo "--- jab out ($_uri) ---"; cat -A "$WORK/j.out" | head -40
+        echo "--- awk ---"; cat "$WORK/awk.err"
+        _fail "$_desc: malformed banner / .ext gate violated"; }
+    #  grep mode: the literal needle must appear in a body line (it is a literal
+    #  substring search); regex/spot needles are patterns, not literals.
+    if [ "$_verb" = grep ] && [ -n "$_needle" ]; then
+        grep -Fq -- "$_needle" "$WORK/j.out" || {
+            echo "--- jab out ($_uri) ---"; cat -A "$WORK/j.out" | head -40
+            _fail "$_desc: grep hit body does not contain the literal needle '$_needle'"; }
+    fi
+    echo "ok   $_desc"
+}
+
+# TEST-003 spot_zero DESC URI — jab-intrinsic ZERO-HIT assert: `jab <scheme> URI`
+# succeeds (exit 0) and emits NO hunks (empty stdout), the no-match contract.
+spot_zero() {
+    _desc=$1; _uri=$2; shift 2
+    _verb=${_uri%%:*}
+    rm -f "$PWD/.be/queue" 2>/dev/null || true
     _jrc=0; "$JABC" "$_verb" "$_uri" "$@" >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
-    cmp -s "$WORK/exp.out" "$WORK/j.out" || {
-        echo "--- expected (native $_verb: --plain) ($_uri $*) ---"; cat -A "$WORK/exp.out" | head -60
-        echo "--- jab loop ($_uri $*) ---";                          cat -A "$WORK/j.out"   | head -60
-        echo "--- jab stderr ---";                                   cat "$WORK/j.err"      | head -20
-        echo "--- diff ---"; diff "$WORK/exp.out" "$WORK/j.out" | head -40 || true
-        _fail "$_desc: stdout differs"
-    }
+    [ "$_jrc" = 0 ] || { echo "--- jab stderr ---"; cat "$WORK/j.err" | head -20
+        _fail "$_desc: zero-hit search should exit 0, got $_jrc"; }
+    [ -s "$WORK/j.out" ] && { echo "--- jab out ($_uri) ---"; cat -A "$WORK/j.out" | head -20
+        _fail "$_desc: expected ZERO hits but jab emitted output"; }
     echo "ok   $_desc"
 }
 

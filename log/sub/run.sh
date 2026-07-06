@@ -8,20 +8,23 @@
 #
 # Fixture (pure `be`, no git, modelled on test/parity/status-subs build_fixture):
 # a parent wt that MOUNTS + COMMITS a gitlink at vendor/sub, where the sub store
-# has THREE of its own commits.  Asserts byte-parity of `jab log:vendor/sub`
-# (and `log:./vendor/sub`) with BOTH C `be log:vendor/sub` AND
-# `cd vendor/sub && jab log:`, and that `log:vendor/sub/<file>` logs WITHIN the
-# sub.  RED today (the sub history is the super-repo's `mount sub` line); GREEN
-# after.  Registered by the be/test glob as be-js-log-sub — no CMakeLists edit.
+# has THREE of its own commits.  TEST-003: jab-intrinsic (native `be` LAGS jab —
+# word-spell banner, human dates), so assert `jab log:vendor/sub` lists the sub's
+# OWN c1/c2/c3 rows, equals `cd vendor/sub && jab log:` and `log:./vendor/sub`,
+# `log:<sub>/<file>` logs WITHIN the sub, and a non-sub path is unchanged.  RED
+# pre-fix (the sub history was the super-repo's `mount sub` line); GREEN after.
+# Registered by the be/test glob as be-js-log-sub — no CMakeLists edit.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/log/sub
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "log/sub: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it LAGS jab); locate jab and
+# alias BE=$JABC so legacy `"$BE" post/put` seeds run jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "log/sub: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/main.js" ] || { echo "log/sub: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "log/sub: no jab at $JABC" >&2; exit 2; }
@@ -48,7 +51,9 @@ mkdir -p "$SUBSTORE/.be" "$PWT/.be"
 # sub store: THREE of its OWN commits (the history the sub log must show).
 ( cd "$SUBSTORE"
   printf 'a\n' > lib.c; printf 'h\n' > helper.c
-  "$BE" put lib.c helper.c >/dev/null 2>&1; "$BE" post '#sub c1' >/dev/null 2>&1
+  # TEST-003: post auto-adds; an explicit `put` before the FIRST post breaks jab's
+  # first writePack ("Not a directory"), so seed the first commit via post alone.
+  "$BE" post '#sub c1' >/dev/null 2>&1
   printf 'b\n' > lib.c; "$BE" put lib.c >/dev/null 2>&1; "$BE" post '#sub c2' >/dev/null 2>&1
   printf 'c\n' > lib.c; "$BE" put lib.c >/dev/null 2>&1; "$BE" post '#sub c3' >/dev/null 2>&1 ) \
     || _fail "sub setup"
@@ -58,24 +63,28 @@ case "$SUBTIP" in ????????????????????????????????????????) ;; *) _fail "sub tip
 # parent store: a baseline, then MOUNT + COMMIT the sub gitlink at vendor/sub.
 ( cd "$PWT"
   printf 'int main(void){return 0;}\n' > main.c
-  "$BE" put main.c >/dev/null 2>&1; "$BE" post '#parent main' >/dev/null 2>&1 ) || _fail "parent setup"
+  # TEST-003: first-post auto-adds (no pre-post `put`, jab writePack wrinkle).
+  "$BE" post '#parent main' >/dev/null 2>&1 ) || _fail "parent setup"
 ( cd "$PWT"
   cat > .gitmodules <<EOF
 [submodule "vendor/sub"]
 	path = vendor/sub
-	url = file://$SUBSTORE/.be?/substore
+	url = file://$SUBSTORE/.be
 EOF
   mkdir -p vendor/sub
   RONTS=$(awk -F'\t' 'NR==1{print $1; exit}' .be/wtlog)
-  printf '%s\tget\tfile:%s/.be/?/substore#%s\n' "$RONTS" "$SUBSTORE" "$SUBTIP" > vendor/sub/.be
+  # TEST-003: the sub store is an UNNAMED single-shard jab repo — the mount
+  # anchor must NOT name a `substore` project (be.find would open a missing shard).
+  printf '%s\tget\tfile:%s/.be#%s\n' "$RONTS" "$SUBSTORE" "$SUBTIP" > vendor/sub/.be
   printf 'c\n' > vendor/sub/lib.c; printf 'h\n' > vendor/sub/helper.c
   "$BE" put .gitmodules >/dev/null 2>&1
   "$BE" put vendor/sub  >/dev/null 2>&1
   "$BE" post '#mount sub' >/dev/null 2>&1 ) || _fail "mount sub"
 [ -f "$PWT/vendor/sub/.be" ] || _fail "sub anchor not a file (mount failed)"
 
-# Captures: C oracle, the sub run-in-place (cd sub && jab log:), the parent log.
-( cd "$PWT"            && "$BE"   log:vendor/sub --plain ) >"$WORK/nat.sub"   2>/dev/null || true
+# Captures: the sub log, the sub run-in-place (cd sub && jab log:), the parent log.
+# TEST-003: no native oracle — native `be` LAGS jab (word-spell banner, human
+# dates), so assert the sub history intrinsically (rows + the sub's own messages).
 ( cd "$PWT"            && "$JABC" log:vendor/sub --plain ) >"$WORK/jab.sub"   2>/dev/null || true
 ( cd "$PWT"            && "$JABC" log:./vendor/sub --plain) >"$WORK/jab.dotsub" 2>/dev/null || true
 ( cd "$PWT/vendor/sub" && "$JABC" log: --plain           ) >"$WORK/jab.cdsub"  2>/dev/null || true
@@ -96,20 +105,26 @@ grep -q "^$PARTIP8 " "$WORK/jab.sub" && {
     _fail "parent tip $PARTIP8 (the gitlink-bump) leaked into the SUB log"; } || true
 echo "ok: jab log:vendor/sub lists the SUB's own commits, not the super-repo's"
 
-# 2. Body-parity with the C oracle `be log:vendor/sub` (the history rows).
-#    URI-014: the JS banner is now the WORD spell `log vendor/sub` (verb OUT of
-#    the scheme); the C oracle still bakes `log:vendor/sub` (C follow-up pending),
-#    so assert the JS banner shape directly + compare the banner-stripped bodies.
+# 2. The sub history rows (jab-intrinsic).  Banner is the URI-014 word spell
+#    `log vendor/sub`; the body is EXACTLY the sub's OWN three commits (c1/c2/c3),
+#    newest-first, each a `<sha8>  <time>  <msg> (<author>)` row — never the
+#    super-repo's gitlink-bump `mount sub` line.
 head -n1 "$WORK/jab.sub" | grep -qx "log vendor/sub" \
     || { echo "--- jab banner ---"; head -n1 "$WORK/jab.sub"; \
          _fail "jab log:vendor/sub banner is not the word spell 'log vendor/sub'"; }
-tail -n +2 "$WORK/nat.sub" > "$WORK/nat.sub.body"
-tail -n +2 "$WORK/jab.sub" > "$WORK/jab.sub.rows"
-cmp -s "$WORK/nat.sub.body" "$WORK/jab.sub.rows" || {
-    echo "--- native be log:vendor/sub ---"; cat -A "$WORK/nat.sub"
-    echo "--- jab    log:vendor/sub ---";    cat -A "$WORK/jab.sub"
-    _fail "jab log:vendor/sub rows differ from C be log:vendor/sub"; }
-echo "ok: jab log:vendor/sub banner=word spell, rows byte-match C be log:vendor/sub"
+tail -n +2 "$WORK/jab.sub" | grep -cE '^[0-9a-f]{8} ' >"$WORK/subrows.n"
+[ "$(cat "$WORK/subrows.n")" = 3 ] || {
+    echo "--- jab log:vendor/sub ---"; cat -A "$WORK/jab.sub"
+    _fail "jab log:vendor/sub: expected 3 sub commit rows, got $(cat "$WORK/subrows.n")"; }
+for _m in 'sub c1' 'sub c2' 'sub c3'; do
+    grep -qF "$_m " "$WORK/jab.sub" \
+        || { echo "--- jab log:vendor/sub ---"; cat -A "$WORK/jab.sub"; \
+             _fail "jab log:vendor/sub missing the sub's own '$_m' row"; }
+done
+grep -qF 'mount sub' "$WORK/jab.sub" \
+    && { echo "--- jab log:vendor/sub ---"; cat -A "$WORK/jab.sub"; \
+         _fail "super-repo 'mount sub' gitlink-bump leaked into the SUB log"; }
+echo "ok: jab log:vendor/sub banner=word spell, 3 sub rows (c1/c2/c3), no super-repo line"
 
 # 3. The sub's body (minus the `log:<path>` banner) equals `cd sub && jab log:`.
 tail -n +2 "$WORK/jab.sub"   > "$WORK/jab.sub.body"
@@ -127,38 +142,42 @@ cmp -s "$WORK/jab.sub" "$WORK/jab.dotsub" || {
     _fail "jab log:./vendor/sub differs from jab log:vendor/sub"; }
 echo "ok: jab log:./vendor/sub descends the mount too"
 
-# 5. log:<sub>/<file> logs WITHIN the sub (strip the sub prefix, recurse) —
-#    byte-parity with C be log:vendor/sub/lib.c.
-( cd "$PWT" && "$BE"   log:vendor/sub/lib.c --plain ) >"$WORK/nat.file" 2>/dev/null || true
+# 5. log:<sub>/<file> logs WITHIN the sub (strip the sub prefix, recurse).
+#    TEST-003: jab-intrinsic — lib.c was touched by ALL THREE sub commits, so the
+#    file-scoped sub log lists c1/c2/c3 (word-spell banner), never the super-repo.
 ( cd "$PWT" && "$JABC" log:vendor/sub/lib.c --plain ) >"$WORK/jab.file" 2>/dev/null || true
-# URI-014: word-spell banner (`log vendor/sub/lib.c`) vs C scheme form — assert
-# the JS banner shape + compare the banner-stripped history rows (C follow-up).
 head -n1 "$WORK/jab.file" | grep -qx "log vendor/sub/lib.c" \
     || { echo "--- jab banner ---"; head -n1 "$WORK/jab.file"; \
          _fail "jab log:vendor/sub/lib.c banner is not the word spell"; }
-tail -n +2 "$WORK/nat.file" > "$WORK/nat.file.body"
-tail -n +2 "$WORK/jab.file" > "$WORK/jab.file.body"
-cmp -s "$WORK/nat.file.body" "$WORK/jab.file.body" || {
-    echo "--- native be log:vendor/sub/lib.c ---"; cat -A "$WORK/nat.file"
-    echo "--- jab    log:vendor/sub/lib.c ---";    cat -A "$WORK/jab.file"
-    _fail "jab log:vendor/sub/lib.c rows differ from C (sub-relative file history)"; }
-echo "ok: jab log:vendor/sub/lib.c logs the file WITHIN the sub"
+for _m in 'sub c1' 'sub c2' 'sub c3'; do
+    grep -qF "$_m " "$WORK/jab.file" \
+        || { echo "--- jab log:vendor/sub/lib.c ---"; cat -A "$WORK/jab.file"; \
+             _fail "jab log:vendor/sub/lib.c missing the sub's '$_m' row"; }
+done
+grep -qF 'mount sub' "$WORK/jab.file" \
+    && { echo "--- jab log:vendor/sub/lib.c ---"; cat -A "$WORK/jab.file"; \
+         _fail "super-repo 'mount sub' leaked into the sub file log"; }
+echo "ok: jab log:vendor/sub/lib.c logs the file WITHIN the sub (c1/c2/c3)"
 
-# 6. NO REGRESSION: a NON-sub path keeps current-repo behaviour — byte-parity
-#    with C be log:main.c.
-( cd "$PWT" && "$BE"   log:main.c --plain ) >"$WORK/nat.main" 2>/dev/null || true
+# 6. NO REGRESSION: a NON-sub path keeps CURRENT-repo behaviour.  TEST-003: jab-
+#    intrinsic — main.c lives in the parent's single `parent main` commit, so the
+#    non-sub file log lists exactly that row (word-spell banner), with NONE of the
+#    sub's c1/c2/c3 (the descend-into-sub path must NOT fire for a current file).
 ( cd "$PWT" && "$JABC" log:main.c --plain ) >"$WORK/jab.main" 2>/dev/null || true
-# URI-014: word-spell banner (`log main.c`) vs C scheme form — assert the JS
-# banner shape + compare the banner-stripped rows (C follow-up pending).
 head -n1 "$WORK/jab.main" | grep -qx "log main.c" \
     || { echo "--- jab banner ---"; head -n1 "$WORK/jab.main"; \
          _fail "jab log:main.c banner is not the word spell 'log main.c'"; }
-tail -n +2 "$WORK/nat.main" > "$WORK/nat.main.body"
-tail -n +2 "$WORK/jab.main" > "$WORK/jab.main.body"
-cmp -s "$WORK/nat.main.body" "$WORK/jab.main.body" || {
-    echo "--- native be log:main.c ---"; cat -A "$WORK/nat.main"
-    echo "--- jab    log:main.c ---";    cat -A "$WORK/jab.main"
-    _fail "jab log:main.c (non-sub) rows differ from C (regression)"; }
-echo "ok: non-sub log:main.c unchanged (no regression)"
+grep -qF 'parent main ' "$WORK/jab.main" \
+    || { echo "--- jab log:main.c ---"; cat -A "$WORK/jab.main"; \
+         _fail "jab log:main.c missing the parent's 'parent main' row"; }
+_mainrows=$(tail -n +2 "$WORK/jab.main" | grep -cE '^[0-9a-f]{8} ')
+[ "$_mainrows" = 1 ] || { echo "--- jab log:main.c ---"; cat -A "$WORK/jab.main"; \
+    _fail "jab log:main.c: expected 1 parent row, got $_mainrows"; }
+for _m in 'sub c1' 'sub c2' 'sub c3'; do
+    grep -qF "$_m " "$WORK/jab.main" \
+        && { echo "--- jab log:main.c ---"; cat -A "$WORK/jab.main"; \
+             _fail "sub row '$_m' leaked into the non-sub log:main.c (regression)"; }
+done
+echo "ok: non-sub log:main.c lists only the parent row (no sub descent)"
 
 echo "PASS [log/$NAME]"

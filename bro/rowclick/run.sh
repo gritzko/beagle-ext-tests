@@ -13,11 +13,13 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/bro/rowclick
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "bro/rowclick: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  Locate jab and
+# alias BE=$JABC so the legacy `"$BE" post/put` seeds run jab too.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "bro/rowclick: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
+BE=$JABC
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/main.js" ] || { echo "bro/rowclick: SKIP — no $BEDIR/main.js" >&2; exit 0; }
 [ -f "$BEDIR/views/bro/pager.js" ] || { echo "bro/rowclick: SKIP — no pager.js" >&2; exit 0; }
@@ -58,10 +60,20 @@ printf 'one\n'   > a.txt;                       "$BE" post 'first commit summary
 printf 'two\n'   > b.txt; "$BE" put b.txt >/dev/null 2>&1; "$BE" post 'second commit summary also reasonably long for wrapping' >/dev/null 2>&1 || _fail "post 2"
 printf 'three\n' > c.txt; "$BE" put c.txt >/dev/null 2>&1; "$BE" post 'third commit summary likewise long enough to overflow' >/dev/null 2>&1 || _fail "post 3"
 
-# Expected commit:?<full-sha> per row, newest-first (the native oracle order).
-"$BE" log: --tlv 2>/dev/null > "$WORK/nat.tlv"
-WANT=$(strings "$WORK/nat.tlv" | grep -o 'commit:?[0-9a-f]\{40\}' || true)
-[ -n "$WANT" ] || _fail "native be log: --tlv carries no commit:?<sha> targets"
+# TEST-003: jab-intrinsic row set — native `be` LAGS jab (word-spell vs scheme
+# URI), so derive each row's `commit:?<full-sha>` from jab's OWN log+resolve
+# (`jab sha1:`, not the pager under test).  check.js asserts each row's target
+# against the U it decodes from the tlv itself; WANT only bounds the row count.
+"$JABC" log: --plain 2>/dev/null | awk 'NF && $1 ~ /^[0-9a-f]{8}$/ { print $1 }' > "$WORK/short"
+[ -s "$WORK/short" ] || _fail "no commit rows in jab log:"
+: > "$WORK/want"
+while read -r _sh; do
+    _full=$("$JABC" sha1:"?$_sh" 2>/dev/null | grep -oE '^[0-9a-f]{40}$')
+    [ -n "$_full" ] || _fail "jab could not resolve short sha $_sh to full"
+    printf 'commit:?%s\n' "$_full" >> "$WORK/want"
+done < "$WORK/short"
+WANT=$(cat "$WORK/want")
+[ -n "$WANT" ] || _fail "no commit:?<sha> targets derived from jab log:"
 
 # Capture the JS loop's --tlv stream (the thing under test).
 "$JABC" log: --tlv >"$WORK/jab.tlv" 2>"$WORK/jab.err" || _fail "jab log: --tlv failed ($(cat "$WORK/jab.err"))"

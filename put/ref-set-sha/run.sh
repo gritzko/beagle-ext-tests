@@ -9,19 +9,24 @@
 # NOT mask a divergence).
 . "$(dirname "$0")/../putcase.sh"
 
-# refs-row counter: count `post`/`delete` rows in a side's project shard.
+# refs-row counter: count `post`/`delete` rows in a side's refs ulog.  TEST-003:
+# jab repos are unnamed single-shard — refs live at .be/refs, not a named subshard.
 _nrefs() {
     _sh=$(ls -d "$1"/.be/*/ 2>/dev/null | grep -v '\.be/\.' | head -1)
-    [ -n "${_sh:-}" ] && [ -f "$_sh/refs" ] || { echo 0; return; }
-    awk 'BEGIN{RS="\t";n=0} $0=="post"||$0=="delete"{n++} END{print n}' "$_sh/refs"
+    if [ -n "${_sh:-}" ] && [ -f "$_sh/refs" ]; then _rf="$_sh/refs"
+    elif [ -f "$1/.be/refs" ]; then _rf="$1/.be/refs"
+    else echo 0; return; fi
+    awk 'BEGIN{RS="\t";n=0} $0=="post"||$0=="delete"{n++} END{print n}' "$_rf"
 }
 
 # Minimal topology: commit T1 on trunk, fork ?feat at T1 (a sibling tip),
 # then advance trunk to T2.  cur stays trunk throughout, so cur's tip (T2)
 # and the ?feat tip (T1) DIFFER and BOTH are resolvable.
+# TEST-003: mint the sibling label with ABSOLUTE ?feat (not ?./feat, which
+# jab stores literally as "./feat" so resolveRef("feat") misses).
 seed_baseline 'printf "A\n" > a.txt'
 ( cd "$BASE" \
-  && "$BE" put '?./feat'  >/dev/null 2>&1 \
+  && "$BE" put '?feat'  >/dev/null 2>&1 \
   && sleep 0.02 && printf "A2\n" > a.txt \
   && "$BE" put a.txt      >/dev/null 2>&1 \
   && "$BE" post t2        >/dev/null 2>&1 )

@@ -11,11 +11,12 @@ set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/bro/status
 _ROOT=$(cd "$_CASE/../.." && pwd)                # be/test
-BE=${BE:-${BIN:+$BIN/be}}
-BE=${BE:-$(command -v be || true)}
-[ -n "$BE" ] && [ -x "$BE" ] || { echo "bro/status: cannot locate be (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BE")
-JABC=${JABC:-$_BIN/jab}
+# TEST-003: jab-only — native `be` is RETIRED (it now LAGS jab).  This case seeds
+# NOTHING (pure statusURI unit test); just locate jab.
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
+[ -n "$JABC" ] && [ -x "$JABC" ] || { echo "bro/status: cannot locate jab (set BIN=)" >&2; exit 2; }
+_BIN=$(dirname "$JABC")
 BEDIR="${BEDIR:-$(cd "$_ROOT/.." && pwd)}"       # the be/ JS tree (be/test -> be/)
 [ -f "$BEDIR/view/bro.js" ] || { echo "bro/status: SKIP — no $BEDIR/view/bro.js" >&2; exit 0; }
 [ -x "$JABC" ] || { echo "bro/status: no jab at $JABC" >&2; exit 2; }
