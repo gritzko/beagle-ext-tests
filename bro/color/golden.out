@@ -1,0 +1,15 @@
+=== plain-file (exit 0) ===
+hunk WORK/src/a.c
+// a comment
+int main(void) { return 42; }
+=== plain-dir (exit 0) ===
+hunk WORK/src/.
+sub/
+a.c
+x.txt
+=== plain-multi (exit 0) ===
+hunk WORK/src/a.c
+// a comment
+int main(void) { return 42; }
+hunk WORK/src/x.txt
+x

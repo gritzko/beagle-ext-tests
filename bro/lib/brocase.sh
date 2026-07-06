@@ -10,12 +10,13 @@ set -eu
 # --- locate binaries + the bro.js extension ---------------------------
 _CASE=$(cd "$(dirname "$0")" && pwd)            # test/js/bro/<case>
 _ROOT=$(cd "$_CASE/../.." && pwd)          # repo root
-# The native `bro` oracle: prefer $BIN (DOG_BIN_DIR under ctest), else PATH.
+# TEST-003: native `bro` is a STALE oracle (lags jab) — the differential legs
+# are now GOLDEN asserts (golden.sh) seeded from jab.  `bro` is OPTIONAL (unused
+# by the golden path); resolve jab from $JABC (ctest env) / $BIN / PATH.
 BRO=${BRO:-${BIN:+$BIN/bro}}
 BRO=${BRO:-$(command -v bro || true)}
-[ -n "$BRO" ] && [ -x "$BRO" ] || { echo "brocase: cannot locate bro (set BIN=)" >&2; exit 2; }
-_BIN=$(dirname "$BRO")
-JABC=${JABC:-$_BIN/jab}
+JABC=${JABC:-${BIN:+$BIN/jab}}
+JABC=${JABC:-$(command -v jab || true)}
 # JAB-bro: `bro` is now a LOOP VERB (verbs/bro/bro.js), not the standalone
 # entry `be/bro.js` — so the parity legs run `jab bro …` THROUGH THE LOOP, not
 # `jab be/bro.js …`.  `jab bro` resolves loop.js + verbs/bro/bro.js via the
@@ -51,6 +52,12 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 # --- assert helpers ---------------------------------------------------
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
+# TEST-003: the differential legs golden-snapshot jab's own output (native `bro`
+# is a stale oracle).  Accumulate labelled blocks; pass() golden_asserts them.
+. "$_ROOT/lib/golden.sh"
+GOLDEN=${GOLDEN:-$_CASE/golden.out}
+_GSTREAM="$WORK/golden.stream"; : > "$_GSTREAM"
+
 # _abs ARG  — echo a path arg absolutized against the CALLER's cwd, preserving a
 # trailing `/` and a `#fragment` (so `a.c#main`, `src/`, `/abs/x` all map right).
 # `jab bro` runs from the WORKTREE cwd (for the verb scan), so every file arg must
@@ -68,34 +75,26 @@ _abs() {
     esac
 }
 
-# bro_eq DESC ARG...  — native `bro --plain ARG...` vs `jab bro --plain ARG...`
-# (THROUGH THE LOOP, JAB-bro); the two STDOUT streams must be byte-identical.
-# `jab bro` runs from $BROWT (so the be-scan finds verbs/bro/bro.js); native
-# runs from the caller's cwd.  Every file arg is ABSOLUTIZED (against the
-# CALLER's cwd) and passed to BOTH legs — so they view the SAME files AND emit
-# the SAME `hunk <uri>` banner (the banner echoes the arg verbatim, so a
-# relative-vs-absolute arg would diverge the banner).  The exit code is
-# asserted only as zero/non-zero (the oracle's dog-CLI FILENONE code is not
-# reproducible from a JS handler — a throw maps to exit 1).
+# bro_eq DESC ARG...  — TEST-003: run `jab bro --plain ARG...` (THROUGH THE LOOP,
+# JAB-bro) and append its stdout + exit code to the golden stream (native `bro`
+# oracle retired — jab is asserted intrinsically).  `jab bro` runs from $BROWT
+# (be-scan finds views/bro/bro.js); every file arg is ABSOLUTIZED, then the
+# volatile scratch path is folded to `WORK` so the golden is reproducible.
 bro_eq() {
     _desc=$1; shift
-    # Absolutize every file arg (against the CALLER's cwd) — used by BOTH legs.
     _abs_args=""
     for _a in "$@"; do _abs_args="$_abs_args $(_abs "$_a")"; done
-    # `|| _rc=$?` keeps a non-zero exit (a missing-URI case) from tripping set -e.
     # eslint: $_abs_args is intentionally word-split into one arg per path.
-    _orc=0; "$BRO" --plain $_abs_args >"$WORK/o.out" 2>"$WORK/o.err" || _orc=$?
     _jrc=0; ( cd "$BROWT" && "$JABC" bro --plain $_abs_args ) \
         >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
-    cmp -s "$WORK/o.out" "$WORK/j.out" || {
-        echo "--- oracle ---";  cat -A "$WORK/o.out" | head -40
-        echo "--- jab bro ---"; cat -A "$WORK/j.out" | head -40
-        _fail "$_desc: stdout differs"
-    }
-    # exit-code class must agree (both clean, or both fail).
-    { [ "$_orc" = 0 ] && [ "$_jrc" = 0 ]; } || { [ "$_orc" != 0 ] && [ "$_jrc" != 0 ]; } || \
-        _fail "$_desc: exit class differs (oracle=$_orc js=$_jrc)"
+    { echo "=== $_desc (exit $_jrc) ==="; sed "s|$WORK|WORK|g" "$WORK/j.out"; } \
+        >>"$_GSTREAM"
     echo "ok   $_desc"
 }
 
-pass() { echo "PASS [$NAME]"; exit 0; }
+# pass — golden_assert the accumulated stream (cases with no bro_eq leave it
+# empty → no assert, just the marker); GOLDEN_REGEN=1 re-snapshots.
+pass() {
+    [ -s "$_GSTREAM" ] && golden_assert "$NAME" "$GOLDEN" <"$_GSTREAM"
+    echo "PASS [$NAME]"; exit 0
+}

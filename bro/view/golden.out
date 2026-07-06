@@ -1,0 +1,67 @@
+=== c-file (exit 0) ===
+hunk WORK/src/a.c
+// a comment
+#include <stdio.h>
+int main(void) { return 42; }
+=== js-file (exit 0) ===
+hunk WORK/src/b.js
+"use strict";
+const x = 1;        // number + keyword
+function f() { return "ok"; }
+=== file#line (exit 0) ===
+hunk WORK/src/a.c#2
+// a comment
+#include <stdio.h>
+int main(void) { return 42; }
+=== file#symbol (exit 0) ===
+hunk WORK/src/a.c#main
+// a comment
+#include <stdio.h>
+int main(void) { return 42; }
+=== dir-bare (exit 0) ===
+hunk WORK/src/.
+.dotfile
+nonl.txt
+sub/
+b.js
+a.c
+notes
+=== dir-slash (exit 0) ===
+hunk WORK/src/
+.dotfile
+nonl.txt
+sub/
+b.js
+a.c
+notes
+=== multi (exit 0) ===
+hunk WORK/src/a.c
+// a comment
+#include <stdio.h>
+int main(void) { return 42; }
+hunk WORK/src/b.js
+"use strict";
+const x = 1;        // number + keyword
+function f() { return "ok"; }
+=== multi-mix (exit 0) ===
+hunk WORK/src/a.c
+// a comment
+#include <stdio.h>
+int main(void) { return 42; }
+hunk WORK/src/.
+.dotfile
+nonl.txt
+sub/
+b.js
+a.c
+notes
+hunk WORK/src/notes
+plain text, no extension
+=== no-ext-file (exit 0) ===
+hunk WORK/src/notes
+plain text, no extension
+=== no-newline (exit 0) ===
+hunk WORK/src/nonl.txt
+no-trailing-newline
+=== empty-dir (exit 0) ===
+=== missing (exit 1) ===

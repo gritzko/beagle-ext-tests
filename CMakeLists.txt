@@ -50,7 +50,7 @@ foreach(_run ${_be_runs})
         COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/${_run}"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(${_name} PROPERTIES
-        ENVIRONMENT "BIN=${BEAGLE_BIN_DIR};TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        ENVIRONMENT "BIN=${BEAGLE_BIN_DIR};JABC=${JAB_BIN};TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
         FIXTURES_REQUIRED be_tmp
         TIMEOUT 90)
     if (_name IN_LIST _BE_WILL_FAIL)
@@ -88,7 +88,7 @@ endforeach()
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
 foreach(_unit store ulog ingest patchband wire wirepush)
     add_test(NAME be-js-unit-${_unit}
-        COMMAND "${BEAGLE_BIN_DIR}/jab" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
+        COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(be-js-unit-${_unit} PROPERTIES
         ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
@@ -101,7 +101,7 @@ endforeach()
 foreach(_sub log/nonspine)
     string(REPLACE "/" "-" _subname "${_sub}")
     add_test(NAME be-js-unit-${_subname}
-        COMMAND "${BEAGLE_BIN_DIR}/jab" "${CMAKE_CURRENT_SOURCE_DIR}/${_sub}.js"
+        COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_sub}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(be-js-unit-${_subname} PROPERTIES
         ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
