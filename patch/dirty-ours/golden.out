@@ -1,0 +1,15 @@
+=== stdout ===
+#3f08b9e1fe94cd29e92d333cc32fe66dd19e0f5c
+        merged keep.txt
+
+=== patch row ===
+T	patch	#3f08b9e1fe94cd29e92d333cc32fe66dd19e0f5c
+=== status ===
+mrg keep.txt
+=== file bytes ===
+--- keep.txt ---
+-rw-------
+ONE
+2
+THREE
+4

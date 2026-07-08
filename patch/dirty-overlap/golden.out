@@ -1,0 +1,15 @@
+=== stdout ===
+#86c1bb3e3c3e165cb1a049fcf985682b5e795624
+        cnf keep.txt
+
+=== patch row ===
+T	patch	#86c1bb3e3c3e165cb1a049fcf985682b5e795624
+=== status ===
+cnf keep.txt
+=== file bytes ===
+--- keep.txt ---
+-rw-------
+1
+2
+<<<<THEIRS||||OURS>>>>
+4
