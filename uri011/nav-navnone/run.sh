@@ -1,9 +1,8 @@
 #!/bin/sh
-# URI-011 test/uri011/nav-navnone — a scheme-less `//name` nav authority that
-# does NOT resolve to a local tree under SRC_ROOT must ERROR (NAVNONE), not
-# silently fall back to the cwd repo.  authorityRepo (core/loop.js) distinguishes
-# a mistyped LOCAL tree (dotless host → NAVNONE) from a CACHED REMOTE (dotted
-# `//host…` → left to the wire, no throw).  RED-first repro; SUT=loop; JS-ONLY.
+# URI-011/BE-033 test/uri011/nav-navnone — a scheme-less `//name` nav authority
+# that does NOT resolve to a local worktree must ERROR (NAVNONE), never fall
+# back to the cwd repo or the wire: scheme-less `//X` is ALWAYS a worktree,
+# dotted or not (remotes carry a transport scheme).  RED-first; SUT=loop; JS-ONLY.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/uri011/nav-navnone
@@ -35,8 +34,7 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
 # A cwd worktree (its `.be` shield) so a swallowed authority WOULD resolve here —
 # that is exactly what the bug did.  SRC_ROOT = this scratch root: `//NONEXIST-999`
-# maps to $SRC_ROOT/NONEXIST-999 (absent) and `//host.dotted` likewise absent, but
-# only the DOTLESS name must NAVNONE.
+# maps to $SRC_ROOT/NONEXIST-999 (absent) and must NAVNONE, dotted or not.
 _wt="$WORK/wt"; mkdir -p "$_wt/.be"
 ( cd "$_wt"
   printf 'A\n' > a.txt
@@ -54,12 +52,15 @@ grep -q 'NAVNONE' "$WORK/none.out" \
 $(cat "$WORK/none.out")"
 echo "ok: //NONEXIST-999 errors with NAVNONE"
 
-# (b) a DOTTED `//host.example/x?main` cached remote must NOT NAVNONE (it is left
-#     to the wire — a dotted host is a real host, never a local typo).
-( cd "$_wt" && "$JABC" status '//host.example/x?main' ) >"$WORK/dot.out" 2>&1 || true
-grep -q 'NAVNONE' "$WORK/dot.out" \
-    && _fail "(b) a dotted //host.example NAVNONE'd (must be left to the wire):
+# (b) BE-033: a DOTTED `//host.example/x?main` is a worktree miss too — the
+#     cached-remote fall-through is dropped, so it must NAVNONE like any typo.
+if ( cd "$_wt" && "$JABC" status '//host.example/x?main' ) >"$WORK/dot.out" 2>&1; then
+    _fail "(b) dotted //host.example exited 0 (cached-remote fall-through?):
 $(cat "$WORK/dot.out")"
-echo "ok: dotted //host.example does not NAVNONE"
+fi
+grep -q 'NAVNONE' "$WORK/dot.out" \
+    || _fail "(b) dotted //host.example did not report NAVNONE:
+$(cat "$WORK/dot.out")"
+echo "ok: dotted //host.example errors with NAVNONE"
 
 echo "PASS [$NAME]"
