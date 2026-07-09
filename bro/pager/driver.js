@@ -193,7 +193,12 @@ eqCall("cc-d2-reffrag",   cc("cat","//HERE/x.c","?feat#L20"),         "cat","//H
 eqCall("cc-e-schemereset",cc("status","//HERE","post ssh://blah"),    "post","ssh://blah",[]);
 eqCall("cc-f-message",    cc("ls","//HERE","post 'fix bug'"),         "post","//HERE",["fix bug"]);
 eqCall("cc-g-urimsg",     cc("ls","//HERE","post //OTHER 'fix bug'"), "post","//OTHER",["fix bug"]);
+//  [Nav]/URI-011: arg 0 carries the //authority (hoisted+stripped downstream); REST
+//  args stay RAW wt-relative (they must NOT gain an authority — see shapeArg0).  The
+//  cross-dir fix is retiring bindRest (no arg0-dir rebasing), NOT rewriting the rest.
 eqCall("cc-put-multi",    cc("ls","//THERE/dir","put a.txt b/c.txt"), "put","//THERE/a.txt",["b/c.txt"]);
+eqCall("cc-put-crossdir", cc("status","//BE-030","put core/discover.js test/resolve_confine.js"),
+                          "put","//BE-030/core/discover.js",["test/resolve_confine.js"]);
 eqCall("cc-put-pathedit", cc("ls","//THERE/dir","put ./file"),        "put","//THERE/dir/file",[]);
 //  URI-011b: the pager reads a bareword as a WT-RELATIVE URI part (fixes `:why
 //  main.js` staying on the old view + `:put test`'s spurious arg 0); `-` = raw REST.

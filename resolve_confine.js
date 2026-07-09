@@ -1,7 +1,7 @@
 //  BE-030 test/resolve_confine.js — unit repro for core/discover.js
-//  resolve(context, base, rel), the 3-arg CONTEXT-CONFINED path resolver.  The
-//  tree NAME comes from `context` (a URI OBJECT) ALONE; `base` is the trusted
-//  in-repo dir the relative arg resolves against; `rel` is a PATH, NEVER a URI —
+//  resolve(context, rel), the CONTEXT-CONFINED path resolver.  `context` (a URI
+//  OBJECT) carries BOTH the tree NAME (its authority) and the TRUSTED in-repo dir
+//  (its path) the relative arg resolves against; `rel` is a PATH, NEVER a URI —
 //  a `//other` authority or a `scheme:` in `rel` is REFUSED (the //OTHER escape),
 //  and a `..` climb above the tree root THROWS "NAVESCAPE".  So a resolved path
 //  can NEVER leave $SRC_ROOT/<context-name>/.  Run: jab test/resolve_confine.js.
@@ -24,30 +24,34 @@ const resolve = discover.resolve;
 const SR = discover.srcRoot();                     // whatever root this box resolves
 const ctx = uri._parse("//ABC-123/dir");           // POINT 6: context is a URI OBJECT
 
-//  (1) a plain relative path resolves UNDER the context tree, against `base`.
-eq(resolve(ctx, "dir", "sub/y"), SR + "/ABC-123/dir/sub/y", "rel joins base under tree");
+//  (1) a plain relative path resolves UNDER the context tree, against the context's
+//  OWN path (the folded-in base): //ABC-123/dir + sub/y.
+eq(resolve(ctx, "sub/y"), SR + "/ABC-123/dir/sub/y", "rel joins context path under tree");
 //  (2) an IN-tree `..` climb is allowed (stays within the tree).
-eq(resolve(ctx, "dir", "../sib"), SR + "/ABC-123/sib", "in-tree .. stays confined");
-//  (3) a rooted `/x` rel addresses the tree ROOT (base dropped).
-eq(resolve(ctx, "dir", "/rooted"), SR + "/ABC-123/rooted", "rooted rel drops base");
-//  (4) no rel → the context tree dir itself.
-eq(resolve(ctx, "", ""), SR + "/ABC-123", "empty rel → tree dir");
+eq(resolve(ctx, "../sib"), SR + "/ABC-123/sib", "in-tree .. stays confined");
+//  (3) a rooted `/x` rel addresses the tree ROOT (context path dropped).
+eq(resolve(ctx, "/rooted"), SR + "/ABC-123/rooted", "rooted rel drops context path");
+//  (4a) no rel → the context's OWN dir (its path).
+eq(resolve(ctx, ""), SR + "/ABC-123/dir", "empty rel → context dir");
+//  (4b) a PATH-LESS context → the tree root (the old `base=""` case, now expressed
+//  as a context with no path — NOT a separate arg).
+eq(resolve(uri._parse("//ABC-123"), ""), SR + "/ABC-123", "path-less context → tree root");
 
 //  (5) POINT 5: `rel` is a PATH, not a URI — a `//other` authority is REFUSED
 //  (this closes the resolve('//ABC','//OTHER/x') → $SRC_ROOT/OTHER escape) ...
-throws(function () { resolve(ctx, "dir", "//OTHER/x"); }, "rel //OTHER authority refused");
+throws(function () { resolve(ctx, "//OTHER/x"); }, "rel //OTHER authority refused");
 //  ... and a `scheme://` transport in `rel` is REFUSED.
-throws(function () { resolve(ctx, "dir", "git://h/x"); }, "rel scheme refused");
+throws(function () { resolve(ctx, "git://h/x"); }, "rel scheme refused");
 
 //  (6) CONFINEMENT: a `..` that climbs ABOVE the tree root THROWS NAVESCAPE.
-throws(function () { resolve(ctx, "dir", "../../x"); }, "climb above tree root refused");
+throws(function () { resolve(ctx, "../../x"); }, "climb above tree root refused");
 //  (7) a bad authority NAME (`..`) in the context is refused too.
-throws(function () { resolve(uri._parse("//.."), "", "x"); }, "bad nav authority refused");
+throws(function () { resolve(uri._parse("//.."), "x"); }, "bad nav authority refused");
 
 //  (8) THE INVARIANT: whatever the rel, a resolved path stays under
 //  $SRC_ROOT/<name> — the confinement is a PROPERTY of the one function.
 for (const rel of ["a", "a/b/c", "./d", "../dir/e", "x/../y"]) {
-  const p = resolve(ctx, "dir", rel);
+  const p = resolve(ctx, rel);
   ok(p.indexOf(SR + "/ABC-123/") === 0 || p === SR + "/ABC-123",
      "confined under //ABC-123: '" + rel + "' -> " + p);
 }
