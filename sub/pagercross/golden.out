@@ -1,0 +1,14 @@
+=== context //cli
+
+>> put vendor/sub/x/k.txt vendor/sub/x/l.txt
+
+   |         put vendor/sub/x/k.txt
+
+   |         put vendor/sub/x/l.txt
+
+>> delete vendor/sub/x/k.txt vendor/sub/x/l.txt
+
+be delete: vendor/sub/x/k.txt has unstamped changes — stage with `be put` or revert before deleting
+
+   ERR: DELDIRTY
+
