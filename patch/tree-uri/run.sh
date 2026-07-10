@@ -46,11 +46,15 @@ rm -f "$ORG"/.be/*.keeper.idx
     || _fail "tree-uri patch failed: $(cat "$WORK/js.err")"
 
 #  refusals: a scheme patch cannot serve dies LOUDLY (one uniform line), never
-#  misread as a cherry ref; same for a transport authority (fetch leg: PATCH-011)
+#  misread as a cherry ref.  RE-RULED 2026-07-10 (PATCH-011): be:// rides the
+#  WIRE fetch leg — a DEAD wire source refuses loudly (PATCHFETCH) BEFORE any
+#  wt/store mutation; the host is pinned deterministically-dead (.invalid,
+#  RFC 2606 — never a live network dependency; ssh noise precedes the JS line
+#  on stderr, so the assert greps, mirroring fetch-cross-store's dead source).
 ! ( cd "$W1" && "$JABC" patch 'svn:trunk/x' ) >/dev/null 2>"$WORK/e1" \
     || _fail "bogus scheme did not refuse"
-! ( cd "$W1" && "$JABC" patch 'be://localhost/x/y' ) >/dev/null 2>"$WORK/e2" \
-    || _fail "be:// transport did not refuse"
+! ( cd "$W1" && "$JABC" patch 'be://dead.invalid/x/y' ) >/dev/null 2>"$WORK/e2" \
+    || _fail "be:// dead wire source did not refuse"
 ! ( cd "$W1" && "$JABC" patch 'file:../w2?feat' ) >/dev/null 2>"$WORK/e3" \
     || _fail "file:+query (store form) did not refuse"
 
@@ -60,7 +64,11 @@ rm -f "$ORG"/.be/*.keeper.idx
     echo "=== status ===";       _jstatus "$W1"
     echo "=== file bytes ===";   _fbytes "$W1" f.txt
     echo "=== refuse bogus scheme ===";  sed -n 1p "$WORK/e1"
-    echo "=== refuse transport ===";     sed -n 1p "$WORK/e2"
+    echo "=== refuse dead wire (be://) ==="
+    if grep -q "PATCHFETCH" "$WORK/e2"; then echo "refused loudly"; else
+        echo "NO loud refusal: $(head -1 "$WORK/e2")"; fi
+    echo "rows=$(grep -ac $'\tpatch\t' "$W1/.be" || true)"
+    _fbytes "$W1" f.txt
     echo "=== refuse file:+query ===";   sed -n 1p "$WORK/e3"
 } | golden_assert "$NAME" "$GOLDEN"
 pass
