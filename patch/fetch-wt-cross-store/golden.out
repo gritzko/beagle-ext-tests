@@ -1,0 +1,16 @@
+=== stdout ===
+?c9488196e880bf78d11bc3ab8ed5d6a9f384ed46!
+        merged f.txt
+
+=== fetched ===
+objects landed in b's shard
+=== patch row ===
+T	patch	?c9488196e880bf78d11bc3ab8ed5d6a9f384ed46!
+=== status ===
+mrg f.txt
+=== file bytes ===
+--- f.txt ---
+-rw-------
+A
+b
+C
