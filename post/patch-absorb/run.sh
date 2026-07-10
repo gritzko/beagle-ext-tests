@@ -119,9 +119,9 @@ JS="$WORK/conf"; mkdir -p "$JS"
 ( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (conf)"
 st=$(_jstatus "$JS")
-[ "$st" = "cnf f.txt" ] || _fail "conflict-absorb status != 'cnf f.txt':
+[ "$st" = "con f.txt" ] || _fail "conflict-absorb status != 'con f.txt':
 $st"
-echo "ok: a patch-conflicted file reads 'cnf' (stamp offset + conf→cnf)"
+echo "ok: a patch-conflicted file reads 'con' (STATUS-005 durable row + markers)"
 if ( cd "$JS" && "$JABC" post 'absorb feat (conf)' ) >"$WORK/c.out" 2>"$WORK/c.err"; then
     _fail "post of a conflicted absorb should REFUSE (POSTCFLCT):
 $(cat "$WORK/c.out")"
@@ -129,7 +129,7 @@ fi
 grep -q POSTCFLCT "$WORK/c.err" \
     || _fail "expected POSTCFLCT on a conflict-marked file, got:
 $(cat "$WORK/c.err")"
-echo "ok: post REFUSES a conflict-marked (cnf) absorb (POSTCFLCT)"
+echo "ok: post REFUSES a conflict-marked (con) absorb (POSTCFLCT)"
 ( cd "$JS" && "$JABC" post --force 'absorb feat (forced)' ) >"$WORK/cf.out" 2>"$WORK/cf.err" \
     || _fail "post --force of a conflict FAILED: $(cat "$WORK/cf.err")"
 grep -qE '(^|[[:space:]])mod f.txt$' "$WORK/cf.out" \

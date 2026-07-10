@@ -1,6 +1,6 @@
 === stdout ===
 ?66abe1b6ee441a9876531d819651eff6e053b4d5!
-        cnf f.txt
+        con f.txt
 
 === patch row ===
 T	patch	?66abe1b6ee441a9876531d819651eff6e053b4d5!

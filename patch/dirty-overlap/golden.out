@@ -1,11 +1,11 @@
 === stdout ===
 #86c1bb3e3c3e165cb1a049fcf985682b5e795624
-        cnf keep.txt
+        con keep.txt
 
 === patch row ===
 T	patch	#86c1bb3e3c3e165cb1a049fcf985682b5e795624
 === status ===
-cnf keep.txt
+con keep.txt
 === file bytes ===
 --- keep.txt ---
 -rw-------
