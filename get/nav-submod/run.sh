@@ -24,7 +24,7 @@ WORK="$TMP/$$/get/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall + the `be -> <be/>` shard symlink (jab's upward be/-scan).
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export BE JABC BEDIR
 

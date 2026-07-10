@@ -7,7 +7,7 @@
 //  DELETE resolves against the parent (like CLI) → a safe DELDIRTY refusal, NOT
 //  the RED destructive mis-target that silently deleted the sub's own file.
 "use strict";
-if (typeof process !== "undefined" && process.argv) process.argv[1] = io.cwd() + "/be/loop.js";
+if (typeof process !== "undefined" && process.argv) process.argv[1] = io.cwd() + "/jsrc/loop.js";
 const SPELL = require("shared/spell.js");
 const loop  = require("core/loop.js");
 const bro   = require("views/bro/bro.js");

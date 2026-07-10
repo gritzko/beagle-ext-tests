@@ -23,16 +23,16 @@ hunk WORK/src/.
 .dotfile
 nonl.txt
 sub/
-b.js
 a.c
+b.js
 notes
 === dir-slash (exit 0) ===
 hunk WORK/src/
 .dotfile
 nonl.txt
 sub/
-b.js
 a.c
+b.js
 notes
 === multi (exit 0) ===
 hunk WORK/src/a.c
@@ -52,8 +52,8 @@ hunk WORK/src/.
 .dotfile
 nonl.txt
 sub/
-b.js
 a.c
+b.js
 notes
 hunk WORK/src/notes
 plain text, no extension

@@ -1,0 +1,15 @@
+=== stdout ===
+?
+T delete ?
+        delete sub/a.txt
+        delete b/c.txt
+        delete sub/d/e.txt
+        delete sub/f/g.txt
+deleted 4 file(s) (4 row(s))
+
+=== wtlog delete rows ===
+=== refs rows ===
+=== file set ===
+./a.txt
+./d/e.txt
+./f/g.txt

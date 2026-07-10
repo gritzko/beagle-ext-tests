@@ -31,7 +31,7 @@ WORK="$TMP/$$/uri011/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall + the `be -> <be/>` shard symlink (jab's upward be/-scan).
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 

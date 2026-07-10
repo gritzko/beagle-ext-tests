@@ -26,7 +26,7 @@ NAME=$(basename "$_CASE")
 WORK="$TMP/$$/uri011/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export BE JABC BEDIR
@@ -70,7 +70,7 @@ echo "ok: bare // = the top tree"
 # (c) an empty-host wtdir MISS (repo-less cwd) is LOUD: NAVNONE + non-zero,
 #     never the raw `///path` passed to the verb verbatim.
 _nr="$(rs_norepo_base)/wt"; rm -rf "$_nr"; mkdir -p "$_nr"
-ln -sfn "$BEDIR" "$_nr/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$_nr/jsrc" 2>/dev/null || true
 if ( cd "$_nr" && "$JABC" status '///no/such/tree' ) >"$WORK/none.out" 2>&1; then
     _fail "(c) repo-less ///no/such/tree exited 0 (silent fall-through):
 $(cat "$WORK/none.out")"

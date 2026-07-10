@@ -27,7 +27,7 @@ for f in k l; do echo "$f payload" > "$D/vendor/sub/x/$f.txt"; done
 
 # `//NAME` (SRC_ROOT-relative) must name the cloned wt for the nav context.
 export SRC_ROOT="$WORK"
-cp "$_CASE/drive.js" "$D/drive.js"; ln -sfn "$BEDIR" "$D/be"
+cp "$_CASE/drive.js" "$D/drive.js"; ln -sfn "$BEDIR" "$D/jsrc"
 
 cd "$D"
 "$JABC" ./drive.js 2>&1 | golden_assert "$NAME" "$GOLDEN"

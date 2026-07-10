@@ -22,7 +22,7 @@ NAME=$(basename "$_CASE")
 WORK="$TMP/$$/diff/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$TMP/$$/.be" 2>/dev/null || true                # firewall the JS-tree scan
-ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true    # jab's be/-scan → the worktree JS
+ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true    # jab's be/-scan → the worktree JS
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export JABC BEDIR
 

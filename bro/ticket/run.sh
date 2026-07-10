@@ -53,7 +53,7 @@ HAS=$("$JABC" "$WORK/ttyprobe.js" 2>/dev/null || echo no)
 CODE=ABC-123
 SRC="$WORK/src"
 mkdir -p "$SRC"
-ln -sfn "$BEDIR" "$SRC/be"
+ln -sfn "$BEDIR" "$SRC/jsrc"
 for t in envtree curtree opentree; do
   mkdir -p "$SRC/$t/.be" "$SRC/$t/todo/ABC"
   printf '#   %s: fixture ticket in %s\nbody\n' "$CODE" "$t" > "$SRC/$t/todo/ABC/$CODE.mkd"

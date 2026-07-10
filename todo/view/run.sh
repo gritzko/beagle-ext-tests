@@ -4,7 +4,7 @@
 # = one topic's list, `todo GET-001` = the ticket page (thin .mkd or fat
 # KEY/README.mkd), a miss = ONE uniform `todo: <arg>: TODONONE` line.
 # HEADER-GREP (ruling 2026-07-10): the ticket's own `#   KEY [MARK]: title`
-# line is the truth — [DONE]/[WONTFIX] close, [CRIT]/[HIGH]/[LOW] order the
+# line is the truth — [DONE]/[DONT]/[STALE] close, [CRIT]/[HIGH]/[LOW] order the
 # list; topic READMEs are stale-able landing pages, never an index.  List
 # rows + in-page ticket keys carry hidden `U` spell targets (`todo <KEY>`) so
 # the pager's _uriAt click re-enters the view (asserted over --tlv, check.js).
@@ -27,10 +27,12 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 NAME=view
 WORK="$TMP/$$/todo/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-# Hermetic firewall + the `be -> <be/>` shard symlink (bareword `jab todo`
-# resolves the extension via jab's upward be/-scan from the worktree cwd).
+# Hermetic firewall + the shard symlinks (bareword `jab todo` resolves via
+# jab's upward jsrc/-scan from the worktree cwd; `be` kept for the pre-jsrc
+# binary during the migration).
 : > "$TMP/$$/.be" 2>/dev/null || true
-ln -sfn "$BEDIR" "$TMP/$$/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
+ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 
 _fail() { echo "FAIL [todo/$NAME] $*" >&2; exit 1; }
@@ -71,7 +73,7 @@ cat > "$META/todo/GET/GET-002/README.mkd" <<'EOF'
 A fat ticket lives at todo/GET/GET-002/README.mkd.
 EOF
 cat > "$META/todo/GET/GET-003.mkd" <<'EOF'
-#   GET-003 [WONTFIX]: closed sample ticket (header mark, README-listed)
+#   GET-003 [DONT]: closed sample ticket (header mark, README-listed)
 EOF
 cat > "$META/todo/GET/GET-004.mkd" <<'EOF'
 #   GET-004 [CRIT]: critical sample — must sort FIRST in the topic
@@ -82,6 +84,9 @@ EOF
 # the mark also parses AFTER the colon (`KEY: [MARK] …` — the ABC board form)
 cat > "$META/todo/GET/GET-006.mkd" <<'EOF'
 #   GET-006: [DONE] landed sample — an after-colon DONE mark hides it too
+EOF
+cat > "$META/todo/GET/GET-007.mkd" <<'EOF'
+#   GET-007 [STALE]: superceded sample — hidden like DONE/DONT
 EOF
 cat > "$META/todo/PUT/PUT-001.mkd" <<'EOF'
 #   PUT-001: second-topic sample
@@ -111,8 +116,9 @@ grep -q 'GET-004 \[CRIT\]'                     "$WORK/board.out" || _fail "board
 grep -q 'PUT-001: second-topic sample'         "$WORK/board.out" || _fail "board misses PUT-001 (no README at all)"
 grep -q 'GET-000' "$WORK/board.out" && _fail "board lists done/ ticket GET-000"
 # closed BY HEADER MARK — the stale README still listing GET-003 is IGNORED
-grep -q 'GET-003' "$WORK/board.out" && _fail "board resurrects [WONTFIX] GET-003 (stale README obeyed?)"
+grep -q 'GET-003' "$WORK/board.out" && _fail "board resurrects [DONT] GET-003 (stale README obeyed?)"
 grep -q 'GET-006' "$WORK/board.out" && _fail "board lists [DONE] GET-006"
+grep -q 'GET-007' "$WORK/board.out" && _fail "board lists [STALE] GET-007"
 
 # --- 1b. priority order within a topic: CRIT, HIGH, unmarked, LOW -----------
 for k in GET-004 GET-001 GET-002 GET-005; do grep -n "^  $k" "$WORK/board.out" | head -1 | cut -d: -f1; done > "$WORK/ord.out"
@@ -123,7 +129,8 @@ sort -nc "$WORK/ord.out" 2>/dev/null || _fail "board priority order wrong (want 
 "$BE" todo GET --plain > "$WORK/topic.out" 2>&1 || _fail "jab todo GET failed"
 grep -q 'GET-001' "$WORK/topic.out" || _fail "topic misses GET-001"
 grep -q 'GET-002' "$WORK/topic.out" || _fail "topic misses GET-002"
-grep -q 'GET-003' "$WORK/topic.out" && _fail "topic GET resurrects [WONTFIX] GET-003"
+grep -q 'GET-003' "$WORK/topic.out" && _fail "topic GET resurrects [DONT] GET-003"
+grep -q 'GET-007' "$WORK/topic.out" && _fail "topic GET lists [STALE] GET-007"
 grep -q 'PUT-001' "$WORK/topic.out" && _fail "topic GET lists PUT-001"
 "$BE" todo PUT --plain > "$WORK/topicput.out" 2>&1 || _fail "jab todo PUT failed"
 grep -q 'PUT-001' "$WORK/topicput.out" || _fail "topic PUT misses PUT-001"

@@ -22,7 +22,7 @@ NAME=$(basename "$_CASE")
 WORK="$TMP/$$/delete/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$WORK/.be" 2>/dev/null || true
-ln -sfn "$BEDIR" "$WORK/be" 2>/dev/null || true
+ln -sfn "$BEDIR" "$WORK/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export BE JABC BEDIR
 export SRC_ROOT="$WORK"

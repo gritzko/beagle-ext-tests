@@ -177,35 +177,40 @@ function ccPager(verb, uri) {
   return p;
 }
 function cc(verb, uri, spell) { return ccPager(verb, uri)._composeCall(spell); }
-function eqCall(name, got, verb, arg0, rest) {
+//  BE-039: a VERB word-call keeps args RAW and threads the nav scope as `context`
+//  (5th arg, checked when given); a slot-edit keeps the arg0 ctx-merge, context "".
+function eqCall(name, got, verb, arg0, rest, context) {
   const ok = got && got.verb === verb && got.arg0 === arg0 &&
-             JSON.stringify(got.rest) === JSON.stringify(rest);
+             JSON.stringify(got.rest) === JSON.stringify(rest) &&
+             (context === undefined || got.context === context);
   check(name, ok);
   if (!ok) w("   got " + JSON.stringify(got) + " want {verb:" + JSON.stringify(verb) +
-             ", arg0:" + JSON.stringify(arg0) + ", rest:" + JSON.stringify(rest) + "}\n");
+             ", arg0:" + JSON.stringify(arg0) + ", rest:" + JSON.stringify(rest) +
+             (context === undefined ? "" : ", context:" + JSON.stringify(context)) + "}\n");
 }
-eqCall("cc-a-bareverb",   cc("cat","//HERE/src/x.c","status"),        "status","//HERE/src/x.c",[]);
+eqCall("cc-a-bareverb",   cc("cat","//HERE/src/x.c","status"),        "status","",[],"//HERE/src/x.c");
 eqCall("cc-b-pathedit",   cc("ls","//HERE/dir","./sub"),              "ls","//HERE/dir/sub",[]);
 eqCall("cc-c-authmerge",  cc("status","//HERE/src","//OTHER"),        "status","//OTHER/src",[]);
 eqCall("cc-c2-authreset", cc("status","//HERE/src","//OTHER/"),       "status","//OTHER/",[]);
 eqCall("cc-d-refmerge",   cc("log","//HERE/x.c","?feat"),             "log","//HERE/x.c?feat",[]);
 eqCall("cc-d2-reffrag",   cc("cat","//HERE/x.c","?feat#L20"),         "cat","//HERE/x.c?feat#L20",[]);
 eqCall("cc-e-schemereset",cc("status","//HERE","post ssh://blah"),    "post","ssh://blah",[]);
-eqCall("cc-f-message",    cc("ls","//HERE","post 'fix bug'"),         "post","//HERE",["fix bug"]);
+eqCall("cc-f-message",    cc("ls","//HERE","post 'fix bug'"),         "post","fix bug",[],"//HERE");
 eqCall("cc-g-urimsg",     cc("ls","//HERE","post //OTHER 'fix bug'"), "post","//OTHER",["fix bug"]);
-//  [Nav]/URI-011: arg 0 carries the //authority (hoisted+stripped downstream); REST
-//  args stay RAW wt-relative (they must NOT gain an authority — see shapeArg0).  The
-//  cross-dir fix is retiring bindRest (no arg0-dir rebasing), NOT rewriting the rest.
-eqCall("cc-put-multi",    cc("ls","//THERE/dir","put a.txt b/c.txt"), "put","//THERE/a.txt",["b/c.txt"]);
+//  [Nav]/BE-039 RULING: a verb word-call's args stay RAW as typed — the nav scope
+//  travels as CONTEXT (driveSpell → loop.cli opts2.context), never baked into an
+//  arg's spelling; the VERB resolves each arg against it (put/delete argRel).
+eqCall("cc-put-multi",    cc("ls","//THERE/dir","put a.txt b/c.txt"), "put","a.txt",["b/c.txt"],"//THERE/dir");
 eqCall("cc-put-crossdir", cc("status","//BE-030","put core/discover.js test/resolve_confine.js"),
-                          "put","//BE-030/core/discover.js",["test/resolve_confine.js"]);
-eqCall("cc-put-pathedit", cc("ls","//THERE/dir","put ./file"),        "put","//THERE/dir/file",[]);
+                          "put","core/discover.js",["test/resolve_confine.js"],"//BE-030");
+eqCall("cc-put-pathedit", cc("ls","//THERE/dir","put ./file"),        "put","./file",[],"//THERE/dir");
 //  URI-011b: the pager reads a bareword as a WT-RELATIVE URI part (fixes `:why
 //  main.js` staying on the old view + `:put test`'s spurious arg 0); `-` = raw REST.
 eqCall("cc-retarget-file",cc("why","view/bro.js","why main.js"),      "why","main.js",[]);
 eqCall("cc-retarget-root",cc("status","/","put test"),               "put","test",[]);
 eqCall("cc-bare-wtrel",   cc("cat","core/loop.js","cat theme.js"),   "cat","theme.js",[]);
-eqCall("cc-dash-rest",    cc("post","//HERE","post - fix the bug"),  "post","//HERE",["fix","the","bug"]);
+//  BE-039: the `-` rides RAW too (loop._cli flag-splits it away at entry).
+eqCall("cc-dash-rest",    cc("post","//HERE","post - fix the bug"),  "post","-",["fix","the","bug"],"//HERE");
 
 //  --- 4d. URI-011: the SHARED composer's CLI entry (composeArgv: verb known,
 //  tokens pre-split, arg 0 = the cwd/`//WT` context).  Same classifier as the bar.
@@ -214,7 +219,7 @@ const SPELL = require("shared/spell.js");
 //  (`verbs` in `ls //WHY-001` → `ls //WHY-001/verbs`, not a stray 2nd `ls` hunk).
 const isVerbT = function (w) { return w === "ls" || w === "cat" || w === "why"; };
 eqCall("cc-nonverb-path", SPELL.compose("//WHY-001","ls","verbs",isVerbT), "ls","//WHY-001/verbs",[]);
-eqCall("cc-realverb-kept",SPELL.compose("//WHY-001","ls","cat x",isVerbT), "cat","//WHY-001/x",[]);
+eqCall("cc-realverb-kept",SPELL.compose("//WHY-001","ls","cat x",isVerbT), "cat","x",[],"//WHY-001");
 function ac(uri, verb, toks) { return SPELL.composeArgv(uri, verb, toks); }
 eqCall("ca-cli-bareverb",  ac("//URI-011","status",[]),               "status","//URI-011",[]);
 eqCall("ca-cli-message",   ac("//URI-011","post",["fix bug"]),        "post","//URI-011",["fix bug"]);
