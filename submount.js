@@ -104,5 +104,30 @@ eq(submount.declaredUrl(wt, "nosuch"), "", "declaredUrl: undeclared top-level");
 eq(submount.titleFromUrl(submount.declaredUrl(wt, "dog/abc")), "libabc",
    "nested sub title derives from its own declared url");
 
+//  --- GET-042: [Title] at the git→beagle border — the OFFICIAL git URL's
+//  basename names the ROOT project too (`…/jab.git` → `jab`, was the literal
+//  "repo" improvisation); a beagle→beagle `?/proj` selector always wins.
+eq(submount.titleFromUrl("ssh://git@github.com/gritzko/jab.git"), "jab",
+   "root title from the official git URL basename");
+eq(submount.titleFromUrl("git@github.com:gritzko/jab.git"), "jab",
+   "root title from an scp-form git URL");
+eq(submount.titleFromUrl("file:/w/store/.be?/jab"), "jab",
+   "beagle→beagle: the ?/proj selector wins over the basename");
+eq(submount.titleFromUrl(""), "", "no URL at all → caller improvises");
+
+//  --- SUBS-048: syntheticBranch folds a SYNTHETIC parent branch into the
+//  DOTTED ancestor chain (`/<title>/.<parent>/.<grandparent>[/<gp_branch>]`);
+//  verbatim append minted `/libabc/.libdog//libdog/.repo` (JS-107 repro).
+eq(submount.syntheticBranch("libdog", "jab", ""), "/libdog/.jab",
+   "first-level sub of a trunk parent");
+eq(submount.syntheticBranch("libdog", "jab", "JS-107"), "/libdog/.jab/JS-107",
+   "first-level sub of a branched parent");
+eq(submount.syntheticBranch("libabc", "libdog", "/libdog/.jab"),
+   "/libabc/.libdog/.jab", "nested sub folds the parent's synthetic branch");
+eq(submount.syntheticBranch("x", "libabc", "/libabc/.libdog/.jab"),
+   "/x/.libabc/.libdog/.jab", "third level keeps folding the chain");
+eq(submount.syntheticBranch("libabc", "libdog", "/libdog/.jab/JS-107"),
+   "/libabc/.libdog/.jab/JS-107", "the gp_branch stays the last undotted segment");
+
 function w(s){const u=utf8.Encode(s+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
 w("PASS submount.js");
