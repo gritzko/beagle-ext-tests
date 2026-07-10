@@ -3,7 +3,7 @@
         merged f.txt
 
 === fetched ===
-objects landed in b's shard
+objects appended to b's shard log
 === patch row ===
 T	patch	?8383d37f523f373a83d44594692a4d5fcc728760!
 rows=1

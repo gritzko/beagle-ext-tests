@@ -14,6 +14,9 @@ mkdir "$WORK/jA"
 ( cd "$WORK/jA" && "$JABC" get "ssh://localhost/$REL" ) >"$WORK/jA.out" 2>"$WORK/jA.err" \
   || { cat "$WORK/jA.err"; _fail "ssh clone (primary) failed"; }
 [ "$(wire_tip "$WORK/jA")" = "$TIP_V2" ] || _fail "primary clone tip != HEAD $TIP_V2"
+#  JS-117: a clone mints exactly ONE keeper log (everything after tail-appends).
+[ "$(ls "$WORK/jA/.be/repo/" | grep -c '\.keeper$')" -eq 1 ] \
+  || _fail "clone minted != 1 keeper log"
 
 #  B: a SECONDARY worktree off A's store — its `.be` is a redirect FILE.
 mkdir "$WORK/jB"
@@ -34,9 +37,10 @@ t=$(grep -aoE '#[0-9a-f]{40}' "$WORK/jB/.be" 2>/dev/null | tail -1 | tr -d '#')
 [ "$t" = "$TIP_V3" ] || _fail "secondary tip $t != advanced HEAD $TIP_V3"
 [ -f "$WORK/jB/d3.txt" ] || _fail "advanced file d3.txt missing in the secondary wt"
 [ -f "$WORK/jB/.be" ] || _fail "jB/.be redirect FILE clobbered"
-#  The pack landed in A's SHARD (a 2nd keeper log) — nothing minted under jB.
+#  JS-117: the pack tail-APPENDED into A's shard log (d3.txt above proves the
+#  landing) — the keeper-log count is UNCHANGED, nothing minted under jB.
 n=$(ls "$WORK/jA/.be/repo/" | grep -c '\.keeper$')
-[ "$n" -ge 2 ] || _fail "no new keeper log in the shared shard jA/.be/repo"
+[ "$n" -eq 1 ] || _fail "keeper log count changed across the update (n=$n)"
 #  A's OWN wt position is untouched (B moved; A still at v2).
 [ "$(wire_tip "$WORK/jA")" = "$TIP_V2" ] || _fail "primary wt tip moved by B's get"
 pass

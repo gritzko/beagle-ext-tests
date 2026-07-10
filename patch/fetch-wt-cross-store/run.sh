@@ -37,6 +37,7 @@ _boot 't0'
 printf 'A\nb\nc\n' > f.txt
 _ci 'b1 edit line 1' f.txt
 NLOGS=$(ls "$B"/.be/*.keeper | wc -l)
+KBYTES=$(cat "$B"/.be/*.keeper | wc -c)   # JS-117: append = same logs, more bytes
 
 #  TEST-003 rolling-idx quirk: drop stale keeper.idx in BOTH stores pre-op.
 rm -f "$S1"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
@@ -49,10 +50,13 @@ rm -f "$S1"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
 {
     echo "=== stdout ==="; cat "$WORK/js.out"
     echo "=== fetched ==="
-    if [ "$(ls "$B"/.be/*.keeper | wc -l)" -gt "$NLOGS" ]; then
-        echo "objects landed in b's shard"
+    #  JS-117: the fetch tail-APPENDS to the existing sub-threshold log — the
+    #  landing proof is byte growth with an UNCHANGED keeper-log count.
+    if [ "$(cat "$B"/.be/*.keeper | wc -c)" -gt "$KBYTES" ] \
+       && [ "$(ls "$B"/.be/*.keeper | wc -l)" -eq "$NLOGS" ]; then
+        echo "objects appended to b's shard log"
     else
-        echo "NO objects landed"
+        echo "NO tail-append (logs $(ls "$B"/.be/*.keeper | wc -l)/$NLOGS)"
     fi
     echo "=== patch row ==="
     grep -a $'\tpatch\t' "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
