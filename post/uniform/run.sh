@@ -13,7 +13,7 @@ _tip() {
     cat > "$WORK/.tip.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const u=utf8.Encode((k.resolveRef("")||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF
@@ -25,7 +25,7 @@ _cur() {
     cat > "$WORK/.cur.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const wtlog=require(process.argv[3]+"/shared/wtlog.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const c=wtlog.open(info).curTip();
 const u=utf8.Encode(((c&&c.sha)||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF
@@ -38,7 +38,7 @@ _tipkeys() {
     cat > "$WORK/.keys.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 let out="";k.eachTip(function(t){out+=t.key+"\n";});
 const u=utf8.Encode(out);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
@@ -51,7 +51,7 @@ _branch_tip() {   # _branch_tip DIR BRANCH
     cat > "$WORK/.btip.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const u=utf8.Encode((k.resolveRef(process.argv[4])||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF

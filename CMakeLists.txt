@@ -50,7 +50,7 @@ foreach(_run ${_be_runs})
         COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/${_run}"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(${_name} PROPERTIES
-        ENVIRONMENT "BIN=${BEAGLE_BIN_DIR};JABC=${JAB_BIN};TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        ENVIRONMENT "BIN=${BEAGLE_BIN_DIR};JABC=${JAB_BIN};TMP=${BE_TEST_TMP};BE_ROOT=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
         FIXTURES_REQUIRED be_tmp
         TIMEOUT 90)
     if (_name IN_LIST _BE_WILL_FAIL)
@@ -92,7 +92,7 @@ foreach(_unit store ulog ingest idxmaint packlog patchband wire wire_stream wire
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(be-js-unit-${_unit} PROPERTIES
-        ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        ENVIRONMENT "TMP=${BE_TEST_TMP};BE_ROOT=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
         FIXTURES_REQUIRED be_tmp
         TIMEOUT 60)
 endforeach()
@@ -105,7 +105,7 @@ foreach(_sub log/nonspine)
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_sub}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
     set_tests_properties(be-js-unit-${_subname} PROPERTIES
-        ENVIRONMENT "TMP=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
+        ENVIRONMENT "TMP=${BE_TEST_TMP};BE_ROOT=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
         FIXTURES_REQUIRED be_tmp
         TIMEOUT 60)
 endforeach()

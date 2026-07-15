@@ -31,7 +31,7 @@ sc_is40 "$TIP" "proj tip"
 cat > "$WORK/.mode.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
 const tip = k.resolveRef("");
 const tree = k.commitTree(tip);

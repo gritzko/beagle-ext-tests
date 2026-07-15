@@ -9,7 +9,7 @@ function outStr(s) { const b = io.buf(s.length + 8); b.feed(utf8.Encode(s)); io.
 const beDir = io.getenv("BEDIR") || ".";
 const be = require(beDir + "/core/discover.js");
 const store = require(beDir + "/shared/store.js");
-const info = be.find(".");
+const info = be.treeAt(".");
 const reader = store.open(info.storePath, info.project);
 const tip = reader.resolveRef("");
 if (tip) {

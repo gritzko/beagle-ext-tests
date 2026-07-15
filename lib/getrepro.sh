@@ -32,7 +32,6 @@ NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/js-getr/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT

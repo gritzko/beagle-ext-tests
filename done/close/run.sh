@@ -8,8 +8,10 @@
 # already-[DONE]/[WONTFIX] page gets one "already closed" row and ZERO edits;
 # an unknown key is ONE uniform `done: KEY: TODONONE` line (BE-003 spirit);
 # an odd header is reported and skipped, no edit.  File edits ONLY — the verb
-# never commits/posts.  The ticket tree is a FIXTURE under $TMP (never the
-# live journal), reached via $TODO_ROOT (be.todoRoot()'s first probe).
+# never commits/posts.  The ticket tree is a FIXTURE under $TMP (never the live
+# journal).  URI-016: be.todoRoot() IS `projectRoot()+"/todo"` — no env var
+# names it (the project root is DETECTED by the `.be` climb), so the fixture
+# lives INSIDE the worktree we run from ($WT/todo/).
 # Registered by the be/test glob as be-js-done-close — no CMakeLists edit.
 set -eu
 
@@ -29,7 +31,6 @@ WORK="$TMP/$$/done/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall + the `be -> <be/>` shard symlink (bareword `jab done`
 # resolves the extension via jab's upward be/-scan from the worktree cwd).
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 
@@ -41,7 +42,12 @@ _fail() { echo "FAIL [done/$NAME] $*" >&2; exit 1; }
 # header; FIX-0011 a prefix-key neighbour whose bullet must survive FIX-001;
 # FIX-006 the wild two-mark `[OPEN] [MED]` run (RULING 2026-07-10: ONE mark is
 # canonical, the leading run must still collapse to ONE `[DONE]`); FIX-007 `[OPEN]`.
-META="$WORK/meta"
+#
+# URI-016: the tree sits in the worktree we run from — `todoRoot()` is
+# `projectRoot()+"/todo"` and $WT's own `.be/` is the topmost anchor below the
+# ctest-set $BE_ROOT, so projectRoot() == $WT.
+WT="$WORK/wt"; mkdir -p "$WT/.be"
+META="$WT"
 mkdir -p "$META/todo/FIX/FIX-002"
 cat > "$META/todo/README.mkd" <<'EOF'
 #   Fixture ticket board
@@ -102,10 +108,7 @@ EOF
 cat > "$META/todo/FIX/FIX-0011.mkd" <<'EOF'
 #   FIX-0011: prefix-key neighbour
 EOF
-export TODO_ROOT="$META"
-
-# --- a minimal seeded worktree to run the loop from --------------------------
-WT="$WORK/wt"; mkdir -p "$WT/.be"
+# --- seed the worktree the loop runs from ------------------------------------
 cd "$WT"
 printf 'seed\n' > a.txt
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"

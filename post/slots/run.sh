@@ -25,7 +25,7 @@ _tip() {
     cat > "$WORK/.tip.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const u=utf8.Encode((k.resolveRef("")||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF
@@ -37,7 +37,7 @@ _branch_tip() {   # _branch_tip DIR BRANCH
     cat > "$WORK/.btip.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const u=utf8.Encode((k.resolveRef(process.argv[4])||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF
@@ -49,7 +49,7 @@ _cur_branch() {   # _cur_branch DIR
     cat > "$WORK/.cbr.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const wtlog=require(process.argv[3]+"/shared/wtlog.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const c=wtlog.open(info).curTip();
 const u=utf8.Encode(((c&&c.branch)||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF
@@ -62,7 +62,7 @@ _blob_at() {   # _blob_at DIR PATH [BRANCH]
     cat > "$WORK/.blob.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const tip=k.resolveRef(process.argv[5]||"");
 let out="";

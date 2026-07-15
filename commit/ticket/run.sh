@@ -42,14 +42,15 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
-# The fixture ticket tree ($TODO_ROOT): a real todo/<TOPIC>/<KEY>.mkd file so the
-# resolver has a hit; and a commit whose SUBJECT cites that key.
+# The fixture ticket tree: a real todo/<TOPIC>/<KEY>.mkd file so the resolver has
+# a hit; and a commit whose SUBJECT cites that key.  URI-016: be.todoRoot() is
+# <project root>/todo and projectRoot() is the TOPMOST `.be`-anchored dir above
+# the cwd (core/resolve_hash.js) — no env var names it.  $WT's `.be/` shield IS
+# that anchor, so the tickets live in $WT's OWN todo/.
 CODE=ABC-123
-TODO="$WORK/todo_root"
-mkdir -p "$TODO/todo/ABC"
-printf '#   %s: fixture ticket\nbody\n' "$CODE" > "$TODO/todo/ABC/$CODE.mkd"
+WT="$WORK/wt"; mkdir -p "$WT/.be" "$WT/todo/ABC"
+printf '#   %s: fixture ticket\nbody\n' "$CODE" > "$WT/todo/ABC/$CODE.mkd"
 
-WT="$WORK/wt"; mkdir -p "$WT/.be"
 cd "$WT"
 printf 'x\n' > a.txt
 "$BE" post "fix $CODE in the parser" >/dev/null 2>&1 || _fail "be post (fixture commit)"
@@ -61,7 +62,7 @@ case "$SHA" in *[!0-9a-f]*|"") _fail "tip sha not 40-hex: '$SHA'" ;; esac
 
 # --plain must (a) show a HUMAN date, no bare 10-digit epoch, and (b) NOT leak
 # the hidden ticket URI bytes (plain stays U-free, COMMIT-003).
-( cd "$WT" && TODO_ROOT="$TODO" "$JABC" commit "commit:?$SHA" --plain ) \
+( cd "$WT" && "$JABC" commit "commit:?$SHA" --plain ) \
     >"$WORK/jab.plain" 2>"$WORK/jab.err" \
     || _fail "jab commit --plain failed ($(cat "$WORK/jab.err"))"
 [ -s "$WORK/jab.plain" ] || _fail "jab commit --plain emitted ZERO bytes"
@@ -73,13 +74,13 @@ echo "ok: --plain shows a human date, no raw epoch, no hidden URI leak"
 
 # --tlv: capture the on-wire HUNK stream and assert (via the pager) the message
 # `F`+hidden-`U` ticket target AND the human-date field.  RED pre-fix, GREEN post.
-( cd "$WT" && TODO_ROOT="$TODO" "$JABC" commit "commit:?$SHA" --tlv ) \
+( cd "$WT" && "$JABC" commit "commit:?$SHA" --tlv ) \
     >"$WORK/jab.tlv" 2>"$WORK/jab.err2" \
     || _fail "jab commit --tlv failed ($(cat "$WORK/jab.err2"))"
 [ -s "$WORK/jab.tlv" ] || _fail "jab commit --tlv emitted ZERO bytes"
 
-# The expected ticket URI carries the fixture root's `//name` + the todo path.
-TODO_ROOT="$TODO" "$JABC" "$_CASE/check.js" "$WORK/jab.tlv" "$CODE" \
+# The expected ticket URI carries the project root's `//name` + the todo path.
+"$JABC" "$_CASE/check.js" "$WORK/jab.tlv" "$CODE" \
     >"$WORK/check.out" 2>&1 \
     || { cat "$WORK/check.out" >&2; _fail "ticket/date assertions failed"; }
 grep -q "test/commit/ticket OK" "$WORK/check.out" \

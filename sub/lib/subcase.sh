@@ -45,7 +45,6 @@ NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/js-sub/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 # JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
@@ -66,7 +65,7 @@ sc_tip() {
     cat > "$WORK/.tip.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
 const tip = k.resolveRef("") || "";
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
@@ -82,7 +81,7 @@ sc_subtip() {
     cat > "$WORK/.subtip.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const wtlog = require(process.argv[3] + "/shared/wtlog.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const wtl = wtlog.open(info);
 const cur = wtl.curTip();
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
@@ -98,7 +97,7 @@ sc_gitlink_pin() {
     cat > "$WORK/.pin.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
 const tip = k.resolveRef("");
 let pin = "";

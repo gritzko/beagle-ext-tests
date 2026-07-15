@@ -15,9 +15,9 @@
 //    (g-j) iteration 3 — a view RECORDS its full invocation {context, verb,
 //        args as entered}: the bar shows it, back/refresh replay IT (rest args
 //        + implied arg0 included), and a MUTATION verb is never re-executed.
-//  argv[2] = views/bro/pager.js.  $SRC_ROOT (run.sh) hosts the fixture hive:
+//  argv[2] = views/bro/pager.js.  $SRC_ROOT (run.sh) hosts the fixture:
 //  SRC_ROOT/WT is an anchored worktree (`.be/` shield) holding dog/DOG.h — so
-//  `//WT/...` context paths resolve + stat like a real cell.
+//  `//WT/...` context paths resolve + stat like a real worktree.
 "use strict";
 const pager = require(process.argv[2]);
 

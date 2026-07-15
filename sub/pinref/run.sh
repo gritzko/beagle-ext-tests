@@ -21,7 +21,6 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 NAME=$(basename "$_CASE")
 WORK="$TMP/$$/sub/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 export BE JABC BEDIR
@@ -32,7 +31,7 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 cat > "$WORK/.subtip.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const wtlog=require(process.argv[3]+"/shared/wtlog.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const cur=wtlog.open(info).curTip();
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
 w((cur&&cur.sha)||"");
@@ -46,7 +45,7 @@ cat > "$WORK/.pin.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
 const wtlog=require(process.argv[3]+"/shared/wtlog.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const cur=wtlog.open(info).curTip();const tip=cur&&cur.sha;let pin="";
 if(tip){const tree=k.commitTree(tip);
@@ -63,7 +62,7 @@ const be=require(process.argv[3]+"/core/discover.js");
 const wtlog=require(process.argv[3]+"/shared/wtlog.js");
 const store=require(process.argv[3]+"/shared/store.js");
 const branchlib=require(process.argv[3]+"/shared/branch.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const att=wtlog.open(info).attachedBranch();
 const k=store.open(info.storePath,info.project);
 const key=branchlib.key(att.br);

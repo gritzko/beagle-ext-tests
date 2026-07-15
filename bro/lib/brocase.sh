@@ -45,7 +45,6 @@ export WORK
 # the case root so the walk anchors here, and a `.be` FILE just ABOVE the scratch
 # to firewall the walk from escaping to a real $HOME/.be (the repo-setup pattern).
 mkdir -p "$WORK/.be"
-: > "$TMP/$$/.be" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 

@@ -47,7 +47,7 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 cat > "$WORK/.subtip.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const wtlog = require(process.argv[3] + "/shared/wtlog.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const wtl = wtlog.open(info);
 const cur = wtl.curTip();
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
@@ -60,7 +60,7 @@ _subtip() { "$JABC" "$WORK/.subtip.js" "$1" "$BEDIR" 2>/dev/null; }
 cat > "$WORK/.pin.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
 const tip = k.resolveRef("");
 let pin = "";

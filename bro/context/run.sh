@@ -18,13 +18,22 @@ EOF
 HAS=$("$JABC" "$WORK/ttyprobe.js" 2>/dev/null || echo err)
 [ "$HAS" = "yes" ] || { echo "context: SKIP — jab has no tty binding (got '$HAS')" >&2; pass; }
 
-# --- the fixture hive: $WORK/src/WT is an anchored worktree (`.be/` shield) --
-# holding dog/DOG.h, so `//WT/dog/DOG.h` resolves + stats through discover.
-SRC="$WORK/src"
+# --- the fixture: [/wiki/URI] steps 1-2 — `//WT` IS <project root>/work/WT,
+# and the project root is DETECTED by the `.be` climb from the CWD.  $SRC_ROOT is
+# read NOWHERE in the source (URI-016 retired srcRoot(); the old flat `$SRC_ROOT/WT`
+# layout resolves to nothing).  brocase.sh already planted `$WORK/.be`, the TOPMOST
+# anchor below $HOME, so $WORK IS the project root: seed its `work/` dir via
+# the ONE helper and run the driver FROM INSIDE the worktree, so the climb lands
+# on $WORK and `//WT/dog/DOG.h` resolves + stats through discover.  The driver
+# still reads $SRC_ROOT, now purely as the fs path that HOSTS WT (= workRoot()),
+# for its own file expectations — never as a product knob.
+. "$_ROOT/lib/repo-setup.sh"
+SRC=$(rs_work_root "$WORK")
 mkdir -p "$SRC/WT/.be" "$SRC/WT/dog"
 : > "$SRC/WT/dog/DOG.h"
 
-SRC_ROOT="$SRC" "$JABC" "$_CASE/context.js" "$PAGER" >"$WORK/c.out" 2>"$WORK/c.err" || {
+( cd "$SRC/WT" && SRC_ROOT="$SRC" "$JABC" "$_CASE/context.js" "$PAGER" ) \
+        >"$WORK/c.out" 2>"$WORK/c.err" || {
     echo "--- stderr ---"; cat "$WORK/c.err"; _fail "context driver exited non-zero"; }
 if grep -q '^FAIL' "$WORK/c.out"; then
     echo "--- driver out ---"; cat "$WORK/c.out"; _fail "context check(s) failed"; fi

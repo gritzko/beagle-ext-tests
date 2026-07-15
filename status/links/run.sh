@@ -37,7 +37,6 @@ WORK="$TMP/$$/status/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall: an empty `.be` FILE above the scratch base stops a cwd-walk
 # from escaping to a real $HOME/.be (rs firewall, DIS-024).
-: > "$TMP/$$/.be" 2>/dev/null || true
 # JS verbs run bareword (`jab status`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true

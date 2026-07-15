@@ -1,23 +1,22 @@
 //  test/bro/ticket/check.js — BRO-012: an `F` issue-key token opens its ticket
 //  file, and a ticket code in a `log:` commit summary is clickable too.  Both
-//  paths converge on shared/ticket.js's resolver, which owns the ROOT ORDER via
-//  be.todoRoot(): $TODO_ROOT env > current wt root (be.repo) > open/launch wt
-//  root (io.cwd()).  key → todo/<TOPIC>/<KEY>.ext under the first hit → a cat:
-//  nav URI whose `//name` names the winning root.
+//  paths converge on shared/ticket.js's resolver.  URI-016: that resolver has
+//  no root ORDER any more — be.todoRoot() IS `projectRoot()+"/todo"`, ONE tree
+//  at the CLIMBED project root, so key → todo/<TOPIC>/<KEY>.ext → a cat: nav
+//  URI carrying the project root's bare `//` (navCwd(projectRoot()) yields no
+//  `//name`).  The old env/current/open precedence assertions are DELETED.
 //
 //  RED before the fix: a body `F` token has no adjacent `U`, so the pager
 //  `_uriAt` returned null (a dead link); a log summary code was one flat `S`
-//  span (no `F`, no `U`), so a click on it returned null.  ALSO RED if the
-//  resolver ignores be.todoRoot()'s order.  GREEN after.
+//  span (no `F`, no `U`), so a click on it returned null.  GREEN after.
 //
-//  argv[2] = SRC_ROOT dir (holds sibling trees envtree/curtree/opentree);
+//  argv[2] = the PROJECT ROOT (carries todo/ and work/);
 //  argv[3] = a captured `jab log: --tlv` whose newest summary carries the code;
-//  argv[4] = the ticket code (ABC-123);  argv[5] = the scenario tag (env|
-//  current|open);  argv[6] = the tree name the resolver MUST pick this run.
+//  argv[4] = the ticket code (ABC-123);  argv[5] = a captured `cat: --tlv`.
 "use strict";
 
 const discover = require("core/discover.js");
-globalThis.be = Object.assign(globalThis.be || {}, discover);   // be.todoRoot/navCwd/find
+globalThis.be = Object.assign(globalThis.be || {}, discover);   // be.todoRoot/navCwd/treeAt
 const pager = require("views/bro/pager.js");
 const ticket = require("shared/ticket.js");
 
@@ -25,26 +24,26 @@ function fail(m) { io.log("FAIL " + m + "\n"); throw "FAIL " + m; }
 function ok(v, m) { if (!v) fail(m); }
 function eq(a, b, m) { if (a !== b) fail(m + ": " + JSON.stringify(a) + " !== " + JSON.stringify(b)); }
 
-const SRC = process.argv[2];                      // SRC_ROOT (sibling trees)
+const SRC = process.argv[2];                      // the project root
 const TLV = process.argv[3];                      // captured jab log: --tlv path
 const CODE = process.argv[4];                     // the ticket code in the summary
-const SCEN = process.argv[5];                     // env | current | open
-const WANT = process.argv[6];                     // the tree name the resolver picks
-const WANT_AUTH = "//" + WANT;                    // its `//name` nav authority
+//  URI-016: the ticket tree is the project root's own `todo/`, so the resolved
+//  URI's authority is the bare `//` — the project root has no `//name`.
+const WANT_AUTH = "//";
 
-//  Simulate the CURRENT wt (the nav'd view's authority) as curtree; the OPEN /
-//  launch wt is io.cwd() (opentree, where jab launched).  be.todoRoot() reads
-//  be.repo for the current root; $TODO_ROOT (env) is set by run.sh per scenario.
-be.repo = { wt: SRC + "/curtree" };
+//  The nav'd view's authority is a WORKTREE (`//wt` IS <project root>/work/wt).
+//  It no longer selects the ticket root — the climb does — but the pager still
+//  reads be.repo, so keep the nav'd-view simulation honest.
+be.repo = { wt: SRC + "/work/wt" };
 
-//  ---- (0) the resolver honours the ROOT ORDER (env > current > open) --------
+//  ---- (0) the resolver finds the ONE tree at the climbed project root -------
 const resolved = ticket.ticketUri(CODE);
-ok(resolved, "ticketUri(" + CODE + ") resolves in the " + SCEN + " scenario");
+ok(resolved, "ticketUri(" + CODE + ") resolves");
 ok(resolved.indexOf("cat:") === 0, "ticket URI is a cat: nav URI: " + resolved);
 ok(resolved.indexOf(CODE + ".") >= 0, "ticket URI names the ticket file: " + resolved);
 ok(resolved.indexOf("todo/") >= 0, "ticket URI carries the todo/<TOPIC>/ nesting: " + resolved);
-ok(resolved.indexOf(WANT_AUTH + "/") >= 0,
-   SCEN + " root must win: URI " + resolved + " should carry " + WANT_AUTH);
+ok(resolved.indexOf(WANT_AUTH + "/todo/") >= 0,
+   "the ticket URI carries the project root's bare // authority: " + resolved);
 eq(ticket.ticketUri("ZZZ-999"), null, "a missing ticket resolves to null (quiet no-op)");
 
 //  ---- (a) a body `F` issue-key token opens its ticket ------------------------
@@ -70,7 +69,7 @@ const p = new pager.Pager(-1, { color: false });
 //  the root order — the pager passes NO authority now).
 for (let off = fSpan.lo; off < fSpan.hi; off++) {
   const got = p._uriAt(hunk, off);
-  eq(got, resolved, "body F-token click at off " + off + " opens the ticket (" + SCEN + ")");
+  eq(got, resolved, "body F-token click at off " + off + " opens the ticket");
 }
 //  A click OFF the code (plain S text) is NOT a ticket link (no false positive).
 eq(p._uriAt(hunk, 0), null, "a click on plain text is not a ticket link");
@@ -115,7 +114,7 @@ ok(clickUri.indexOf(CODE + ".") >= 0, "log click opens the code's ticket file: "
 //  `grep:#<word>` U, INCLUDING the issue key, so `_uriAt`'s adjacent-U check
 //  opened grep before the ticket fallback.  Drive the real `cat: --tlv` and
 //  assert the F token's adjacent U is the TICKET URI, not a grep spell.
-const CATTLV = process.argv[7];
+const CATTLV = process.argv[5];
 if (CATTLV) {
   const cs = io.lstat(CATTLV);
   const cfd = io.open(CATTLV, "r");
@@ -160,4 +159,4 @@ ok(tspell.indexOf("todo/URI/URI-014.mkd") >= 0, "the ticket path survives: " + t
 const rel = pr._resolveSpell("diff:src/x.c");
 ok(rel.indexOf("deadbeef") >= 0, "a RELATIVE click still inherits the context ?ref (URI-012 intact): " + rel);
 
-io.log("test/bro/ticket OK (" + SCEN + ": body F + log summary + resolver order + no-op)\n");
+io.log("test/bro/ticket OK (body F + log summary + cat view + no-op)\n");

@@ -8,8 +8,9 @@
 //  named verbs CONSUME it in their own handlers (the file-vs-dir choice lives
 //  there, never in the pager).
 //  argv[2] = views/bro/pager.js, argv[3] = views/why/why.js, argv[4] = verbs/vim/vim.js.
-//  $SRC_ROOT hosts SRC_ROOT/WT (a `.be/`-anchored worktree) with a `test/` sub
-//  DIR and a `dog.h` regular FILE, so `//WT/test` stats dir, `//WT/dog.h` reg.
+//  $SRC_ROOT is the fs path HOSTING WT (= workRoot(), <project root>/work) — the
+//  driver's own path expectation, never a product knob; run.sh cd's into WT so the
+//  `.be` climb resolves `//WT/test` (dir) and `//WT/dog.h` (reg).
 "use strict";
 const pager = require(process.argv[2]);
 const why   = require(process.argv[3]);

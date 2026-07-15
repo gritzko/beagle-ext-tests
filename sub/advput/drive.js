@@ -16,7 +16,7 @@ const pager = require("views/bro/pager.js");
 function fail(m) { io.log("FAIL " + m + "\n"); throw "FAIL " + m; }
 function ok(v, m) { if (!v) fail(m); }
 
-const cell = io.cwd().slice(io.cwd().lastIndexOf("/") + 1);       // "cli"
+const wt = io.cwd().slice(io.cwd().lastIndexOf("/") + 1);         // "cli"
 
 //  Record the context each driveSpell run threads; delegate to the REAL one.
 const threaded = [];
@@ -53,7 +53,7 @@ function findCell(p, spell) {
 }
 
 //  --- ARM 1: nav'd-into-the-sub context threading ---------------------------
-const subCtx = "//" + cell + "/vendor/sub";
+const subCtx = "//" + wt + "/vendor/sub";
 let p = mkPager(subCtx);
 threaded.length = 0;
 p._actSpell("put x/f");
@@ -63,7 +63,7 @@ ok(threaded[0].context === subCtx, "arm1: full sub context threaded, got " + JSO
 ok((p.message || "").indexOf("PUTNONE") < 0, "arm1: no PUTNONE: " + p.message);
 
 //  --- ARM 2: the adv row renders [put]; the click stages the gitlink bump ----
-const parCtx = "//" + cell;
+const parCtx = "//" + wt;
 p = mkPager(parCtx);
 const cellHit = findCell(p, "put vendor/sub");
 ok(cellHit, "arm2: the adv row RENDERS a [put] button (O spell `put vendor/sub`)");

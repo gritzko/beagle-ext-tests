@@ -13,7 +13,13 @@
 
 sc_build_parent                                   # par -> vendor/sub (gitlink)
 
-D="$WORK/cli"
+# The clone is a worktree under `work/`: drive.js names it `//cli` off its cwd basename,
+# and URI-016 resolves `//cli` to <project root>/work/cli — so the wt lives under
+# $WORK/work and $WORK carries the `.be` anchor the project climb detects.
+# (The `par`/`sub` SOURCE stores stay flat at $WORK — they are cloned over
+# `file:`, never named `//`.)
+WORKD=$(rs_work_root "$WORK")
+D="$WORKD/cli"
 sc_jget "$D" "file://$PARSTORE/.be" >/dev/null
 [ -f "$D/vendor/sub/lib.c" ] || _fail "sub not mounted at $D/vendor/sub"
 
@@ -34,8 +40,8 @@ echo "f payload" > "$D/vendor/sub/x/f"
 ( cd "$D" && "$JABC" status --plain 2>&1 ) | grep -q '\[put\]' \
     && _fail "plain (non-tty) status leaked a [put] button"
 
-# `//NAME` (SRC_ROOT-relative) must name the cloned wt for the nav context.
-export SRC_ROOT="$WORK"
+# `//NAME` (a worktree at <project root>/work/NAME) names the cloned wt for the
+# nav context — the layout above IS that binding; no env var declares it.
 cp "$_CASE/drive.js" "$D/drive.js"; ln -sfn "$BEDIR" "$D/jsrc"
 
 cd "$D"

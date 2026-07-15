@@ -7,8 +7,10 @@
 # click closes the ticket while a title click still navigates.  Closed rows
 # never list, so they get no button.  `--plain` output stays byte-identical to
 # the committed pre-change goldens (buttons are pager-only chrome).  The ticket
-# tree is a FIXTURE under $TMP via $TODO_ROOT — never the live journal.
-# Registered by the be/test glob as be-js-done-buttons — no CMakeLists edit.
+# tree is a FIXTURE under $TMP — never the live journal.  URI-016: it lives
+# INSIDE the worktree we run from, since be.todoRoot() IS `projectRoot()+
+# "/todo"` and the project root is DETECTED by the `.be` climb, not named by an
+# env var.  Registered by the be/test glob as be-js-done-buttons — no CMakeLists edit.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/done/buttons
@@ -25,16 +27,21 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 NAME=buttons
 WORK="$TMP/$$/done/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
 
 _fail() { echo "FAIL [done/$NAME] $*" >&2; exit 1; }
 
+# --- the worktree we run from = the PROJECT ROOT the `.be` climb detects -------
+# URI-016: `todoRoot()` is `projectRoot()+"/todo"`, so the fixture board MUST
+# sit inside this root ($WT/todo/).  $BE_ROOT (ctest-set to $TMP) bounds the
+# climb above $WT, so $WT's own `.be/` is the topmost anchor.
+WT="$WORK/wt"; mkdir -p "$WT/.be"
+
 # --- the FIXTURE ticket tree (MUST match the committed goldens) ---------------
 # FIX-001 thin open, FIX-002 fat open, FIX-003 [DONE] (never lists, no button),
 # PUT-001 a second topic so the BOARD carries buttons across topics.
-META="$WORK/meta"
+META="$WT"
 mkdir -p "$META/todo/FIX/FIX-002" "$META/todo/PUT"
 printf '#   Fixture board\n' > "$META/todo/README.mkd"
 printf '#   FIX topic\n' > "$META/todo/FIX/README.mkd"
@@ -42,10 +49,7 @@ printf '#   FIX-001 [MED]: thin sample\n' > "$META/todo/FIX/FIX-001.mkd"
 printf '#   FIX-002: fat sample\n\nFat body.\n' > "$META/todo/FIX/FIX-002/README.mkd"
 printf '#   FIX-003 [DONE]: closed sample\n' > "$META/todo/FIX/FIX-003.mkd"
 printf '#   PUT-001: other-topic sample\n' > "$META/todo/PUT/PUT-001.mkd"
-export TODO_ROOT="$META"
-
-# --- a minimal seeded worktree to run the loop from --------------------------
-WT="$WORK/wt"; mkdir -p "$WT/.be"
+# --- seed the worktree the loop runs from ------------------------------------
 cd "$WT"
 printf 'seed\n' > a.txt
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"

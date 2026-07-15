@@ -12,7 +12,7 @@
 "use strict";
 
 const discover = require("core/discover.js");
-globalThis.be = Object.assign(globalThis.be || {}, discover);   // be.todoRoot/navCwd/find
+globalThis.be = Object.assign(globalThis.be || {}, discover);   // be.todoRoot/navCwd/treeAt
 const pager = require("views/bro/pager.js");
 
 function fail(m) { io.log("FAIL " + m + "\n"); throw "FAIL " + m; }

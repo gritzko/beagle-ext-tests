@@ -24,14 +24,22 @@ EOF
 HAS=$("$JABC" "$WORK/ttyprobe.js" 2>/dev/null || echo err)
 [ "$HAS" = "yes" ] || { echo "prevuri: SKIP — jab has no tty binding (got '$HAS')" >&2; pass; }
 
-# --- the fixture hive: $WORK/src/WT is a `.be/`-anchored worktree with a mounted
-# sub DIR `test/` (so `//WT/test` stats dir) and a `dog.h` regular FILE (so
-# `//WT/dog.h` stats reg).
-SRC="$WORK/src"
+# --- the fixture: [/wiki/URI] steps 1-2 — `//WT` IS <project root>/work/WT,
+# and the project root is DETECTED by the `.be` climb from the CWD.  $SRC_ROOT is
+# read NOWHERE in the source (URI-016 retired srcRoot(); the old flat `$SRC_ROOT/WT`
+# layout resolves to nothing, so `//WT/test` never stats dir and the dir/staleness
+# legs read it as a file).  brocase.sh already planted `$WORK/.be`, the TOPMOST
+# anchor below $HOME, so $WORK IS the project root: seed its `work/` dir via the
+# ONE helper and run the driver FROM INSIDE the worktree, so the climb lands on
+# $WORK and `//WT/test` resolves + stats as a directory.  The driver still reads
+# $SRC_ROOT, now purely as the fs path that HOSTS WT (= workRoot()), for its own
+# vim-path expectations — never as a product knob.
+. "$_ROOT/lib/repo-setup.sh"
+SRC=$(rs_work_root "$WORK")
 mkdir -p "$SRC/WT/.be" "$SRC/WT/test/.be"
 printf 'int dog;\n' > "$SRC/WT/dog.h"
 
-SRC_ROOT="$SRC" "$JABC" "$_CASE/prevuri.js" "$PAGER" "$WHY" "$VIM" \
+( cd "$SRC/WT" && SRC_ROOT="$SRC" "$JABC" "$_CASE/prevuri.js" "$PAGER" "$WHY" "$VIM" ) \
     >"$WORK/p.out" 2>"$WORK/p.err" || {
     echo "--- stderr ---"; cat "$WORK/p.err"; _fail "prevuri driver exited non-zero"; }
 if grep -q '^FAIL' "$WORK/p.out"; then

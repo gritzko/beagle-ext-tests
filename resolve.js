@@ -58,7 +58,7 @@ ulog.write(bePath, [
 //  a .gitignore at the wt root (the snapshot the seed pins).
 writeFile(dir + "/.gitignore", "*.log\nbuild/\n");
 
-//  repo handle as be.find() would return (only the used fields).
+//  repo handle as be.treeAt() would return (only the used fields).
 const repo = { wt: dir, storePath: dir, project: proj, bePath: bePath, root: dir };
 const k = store.open(dir, proj);
 const wtl = wtlog.open(repo);

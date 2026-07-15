@@ -27,7 +27,6 @@ NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/post/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
@@ -41,7 +40,7 @@ _commit_bytes() {   # _commit_bytes WTDIR
     cat > "$WORK/.cb.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
-const info=be.find(process.argv[2]);
+const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
 const tip=k.resolveRef("");let out="";
 if(tip){const c=k.getObject(tip);if(c)out=utf8.Decode(c.bytes);}

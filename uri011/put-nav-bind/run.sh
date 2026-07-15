@@ -24,7 +24,6 @@ export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
 NAME=$(basename "$_CASE")
 WORK="$TMP/$$/uri011/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
@@ -32,19 +31,22 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 M="$BEDIR/main.js"
 
-# SRC_ROOT holds HERE (launch cwd) + THERE (nav target); THERE has a `sub/` dir
-# with a file to stage.  A leaked bind would stage `a.txt` at THERE's ROOT.
-export SRC_ROOT="$WORK"
-mkdir -p "$WORK/HERE/.be" "$WORK/THERE/.be" "$WORK/THERE/sub"
-printf 'AWAYMARK\n' > "$WORK/THERE/sub/a.txt"
+# A project root at $WORK holds the worktrees HERE (launch cwd) + THERE (nav target);
+# THERE has a `sub/` dir with a file to stage.  A leaked bind would stage
+# `a.txt` at THERE's ROOT.  URI-016: `//THERE` is <project root>/work/THERE, so
+# the wts sit under $WORK/work and $WORK carries the detectable `.be` anchor.
+. "$_ROOT/lib/repo-setup.sh"
+WORKD=$(rs_work_root "$WORK")
+mkdir -p "$WORKD/HERE/.be" "$WORKD/THERE/.be" "$WORKD/THERE/sub"
+printf 'AWAYMARK\n' > "$WORKD/THERE/sub/a.txt"
 
 # From HERE, stage `a.txt` UNDER the //THERE/sub context — must land as sub/a.txt.
-( cd "$WORK/HERE" && "$JABC" "$M" put //THERE/sub a.txt ) >"$WORK/put.out" 2>&1 \
+( cd "$WORKD/HERE" && "$JABC" "$M" put //THERE/sub a.txt ) >"$WORK/put.out" 2>&1 \
     || _fail "put //THERE/sub a.txt failed:
 $(cat "$WORK/put.out")"
 
 # THERE's status must show sub/a.txt staged (bound under the context dir).
-( cd "$WORK/HERE" && "$JABC" "$M" status //THERE --plain ) >"$WORK/st.out" 2>&1 || true
+( cd "$WORKD/HERE" && "$JABC" "$M" status //THERE --plain ) >"$WORK/st.out" 2>&1 || true
 grep -q 'sub/a.txt' "$WORK/st.out" \
     || _fail "(bind) sub/a.txt not staged under the //THERE/sub context:
 $(cat "$WORK/st.out")"

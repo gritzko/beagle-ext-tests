@@ -29,10 +29,10 @@ function drive(ctxUri, spell) {
   if (err) io.log("   ERR: " + err + "\n");
 }
 
-//  The nav context a pager STARTS with (BRO-017 → navCwd fallback): `//<cell>`,
-//  i.e. `//cli` here.  navCwd's cell-naming is a SEPARATE concern (BRO-017/BE-037);
+//  The nav context a pager STARTS with (BRO-017 → navCwd fallback): `//<name>`,
+//  i.e. `//cli` here.  navCwd's wt-naming is a SEPARATE concern (BRO-017/BE-037);
 //  this case fixes the composer+reentry, so it feeds the context navCwd yields in a
-//  clean hive — `//` + the cwd cell name — and drives it through the SHARED composer.
+//  clean project — `//` + the cwd dir name — and drives it through the SHARED composer.
 const ctx = "//" + io.cwd().slice(io.cwd().lastIndexOf("/") + 1);
 io.log("=== context " + ctx + "\n");
 drive(ctx, "put vendor/sub/x/k.txt vendor/sub/x/l.txt");

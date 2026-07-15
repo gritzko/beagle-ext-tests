@@ -107,6 +107,24 @@ rs_cleanup_arm() {
     fi; exit $rc' EXIT
 }
 
+# rs_work_root <dir> — seed the PROJECT ROOT at <dir> and echo its `work/` (the
+# dir the worktrees live in).  URI-016: `//WT` resolves to `<project root>/work/WT`
+# ([/wiki/URI] step 2), and the project root is DETECTED — the TOPMOST dir
+# carrying a `.be` that RESOLVES TO A STORE, bounded by $BE_ROOT
+# (core/resolve_hash.js::projectRoot/anchors).  No env var names it: the old
+# `SRC_ROOT=<the work dir>` export is read NOWHERE and a flat `<base>/<NAME>`
+# layout fails NAVNONE.  So a fixture needs BOTH levels, and this is the ONE
+# place they are spelled:
+#   <dir>/.be/     the anchor — the spec's "its own store in `.be/`" form, which
+#                  anchors with no store read.  (An EMPTY `.be` FILE anchors
+#                  NOTHING — that is exactly the rs_firewall refusal.)
+#   <dir>/work/    the worktrees; `<dir>/work/<NAME>` IS `//NAME`.
+# Each worktree still needs its own shield — call rs_shield/rs_wt_at on it.
+rs_work_root() {
+    mkdir -p "$1/.be" "$1/work"
+    printf '%s\n' "$1/work"
+}
+
 # rs_fresh_wt [name] — create an isolated REPO worktree, cd into it, and
 # seed the empty-`.be/` shield.  Wipes any leftover same-root state.
 # Sets/exports $RS_ROOT (process scratch root) and $RS_WT.

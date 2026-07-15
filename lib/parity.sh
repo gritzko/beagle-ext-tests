@@ -53,7 +53,6 @@ NAME=$(basename "$_CASE")
 # `be`'s cwd-walk from escaping to a real $HOME/.be (rs firewall, DIS-024).
 WORK="$TMP/$$/js-parity/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 # JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true

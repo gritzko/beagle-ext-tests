@@ -58,11 +58,15 @@ _rc=$(sc_jget "$T1" "file:$WTSRC?/")
 [ -f "$T1/main.c" ] || _fail "wt-source get: main.c missing (checkout incomplete)"
 [ -f "$T1/lib.c" ]  || _fail "wt-source get: lib.c missing (checkout incomplete)"
 
-# row-0 anchor is the REAL STORE (`<store>/.be/?/`), NOT the worktree path.
+# row-0 anchor is the REAL STORE (`<store>/.be/?`), NOT the worktree path.
+# URI-009: `ulog.write` composes the branch slot, so a project-LESS `?/` is
+# emitted as the bare `?` — "`?` the trunk" ([/wiki/URI]); only a NAMED `?/proj`
+# keeps its slot.  The pattern QUOTES the `?`: unquoted it is a shell glob (one
+# any-char), which silently weakened this very assertion.
 _row0=$(awk -F'\t' 'NR==1{print $3; exit}' "$T1/.be")
 case "$_row0" in
-    file:"$STORE"/.be/?/) ;;
-    *) _fail "wt-source get: row-0 anchor [$_row0] != real store file:$STORE/.be/?/" ;;
+    file:"$STORE"/.be/"?") ;;
+    *) _fail "wt-source get: row-0 anchor [$_row0] != real store file:$STORE/.be/?" ;;
 esac
 # explicitly NOT the worktree URI (the GET-038 bug).
 case "$_row0" in

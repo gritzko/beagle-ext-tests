@@ -46,7 +46,6 @@ NAME=$(basename "$_CASE")
 GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 WORK="$TMP/$$/js-patch/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 # JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true

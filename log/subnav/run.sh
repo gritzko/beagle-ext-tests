@@ -33,7 +33,6 @@ WORK="$TMP/$$/log/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
 # Hermetic firewall + the `be -> <be/>` shard symlink so bareword `jab` resolves
 # the extension via jab's upward be/-scan from the worktree cwd.
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT

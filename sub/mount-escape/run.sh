@@ -29,7 +29,6 @@ NAME=$(basename "$_CASE")
 . "$_ROOT/lib/repo-setup.sh"
 WORK="$TMP/$$/sub/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 # jab resolves its JS extension via an upward be/-scan; plant the shard symlink.
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT

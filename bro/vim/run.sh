@@ -32,7 +32,6 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 export WORK
 # Hermetic firewall + the jsrc shard symlink so bareword `jab vim` resolves the
 # extension via jab's upward jsrc/-scan from the worktree cwd.
-: > "$TMP/$$/.be" 2>/dev/null || true
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
 # PUT-006: rm the pid scratch on clean exit (0); keep it on failure for debug.
 SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"; exit $rc' EXIT
@@ -65,11 +64,13 @@ EOF
 chmod +x "$WORK/bin/vim" "$WORK/bin/nvim"
 PATH="$WORK/bin:$PATH"; export PATH
 
-# The scratch worktree is a HIVE cell (`$SRC_ROOT/wt`, the BE-031 work/ layout)
-# so navCwd names it //wt — the BE-048 authority-only guard leg needs the name.
-HIVE="$WORK/work"; mkdir -p "$HIVE"
-SRC_ROOT="$HIVE"; export SRC_ROOT
-WT="$HIVE/wt"; mkdir -p "$WT/.be" "$WT/sub"
+# The scratch worktree lives under `work/` (`<project root>/work/wt`, the BE-031
+# work/ layout) so navCwd names it //wt — the BE-048 authority-only guard leg
+# needs the name.  URI-016: the project root is DETECTED by the `.be` climb, not
+# declared by an env var, so $WORK must ANCHOR one (rs_work_root).
+. "$_ROOT/lib/repo-setup.sh"
+WORKD=$(rs_work_root "$WORK")
+WT="$WORKD/wt"; mkdir -p "$WT/.be" "$WT/sub"
 cd "$WT"
 printf 'ORIGINAL\n'  > doc.txt
 printf 'OTHERFILE\n' > other.txt

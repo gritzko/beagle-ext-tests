@@ -8,8 +8,10 @@
 # list; topic READMEs are stale-able landing pages, never an index.  List
 # rows + in-page ticket keys carry hidden `U` spell targets (`todo <KEY>`) so
 # the pager's _uriAt click re-enters the view (asserted over --tlv, check.js).
-# The ticket tree is a FIXTURE under $TMP (never the live journal), reached
-# via $TODO_ROOT (be.todoRoot()'s first probe).  Registered by the be/test
+# The ticket tree is a FIXTURE under $TMP (never the live journal): URI-016 —
+# be.todoRoot() is <project root>/todo and the root is DETECTED by the cwd climb
+# (core/resolve_hash.js::projectRoot), so the fixture tickets live in the run
+# worktree's OWN todo/ — no env var names the root.  Registered by the be/test
 # glob as be-js-todo-view — no CMakeLists edit.
 set -eu
 
@@ -37,11 +39,17 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 
 _fail() { echo "FAIL [todo/$NAME] $*" >&2; exit 1; }
 
+# --- the worktree the loop runs from == the PROJECT ROOT --------------------
+# URI-016: todoRoot() is <project root>/todo, and projectRoot() is the TOPMOST
+# `.be`-anchored dir above the cwd (bounded by $BE_ROOT).  $WT's `.be/` shield IS
+# that anchor, so the fixture ticket tree must live UNDER $WT — hence META=$WT.
+WT="$WORK/wt"; mkdir -p "$WT/.be"
+
 # --- the FIXTURE ticket tree (board / topic / thin / fat / second topic) ----
 # GET has a curated README (open = GET-001, GET-002); GET-003 is CLOSED: its
 # file remains, its bullet is delisted, only a footer refdef still names it.
 # PUT has NO README → the open filter falls back to all files + a visible note.
-META="$WORK/meta"
+META="$WT"
 mkdir -p "$META/todo/GET/GET-002" "$META/todo/PUT" "$META/todo/done" "$META/wiki"
 cat > "$META/todo/README.mkd" <<'EOF'
 #   Active ticket board
@@ -100,10 +108,8 @@ EOF
 cat > "$META/todo/done/GET-000.mkd" <<'EOF'
 #   GET-000: closed sample (must not list)
 EOF
-export TODO_ROOT="$META"
 
-# --- a minimal seeded worktree to run the loop from ------------------------
-WT="$WORK/wt"; mkdir -p "$WT/.be"
+# --- seed the worktree (its `.be/` shield is the project-root anchor) -------
 cd "$WT"
 printf 'seed\n' > a.txt
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"

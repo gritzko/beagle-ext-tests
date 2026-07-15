@@ -1,5 +1,5 @@
 #!/bin/sh
-# BE-011 test/uri011/nav-escape — wtdir SRC_ROOT confinement must be PHYSICAL,
+# BE-011 test/uri011/nav-escape — wtdir confinement must be PHYSICAL,
 # not a lexical prefix compare.  A nav authority/path that resolves OUTSIDE the
 # named tree via `..` (`//name/../../outside`, `//../outside`) must be REFUSED
 # with a code-worded throw (NAVESCAPE), never adopt the outside tree.  resolve()
@@ -31,18 +31,21 @@ export BE JABC BEDIR
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
-# SRC_ROOT layout:  $WORK/root  (the named tree, //root)  and  $WORK/outside
-# (a SIBLING tree that MUST be unreachable via `..`).  Both are real worktrees
-# (each a `.be` shield) so a lexical-prefix escape WOULD anchor `outside`.
-_root="$WORK/root"; mkdir -p "$_root/.be"
+# URI-016 layout: a PROJECT ROOT at $WORK (rs_work_root seeds its `.be` anchor
+# and echoes `work/`), holding `root` (the named tree, //root == <root>/work/root
+# per [/wiki/URI] step 2) and `outside` — a SIBLING tree that MUST be unreachable
+# via `..`.  Both are real worktrees (each a `.be` shield) so a lexical-prefix
+# escape WOULD anchor `outside`.  The project root is DETECTED by the cwd climb
+# (core/resolve_hash.js::projectRoot), never named by an env var.
+_WORKD=$(rs_work_root "$WORK")
+_root="$_WORKD/root"; mkdir -p "$_root/.be"
 ( cd "$_root"
   printf 'INSIDE\n' > a.txt
   "$BE" post 'root base' >/dev/null 2>&1 ) || _fail "root seed failed"
-_out="$WORK/outside"; mkdir -p "$_out/.be"
+_out="$_WORKD/outside"; mkdir -p "$_out/.be"
 ( cd "$_out"
   printf 'SECRET-OUTSIDE\n' > secret.txt
   "$BE" post 'outside base' >/dev/null 2>&1 ) || _fail "outside seed failed"
-export SRC_ROOT="$WORK"
 
 # (0) sanity: a legit `//root` nav resolves and renders the INSIDE tree.
 ( cd "$_root" && "$JABC" ls '//root' ) >"$WORK/ok.out" 2>&1 \
@@ -56,7 +59,7 @@ echo "ok: //root resolves to the named tree"
 # (a) `//root/../../outside` must be REFUSED (NAVESCAPE, non-zero), never render
 #     outside/secret.txt — the JS twin of DOG-009's physical `..` escape.
 if ( cd "$_root" && "$JABC" ls '//root/../../outside' ) >"$WORK/esc1.out" 2>&1; then
-    _fail "(a) //root/../../outside exited 0 (escaped SRC_ROOT confinement):
+    _fail "(a) //root/../../outside exited 0 (escaped the work-root confinement):
 $(cat "$WORK/esc1.out")"
 fi
 grep -q 'secret.txt' "$WORK/esc1.out" \

@@ -33,14 +33,14 @@ export BE JABC BEDIR
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
-# A mini-hive: `<hive>/work/proj` is the TOP cell (topWt's `work/` boundary),
-# `proj/sub` a nested wt inside it.  SRC_ROOT stays UNSET so the BE-031 hive
-# inference (srcRoot = the cell's `work/` parent) is what resolves `//`.
+# A mini-project: `<root>/work/proj` is the TOP worktree (topWt's `work/` boundary),
+# `proj/sub` a nested wt inside it.  SRC_ROOT stays UNSET so the BE-031 layout
+# inference (srcRoot = the wt's `work/` parent) is what resolves `//`.
 unset SRC_ROOT || true
 _top="$WORK/work/proj"; mkdir -p "$_top/.be"
 ( cd "$_top"
   printf 'TOPFILE\n' > top.txt
-  "$BE" post 'base' >/dev/null 2>&1 ) || _fail "top-cell seed failed"
+  "$BE" post 'base' >/dev/null 2>&1 ) || _fail "top-wt seed failed"
 _sub="$_top/sub"; mkdir -p "$_sub/.be"
 ( cd "$_sub"
   mkdir -p dir

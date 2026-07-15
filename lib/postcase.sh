@@ -39,7 +39,6 @@ NAME=$(basename "$_CASE")
 GOLDEN=${GOLDEN:-$_CASE/golden.out}               # JAB-003: committed snapshot
 WORK="$TMP/$$/js-post/$NAME"
 rm -rf "$WORK"; mkdir -p "$WORK"
-: > "$TMP/$$/.be" 2>/dev/null || true
 # JS verbs run bareword (`jab <verb>`); jab's upward be/-scan resolves the
 # extension via this `be` shard symlink planted above the scratch worktrees.
 ln -sfn "$BEDIR" "$TMP/$$/jsrc" 2>/dev/null || true
@@ -66,7 +65,7 @@ _seed_wtlog() {   # _seed_wtlog WTDIR SEEDRON
     cat > "$WORK/.seed.js" <<'EOF'
 const ulog = require(process.argv[3] + "/shared/ulog.js");
 const be   = require(process.argv[3] + "/core/discover.js");
-const info = be.find(process.argv[2]);
+const info = be.treeAt(process.argv[2]);
 ulog.append(info.bePath, [{ verb:"mod", uri:"?/.seed", ts: BigInt(process.argv[4]) }]);
 EOF
     "$JABC" "$WORK/.seed.js" "$1" "$BEDIR" "$2" 2>/dev/null
@@ -77,7 +76,7 @@ _commit_dump() {  # _commit_dump WTDIR  → "tip=<sha>\n<commit bytes>"
     cat > "$WORK/.dump.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
-const info  = be.find(process.argv[2]);
+const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
 const tip = k.resolveRef("");
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}

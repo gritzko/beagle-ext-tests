@@ -4,7 +4,7 @@
 const be = require("../../core/discover.js");   // be/test/put -> be/
 const wtlog = require("../../shared/wtlog.js");
 const store = require("../../shared/store.js");
-const repo = be.find(process.argv[2]);
+const repo = be.treeAt(process.argv[2]);
 const log = wtlog.open(repo);
 const cur = log.curTip();
 const k = store.open(repo.storePath, repo.project);

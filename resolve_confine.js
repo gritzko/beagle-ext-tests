@@ -4,7 +4,8 @@
 //  (its path) the relative arg resolves against; `rel` is a PATH, NEVER a URI —
 //  a `//other` authority or a `scheme:` in `rel` is REFUSED (the //OTHER escape),
 //  and a `..` climb above the tree root THROWS "NAVESCAPE".  So a resolved path
-//  can NEVER leave $SRC_ROOT/<context-name>/.  Run: jab test/resolve_confine.js.
+//  can NEVER leave the worktree <project root>/work/<context-name>/.
+//  Run: jab test/resolve_confine.js.
 "use strict";
 
 const { eq, ok, throws } = require("./lib/assert.js");
@@ -21,7 +22,21 @@ function _req(mod) {
 }
 
 const resolve = discover.resolve;
-const SR = discover.srcRoot();                     // whatever root this box resolves
+
+//  URI-016: `//NAME` is `<project root>/work/NAME` and the project root is
+//  DETECTED — the TOPMOST dir carrying a store-resolving `.be`, bounded by
+//  $BE_ROOT — never declared by an env var (srcRoot() is GONE).  ctest runs this
+//  unit with cwd == $BE_ROOT == $TMP, where the climb breaks on its first step
+//  and projectRoot() is null, so resolve() would refuse (PROJNONE).  Seed a real
+//  project: a `.be/` DIR (the "own store in `.be/`" anchor form) + the `work/`
+//  the worktrees live in, one level BELOW $BE_ROOT, and run from inside it.
+const TMP = io.getenv("TMP") || "/tmp";
+const PROJ = TMP + "/js-resolve-confine-" + Date.now() + "-" + (Math.random() * 1e9 | 0);
+io.mkdir(PROJ); io.mkdir(PROJ + "/.be"); io.mkdir(PROJ + "/work");
+io.chdir(PROJ);                                    // the climb now finds PROJ
+
+const SR = discover.workRoot();                    // = PROJ/work — where wts live
+eq(SR, PROJ + "/work", "workRoot() is the project root's work/");
 const ctx = uri._parse("//ABC-123/dir");           // POINT 6: context is a URI OBJECT
 
 //  (1) a plain relative path resolves UNDER the context tree, against the context's

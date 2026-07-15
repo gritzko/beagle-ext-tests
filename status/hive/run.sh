@@ -2,12 +2,12 @@
 # test/status/hive — a `.gitignore` has effect only INSIDE its own repo: the
 # ignore chain (shared/util/ignore.js load()) must stop its upward walk at the
 # first repo boundary (`.git`/`.be`), not at $HOME.  An ENCLOSING repo ignoring
-# the cells' parent dir (the hive: journal's `work/`, BE-031) must not swallow
-# a cell checked out beneath it — with the bug, every tracked file reads `mis`
-# and `be put` dies with PUTNONE (hit live when BE-037 moved cells under
-# `journal/work/`).  Fixture: outer/.gitignore says `work/`; the cell is seeded
-# at outer/work/CELL; status must read the seed clean, put must stage.  The
-# cell's OWN .gitignore must still apply (junk/ stays hidden).  Registered by
+# the worktrees' parent dir (journal's `work/`, BE-031) must not swallow
+# a worktree checked out beneath it — with the bug, every tracked file reads `mis`
+# and `be put` dies with PUTNONE (hit live when BE-037 moved worktrees under
+# `journal/work/`).  Fixture: outer/.gitignore says `work/`; the worktree is seeded
+# at outer/work/WT; status must read the seed clean, put must stage.  The
+# worktree's OWN .gitignore must still apply (junk/ stays hidden).  Registered by
 # the be/test glob as be-js-status-hive — no CMakeLists edit.
 set -eu
 
@@ -33,13 +33,13 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 
 _fail() { echo "FAIL [status/$NAME] $*" >&2; exit 1; }
 
-# --- FIXTURE: an enclosing repo ignoring the hive dir, a cell beneath it ----
+# --- FIXTURE: an enclosing repo ignoring the work/ dir, a wt beneath it ----
 OUTER="$WORK/outer"
-CELL="$OUTER/work/CELL"
-mkdir -p "$CELL/.be"
+WT="$OUTER/work/WT"
+mkdir -p "$WT/.be"
 printf 'work/\nbuild/\n' > "$OUTER/.gitignore"
 
-cd "$CELL"
+cd "$WT"
 printf 'seed\n' > a.txt
 mkdir junk; printf 'noise\n' > junk/n.txt
 printf 'junk/\n' > .gitignore
@@ -47,12 +47,12 @@ printf 'junk/\n' > .gitignore
 
 # --- 1. status: the tracked file is clean, NOT `mis` -------------------------
 "$BE" status > "$WORK/st.out" 2>&1 || _fail "jab status failed: $(cat "$WORK/st.out")"
-grep -q 'mis a\.txt' "$WORK/st.out" && _fail "enclosing repo's work/ swallowed the cell: a.txt reads mis"
-grep -q 'mis \.gitignore' "$WORK/st.out" && _fail "cell tree invisible: .gitignore reads mis"
+grep -q 'mis a\.txt' "$WORK/st.out" && _fail "enclosing repo's work/ swallowed the wt: a.txt reads mis"
+grep -q 'mis \.gitignore' "$WORK/st.out" && _fail "wt tree invisible: .gitignore reads mis"
 grep -q 'ok' "$WORK/st.out" || _fail "status reports no clean files: $(cat "$WORK/st.out")"
 
-# --- 2. the cell's OWN .gitignore still applies -------------------------------
-grep -q 'junk/n\.txt' "$WORK/st.out" && _fail "cell's own .gitignore lost: junk/n.txt surfaced"
+# --- 2. the wt's OWN .gitignore still applies -------------------------------
+grep -q 'junk/n\.txt' "$WORK/st.out" && _fail "wt's own .gitignore lost: junk/n.txt surfaced"
 
 # --- 3. put stages (the live failure was PUTNONE: 'no eligible paths') -------
 printf 'seed2\n' > a.txt
