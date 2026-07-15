@@ -7,8 +7,11 @@
 //        current spell RIGHT of the colon;
 //    (c) `..` climbs one dir and CLAMPS at the `//WT` root (no worktree escape);
 //    (d) a DELETED context dir paints the invite red (ANSI), no crash;
-//    (e) iteration 2 — a BARE verb call implies the view's SOLE subject as its
-//        arg0 (shown in the invite), (f) an ambiguous/dir view implies nothing;
+//    (e) DIS-061 — a BARE verb call NEVER welds an implied subject into the
+//        spell (the pager composes context+verb+args ONLY); the current file
+//        rides the ambient be.prev_uri stash (_prevUri, ?rev/#L stripped) that
+//        a FILE-focused verb resolves in its own handler; (f) an ambiguous/dir
+//        view stashes nothing;
 //    (g-j) iteration 3 — a view RECORDS its full invocation {context, verb,
 //        args as entered}: the bar shows it, back/refresh replay IT (rest args
 //        + implied arg0 included), and a MUTATION verb is never re-executed.
@@ -82,15 +85,17 @@ p._applySpell("..");
 c = p._composeCall("status");
 check("dotdot-clamps-at-root", c.context === "//WT", c.context);
 
-//  --- (e) iteration 2: a BARE verb call implies the view's SOLE subject ------
-//  a single-file view: the open file (with the VIEW's own ?rev/#hash) rides as
-//  the implied arg0; the context stays the reduced dir, untouched.
+//  --- (e) DIS-061: a BARE verb call welds NOTHING; the file rides the stash ---
+//  a single-file view: `:vim` drives a BARE `vim` (no welded arg0) and the open
+//  file lands in be.prev_uri (normalized — its ?rev/#L stripped) for the verb to
+//  resolve; the context stays the reduced dir, untouched.
 const ps = mkPager(false);
 ps._runSpell("cat //WT/dog/DOG.h?feat#L5");
-ps._applySpell("vim");                               // bare: the sole subject implies
-check("imply-single-file", ps.rec.drove === "vim //WT/dog/DOG.h?feat#L5", ps.rec.drove);
-const barI = ps._statusLine(ps.rows(80), 0, 23, 80); // the invite SHOWS the implied call
-check("imply-invite", barI.indexOf("//WT/dog/: vim DOG.h?feat#L5") === 0, barI);
+check("imply-stash-file", ps._prevUri() === "//WT/dog/DOG.h", ps._prevUri()); // file in the stash
+ps._applySpell("vim");                               // bare: NEVER welds the subject
+check("imply-single-file", ps.rec.drove === "vim", ps.rec.drove);
+const barI = ps._statusLine(ps.rows(80), 0, 23, 80); // the invite shows the BARE call
+check("imply-invite", barI.indexOf("//WT/dog/: vim") === 0 && barI.indexOf("DOG.h") < 0, barI);
 c = ps._composeCall("status");                       // a verb call never navigates
 check("imply-ctx-unmoved", c.context === "//WT/dog", c.context);
 ps._applySpell("why other.c");                       // explicit args NEVER overridden
@@ -139,13 +144,15 @@ ph.rec.drove = "";
 ph._refresh();
 check("record-rest-refresh", ph.rec.drove === 'why("pat","dog/DOG.h")', ph.rec.drove);
 
-//  --- (i) an IMPLIED invocation records its implied arg0 (stable replay) ------
+//  --- (i) DIS-061: a bare verb call records the BARE spell (stable replay) -----
+//  no implied arg0 is welded, so back/refresh replay the same bare `vim` (the
+//  file rides be.prev_uri, recomputed on each view change).
 const pi = mkPager(false);
 pi._runSpell("cat //WT/dog/DOG.h?feat#L5");
-pi._applySpell("vim");                               // iteration-2 implied arg0
+pi._applySpell("vim");                               // bare, no welded subject
 pi.rec.drove = "";
 pi._refresh();
-check("record-implied-replay", pi.rec.drove === "vim //WT/dog/DOG.h?feat#L5", pi.rec.drove);
+check("record-implied-replay", pi.rec.drove === "vim", pi.rec.drove);
 
 //  --- (j) a MUTATION verb is NEVER re-executed by back/refresh (BRO-015) ------
 const pj = mkPager(false);
