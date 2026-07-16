@@ -61,7 +61,14 @@ one() {                      # one FROM TO
 
     # 2. NEW PART: UPDATE the OLD v1 clone with `jab get` — its on-disk entry
     #    type must flip FROM->TO in place (get drops the stale dir / leaf).
-    _rc=0; ( cd "$TOLD" && "$JABC" get "file://$TW/.be" ) >"$WORK/.upd" 2>&1 || _rc=$?
+    # DIS-076: this raw `get` bypasses sc_jget's auto-pin — pin it ourselves
+    # at TW's own tip (a bare post never mints a ref to resolve otherwise).
+    _tw_tip=$(sc_tip "$TW")
+    case "$_tw_tip" in
+        ????????????????????????????????????????) ;;
+        *) FAILS="$FAILS $tag(sha-tw)"; return ;;
+    esac
+    _rc=0; ( cd "$TOLD" && "$JABC" get "file://$TW/.be#$_tw_tip" ) >"$WORK/.upd" 2>&1 || _rc=$?
     [ "$_rc" = 0 ] || { FAILS="$FAILS $tag(update:$_rc)"; return; }
     r=$(why_$TO "$TOLD/$X"); [ -z "$r" ] \
         || { FAILS="$FAILS $tag(updated-old:$r)"; return; }

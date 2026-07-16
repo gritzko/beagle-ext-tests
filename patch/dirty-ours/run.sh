@@ -33,8 +33,11 @@ dirty_patch() {
     _opwd=$(pwd); cd "$ORG"; build; cd "$_opwd"
     _f1=$F1
     rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref
+    #  needed — a bare post never mints one).
+    _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"
-    ( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "JS clone failed"
+    ( cd "$JS" && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"
     #  DIRTY the cloned wt: an uncommitted line-1 edit, DISJOINT from theirs' line 3.
     printf 'ONE\n2\n3\n4\n' > "$JS/keep.txt"
     ( cd "$JS" && "$JABC" patch "#$_f1" ) >"$WORK/js.out" 2>"$WORK/js.err" \

@@ -14,10 +14,14 @@ while [ "$i" -le 30 ]; do printf 'line %02d original\n' "$i" >> big.txt; i=$((i 
 # TEST-003: bare bootstrap post (no pre-put — a leading `jab put` corrupts the
 # store bootstrap; `post ?v1` auto-stages the fresh file).
 "$BE" post -m v1 '?v1' >/dev/null 2>&1
+# DIS-076: a message-post never mints/moves a ref — publish the tag explicitly
+# (the `post "?<branch>"` pattern) so `?v1`/`?v2` stay resolvable.
+"$BE" post '?v1' >/dev/null 2>&1
 
 sed 's/^line 20 original$/line 20 CHANGED/' big.txt > big.txt.t && mv big.txt.t big.txt
 "$BE" put big.txt >/dev/null 2>&1
 "$BE" post -m v2 '?v2' >/dev/null 2>&1
+"$BE" post '?v2' >/dev/null 2>&1
 
 # TEST-003: jab-intrinsic (native `be`/`graf` LAG jab, so no oracle cmp).  The
 # invariant is FILE scope = WHOLE file, TREE scope = WINDOWED — asserted on the

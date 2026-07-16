@@ -53,9 +53,13 @@ gr_src() {
 # gr_jclone SRC DST — JS-clone SRC into the (made) DST dir.  TEST-003: a
 # jab-seeded source is a single-shard UNNAMED-project colocated primary, so the
 # clone URI carries NO `?/name` (a named-project `?/x` misses jab's `?`-trunk).
+# DIS-076: a bare post never mints a ref, so a bare `file://SRC/.be` clone has
+# no trunk to resolve — default idiom is cloning the WORKTREE, pinned at its
+# OWN cur tip (gr_tip_sha, asked via `jab refs`, never a hand-rolled ref grep).
 gr_jclone() {
     mkdir -p "$2"
-    ( cd "$2" && "$JABC" get "file://$1/.be" ) >/dev/null 2>&1
+    _tip=$(gr_tip_sha "$1")
+    ( cd "$2" && "$JABC" get "file://$1/.be#$_tip" ) >/dev/null 2>&1
 }
 
 # gr_jget DIR ARG... — run the JS `be get` in DIR; stdout->$WORK/last.out,
@@ -74,12 +78,11 @@ gr_file_is() {
     [ "$_got" = "$2" ] || _fail "content of $1: got [$_got] want [$2]"
 }
 
-# gr_tip_sha SRC — echo the full 40-hex CURRENT trunk tip sha of source SRC
-# (the LAST refs row — the newest post).  TEST-003: a jab-seeded source is
-# single-shard/unnamed, so refs sits at `.be/refs`, not `.be/<name>/refs`.
+# gr_tip_sha SRC — echo SRC's CURRENT worktree tip (wtlog cur, via `jab refs`).
+# DIS-076: a bare post never moves any ref, so `.be/refs` no longer exists for
+# a plain-commit source — the worktree's own cur is the only tip there is.
 gr_tip_sha() {
-    od -An -c "$1/.be/refs" 2>/dev/null \
-        | tr -d ' \n' | grep -oE '#[0-9a-f]{40}' | tail -1 | tr -d '#'
+    ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'
 }
 
 # gr_wtraw DIR — echo the JS clone's wtlog (DIR/.be) as a flat printable string

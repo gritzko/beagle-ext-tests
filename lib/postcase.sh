@@ -87,18 +87,6 @@ EOF
     "$JABC" "$WORK/.dump.js" "$1" "$BEDIR" 2>/dev/null
 }
 
-# TEST-003: a jab `file://` clone is a SECONDARY wt whose `<side>/.be` is a
-# REDIRECT FILE (itself the wtlog); its refs live in the redirect TARGET store's
-# flat `<target>/refs` (jab is unnamed-project, so no `<proj>/refs`).  Follow the
-# row-0 `get file:<target>/.be/?...` redirect to that target.
-_redirect_be() {   # _redirect_be SIDE → the redirect target `.be` dir (or "")
-    head -1 "$WORK/$1/.be" 2>/dev/null \
-      | sed -nE 's#.*[[:space:]]file:([^?[:space:]]+/\.be)/?.*#\1#p'
-}
-_refs_row() {   # _refs_row SIDE  → the LAST refs row of the target store, ts-normalised
-    _tgt=$(_redirect_be "$1")
-    tail -1 "${_tgt:-$WORK/$1/.be}/refs" 2>/dev/null | sed -E 's/^[^\t]*\t/T\t/'
-}
 _wtlog_post_row() {   # last post row of a side's wtlog (the `.be` redirect FILE)
     grep -a $'\tpost\t' "$WORK/$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
 }
@@ -109,9 +97,13 @@ _postnorm() { sed -E 's/\?#[0-9a-f]{40}/?#SHA/; s/\?[0-9a-f]{7,40}#/?SHA#/'; }
 # TEST-003: drop the `.be` redirect FILE and jab's sibling `..be.idx` index.
 _fileset() { ( cd "$1" && find . -type f | grep -vE '/\.be|^\./\.be|/\.\.be\.idx|^\./\.\.be\.idx' | sort ); }
 
+# DIS-076: a bare post never mints a ref — the ORG worktree's own cur (asked
+# via `jab refs`) is the only tip there is; never grep a `.be/refs` ULOG.
+_orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
+
 # JAB-003 post_parity: build the c1 origin, clone into ONE JS tree, stage +
-# `jab post`, then snapshot the `post:` banner + wtlog post row + refs row +
-# file set as one golden stream.  No native `be post` oracle.
+# `jab post`, then snapshot the `post:` banner + wtlog post row + file set as
+# one golden stream (DIS-076: no "refs row" — a bare post never mints a ref).
 # Usage: post_parity ORIGIN_BUILDER STAGE_FN MSG (name kept for the call site;
 # ORIGIN_BUILDER/STAGE_FN are the repo SETUP, MSG is the `#MSG` commit message).
 post_parity() {
@@ -122,20 +114,21 @@ post_parity() {
     mkdir -p "$WORK/jsrc/.be"; cp -a "$ORG/.be/." "$WORK/jsrc/.be/"
     mkdir "$WORK/jT"
     # TEST-003: jab-seeded stores are UNNAMED-project single shards, so clone
-    # via bare `file://<store>/.be` (no `?/org` selector — that selects a named
+    # via `file://<store>/.be` (no `?/org` selector — that selects a named
     # shard jab never creates); `be:` wire needs a retired native keeper.
-    ( cd "$WORK/jT" && "$BE" get "file://$WORK/jsrc/.be" >/dev/null 2>&1 ) \
+    # DIS-076: no trunk ref to resolve — pin the clone at ORG's own cur tip.
+    _ORGTIP=$(_orgtip "$ORG")
+    ( cd "$WORK/jT" && "$BE" get "file://$WORK/jsrc/.be#$_ORGTIP" >/dev/null 2>&1 ) \
         || _fail "JS clone failed"
     SEED=$(_mk_seed)
     _seed_wtlog "$WORK/jT" "$SEED"
     ( cd "$WORK/jT" && "$_stage" )
     ( cd "$WORK/jT" && "$JABC" post "#$_msg" ) >"$WORK/jT.out" 2>"$WORK/jT.err" || _fail "JS post failed: $(cat "$WORK/jT.err")"
 
-    # JAB-003 fold banner + wtlog post row + refs row + file set into ONE golden.
+    # JAB-003 fold banner + wtlog post row + file set into ONE golden.
     {
         echo "=== stdout ==="; cat "$WORK/jT.out"
         echo "=== wtlog post row ==="; _wtlog_post_row jT
-        echo "=== refs row ==="; _refs_row jT
         echo "=== file set ==="; _fileset "$WORK/jT"
     } | _postnorm | golden_assert "$NAME" "$GOLDEN"
 }

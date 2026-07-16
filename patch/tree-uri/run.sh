@@ -24,10 +24,13 @@ cd "$_opwd"
 #  two SECONDARY worktrees off the ONE origin store (TEST-003: drop the origin's
 #  rolling keeper.idx before each op so every commit stays visible)
 _org_jab() { _d=$1; shift; rm -f "$ORG"/.be/*.keeper.idx; ( cd "$_d" && "$BE" "$@" ); }
+#  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref needed
+#  — a bare post never mints one).
+ORG_TIP=$(_orgtip "$ORG")
 W1="$WORK/w1"; mkdir -p "$W1"
-_org_jab "$W1" get "file://$ORG/.be" >/dev/null 2>&1 || _fail "w1 clone failed"
+_org_jab "$W1" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 || _fail "w1 clone failed"
 W2="$WORK/w2"; mkdir -p "$W2"
-_org_jab "$W2" get "file://$ORG/.be" >/dev/null 2>&1 || _fail "w2 clone failed"
+_org_jab "$W2" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 || _fail "w2 clone failed"
 
 #  w2 → ?feat, ONE commit ahead: F1 edits line 3
 _org_jab "$W2" get '?feat' >/dev/null 2>&1 || _fail "w2 get ?feat failed"

@@ -42,6 +42,17 @@ export BE JABC BEDIR
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
+# _subtip WT — echo WT's own current cur tip (40-hex) via wtlog.curTip().
+cat > "$WORK/.subtip.js" <<'EOF'
+const be    = require(process.argv[3] + "/core/discover.js");
+const wtlog = require(process.argv[3] + "/shared/wtlog.js");
+const info  = be.treeAt(process.argv[2]);
+const cur = wtlog.open(info).curTip();
+function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
+w((cur && cur.sha) || "");
+EOF
+_subtip() { "$JABC" "$WORK/.subtip.js" "$1" "$BEDIR" 2>/dev/null; }
+
 # --- fixture: a 3-level nested-mount tree, all jab-only green-field clones -----
 # storeM / storeI : source stores (project-less colocated primaries) for the mid
 #                   and inner subs; P : the parent worktree.  Cloning storeM into
@@ -60,12 +71,16 @@ mkdir -p "$WORK/P/.be"
 # Mount mid inside P, then inn inside P/mid (double-slash file:// — the single
 # slash form has a known path-eating bug).
 mkdir -p "$WORK/P/mid"
-( cd "$WORK/P/mid" && "$BE" get "file://$WORK/storeM/.be" ) >"$WORK/getmid.out" 2>&1 \
+# DIS-076: a bare post never mints a ref, so an un-fragmented remote has no
+# trunk to resolve — pin the mount clone at the source store's own tip.
+_midtip=$(_subtip "$WORK/storeM")
+( cd "$WORK/P/mid" && "$BE" get "file://$WORK/storeM/.be#$_midtip" ) >"$WORK/getmid.out" 2>&1 \
     || { cat "$WORK/getmid.out"; _fail "mount mid"; }
 [ -f "$WORK/P/mid/.be" ] || _fail "P/mid/.be not a FILE redirect (mid not mounted)"
 [ -f "$WORK/P/mid/MID.c" ] || _fail "P/mid/MID.c not checked out"
 mkdir -p "$WORK/P/mid/inn"
-( cd "$WORK/P/mid/inn" && "$BE" get "file://$WORK/storeI/.be" ) >"$WORK/getinn.out" 2>&1 \
+_inntip=$(_subtip "$WORK/storeI")
+( cd "$WORK/P/mid/inn" && "$BE" get "file://$WORK/storeI/.be#$_inntip" ) >"$WORK/getinn.out" 2>&1 \
     || { cat "$WORK/getinn.out"; _fail "mount inn"; }
 [ -f "$WORK/P/mid/inn/.be" ] || _fail "P/mid/inn/.be not a FILE redirect (inn not mounted)"
 [ -f "$WORK/P/mid/inn/INN.c" ] || _fail "P/mid/inn/INN.c not checked out"

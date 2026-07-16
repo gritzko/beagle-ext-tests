@@ -44,18 +44,20 @@ _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
 # stale idx before each op.  Bootstrap post-alone, absolute `?feat`, and switch
 # back to trunk by PINNING the saved t0 (bare `?` folds to the current branch).
 _jab() { rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+# DIS-076: a bare post never mints a ref — the wt's OWN cur (jab refs) is the
+# only tip there is; never grep a `.be/refs` ULOG (that file no longer exists).
+_orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
 _build() {   # _build OURS_LINE THEIRS_LINE
     rm -rf "$WORK/org"; ORG="$WORK/org"; mkdir -p "$ORG/.be"
     ( cd "$ORG"
       printf 'a\nb\nc\nd\ne\n' > f.txt
       _jab post 't0' >/dev/null 2>&1
-      T0=$(grep -a "$(printf '\tpost\t')" .be/refs | grep -oE '[0-9a-f]{40}' | head -1)
+      T0=$(_orgtip .)
       _jab put '?feat' >/dev/null 2>&1
       _jab get '?feat' >/dev/null 2>&1
       printf 'a\nb\nc\n%s\ne\n' "$2" > f.txt          # theirs: line 4
       _jab put f.txt >/dev/null 2>&1; _jab post 'f1' >/dev/null 2>&1
-      grep -a "$(printf '\tpost\t')" .be/refs \
-        | grep -aE '\?feat#' | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
+      _orgtip . > "$WORK/F1"
       _jab get "?#$T0" >/dev/null 2>&1               # back to trunk @ t0
       printf 'a\n%s\nc\nd\ne\n' "$1" > f.txt          # ours: line 2
       _jab put f.txt >/dev/null 2>&1; _jab post 't1' >/dev/null 2>&1
@@ -66,7 +68,8 @@ _build() {   # _build OURS_LINE THEIRS_LINE
 # ours edits line 2, theirs line 4 (disjoint) → a clean 3-way merge → `mrg`.
 _build B D; F1=$(cat "$WORK/F1")
 JS="$WORK/merge"; mkdir -p "$JS"
-( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "clone failed (merge)"
+ORG_TIP=$(_orgtip "$ORG")
+( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed (merge)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (merge)"
 st=$(_jstatus "$JS")
 [ "$st" = "mrg f.txt" ] || _fail "merge-absorb status != 'mrg f.txt':
@@ -101,13 +104,12 @@ _build2() {   # TEST-003 jab-only DAG (see _build note)
     ( cd "$ORG"
       printf 'a\nb\nc\nd\ne\n' > f.txt
       _jab post 't0' >/dev/null 2>&1
-      T0=$(grep -a "$(printf '\tpost\t')" .be/refs | grep -oE '[0-9a-f]{40}' | head -1)
+      T0=$(_orgtip .)
       _jab put '?feat' >/dev/null 2>&1
       _jab get '?feat' >/dev/null 2>&1
       printf 'a\nX\nc\nd\ne\n' > f.txt                # theirs: line 2 = X (conflicts)
       _jab put f.txt >/dev/null 2>&1; _jab post 'f1' >/dev/null 2>&1
-      grep -a "$(printf '\tpost\t')" .be/refs \
-        | grep -aE '\?feat#' | grep -oE '[0-9a-f]{40}' | tail -1 > "$WORK/F1"
+      _orgtip . > "$WORK/F1"
       _jab get "?#$T0" >/dev/null 2>&1               # back to trunk @ t0
       printf 'a\nY\nc\nd\ne\n' > f.txt                # ours: line 2 = Y
       _jab put f.txt >/dev/null 2>&1; _jab post 't1' >/dev/null 2>&1
@@ -115,7 +117,8 @@ _build2() {   # TEST-003 jab-only DAG (see _build note)
 }
 _build2; F1=$(cat "$WORK/F1")
 JS="$WORK/conf"; mkdir -p "$JS"
-( cd "$JS" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
+ORG_TIP=$(_orgtip "$ORG")
+( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (conf)"
 st=$(_jstatus "$JS")
 [ "$st" = "con f.txt" ] || _fail "conflict-absorb status != 'con f.txt':

@@ -1,0 +1,16 @@
+=== stdout ===
+?1dfff71b8da3589a62043a5c422a79cebd375f67!
+        applied f.txt
+
+=== patch row ===
+T	patch	?1dfff71b8da3589a62043a5c422a79cebd375f67!
+=== status ===
+pat f.txt
+=== file bytes ===
+--- f.txt ---
+-rw-------
+a
+b
+C
+d
+e

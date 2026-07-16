@@ -20,10 +20,9 @@ ln -sfn "$_WT" "$WORK/jsrc"                      # exercise THIS get.js
 : > "$TMP/$$/.be" 2>/dev/null || true            # be.find firewall
 
 fail() { echo "FAIL [confdrop] $*" >&2; exit 1; }
-tip_sha() {  # tip_sha <shard> <nth> — nth #sha row of the refs ULOG
-    od -An -c "$1/refs" 2>/dev/null | tr -d ' \n' \
-        | grep -oE '#[0-9a-f]{40}' | sed -n "${2}p" | tr -d '#'
-}
+# DIS-076: a bare post never mints a ref — the wt's OWN cur (jab refs) is the
+# only tip there is; never grep a `.be/refs` ULOG (that file no longer exists).
+_srctip() { ( cd "$SRC" && "$JAB" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
 
 # ===== source: c1 base; c2 changes BOTH the conflict file and a clean =====
 # ===== file in a subdir whose reconcile runs AFTER the conflict leaf  =====
@@ -31,16 +30,17 @@ SRC="$WORK/src"; mkdir -p "$SRC"; cd "$SRC"; mkdir .be
 printf 'l1\nl2\nl3\nl4\nl5\n' > conf.txt
 mkdir later; printf 'old clean content\n' > later/clean.txt
 "$JAB" post 'c1' >/dev/null 2>&1 || fail "post c1"
+C1=$(_srctip)
 printf 'l1\nl2\nl3\nl4\nTHEIRS\n' > conf.txt
 printf 'NEW clean content\n' > later/clean.txt
 "$JAB" put conf.txt later/clean.txt >/dev/null 2>&1 || fail "put"
 "$JAB" post 'c2' >/dev/null 2>&1 || fail "post c2"
-C1=$(tip_sha "$SRC/.be" 1); C2=$(tip_sha "$SRC/.be" 2)
+C2=$(_srctip)
 [ -n "$C1" ] && [ -n "$C2" ] && [ "$C1" != "$C2" ] || fail "two-commit setup"
 
 # ===== worktree at c1 with an overlapping local edit on conf.txt =====
 WT="$WORK/wt"; mkdir -p "$WT"
-( cd "$WT" && "$JAB" get "file://$SRC/.be" ) >/dev/null 2>&1 || fail "clone"
+( cd "$WT" && "$JAB" get "file://$SRC/.be#$C1" ) >/dev/null 2>&1 || fail "clone"
 ( cd "$WT" && "$JAB" get "?#$C1" ) >/dev/null 2>&1 || fail "pin to c1"
 grep -q '^old clean content$' "$WT/later/clean.txt" || fail "c1 baseline"
 printf 'l1\nl2\nl3\nl4\nMINE\n' > "$WT/conf.txt"

@@ -14,7 +14,11 @@ cd "$PWT" || _fail "no PWT"
 printf 'FEAT\n' > b.txt
 "$JABC" put b.txt >/dev/null 2>&1 || _fail "put b.txt failed"
 "$JABC" post '?feat' '#featmsg' >/dev/null 2>&1 || _fail "post ?feat failed"
-FEAT=$(strings .be/*/refs 2>/dev/null | grep -o '?feat#[0-9a-f]*' | tail -1 | cut -d'#' -f2)
+# DIS-076: a message-post never mints/moves a ref — publish `?feat` explicitly
+# so the later local `head '?feat'` peek (a refs-store read) can find it.
+"$JABC" post '?feat' >/dev/null 2>&1 || _fail "publish ?feat failed"
+# wt is attached to `feat` right now, so its own wtlog tip (wire_tip) IS it.
+FEAT=$(wire_tip "$PWT")
 [ -n "$FEAT" ] && [ "$FEAT" != "$PA" ] || _fail "feat did not advance off A"
 
 #  2) Checkout back to A (drop the feat work from the wt), then advance the TRUNK

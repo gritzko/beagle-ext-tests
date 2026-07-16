@@ -21,8 +21,11 @@ _boot 't0'
 _fork feat
 #  TEST-003 rolling-idx quirk: drop s1's stale keeper.idx before each op.
 _s1_jab() { _d=$1; shift; rm -f "$S1"/.be/*.keeper.idx; ( cd "$_d" && "$BE" "$@" ); }
+#  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref needed
+#  — a bare post never mints one).
+S1_TIP=$(_orgtip "$S1")
 A="$WORK/A"; mkdir -p "$A"
-_s1_jab "$A" get "file://$S1/.be" >/dev/null 2>&1 || _fail "A clone failed"
+_s1_jab "$A" get "file://$S1/.be#$S1_TIP" >/dev/null 2>&1 || _fail "A clone failed"
 _s1_jab "$A" get '?feat' >/dev/null 2>&1 || _fail "A get ?feat failed"
 printf 'a\nb\nC\n' > "$A/f.txt"
 _s1_jab "$A" put f.txt >/dev/null 2>&1 || _fail "A put failed"

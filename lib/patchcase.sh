@@ -61,11 +61,15 @@ pass() { echo "PASS [$NAME]"; }
 # earlier commit's object (the t0 FORK POINT both branches need) reads MISSING
 # after a 2nd post; drop the stale idx before each op to force a full re-index.
 _jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+# DIS-076: a bare post never moves a ref (uniform ruling) — the ONLY tip a
+# worktree has is its own wtlog cur; ask jab (`refs` cur:), never grep .be/refs.
+_orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
+
 # _boot MSG: FIRST commit on a fresh repo — post ALONE (put-before-post throws
 # "Not a directory"); it auto-adds the wt.  Saves the trunk tip in $BOOT for a
 # later trunk switch (bare `?` folds to the CURRENT branch, not trunk).
 _boot() { _jab post "$1" >/dev/null 2>&1
-          BOOT=$(grep -a $'\tpost\t' .be/refs | grep -oE '[0-9a-f]{40}' | head -1); }
+          BOOT=$(_orgtip .); }
 # _fork BR: label-only fork at cur (ABSOLUTE `?BR`, not `?./BR` which stores the
 # branch literally as `./BR` and misses resolveRef).  Does NOT switch the wt.
 _fork() { _jab put "?$1" >/dev/null 2>&1; }
@@ -74,10 +78,22 @@ _fork() { _jab put "?$1" >/dev/null 2>&1; }
 _sw() { _jab get "?$1" >/dev/null 2>&1; }
 _trunk() { _jab get "?#$BOOT" >/dev/null 2>&1; }
 # _ci MSG FILE...: stage the named files then commit on the current branch.
-_ci() { _msg=$1; shift; _jab put "$@" >/dev/null 2>&1; _jab post "$_msg" >/dev/null 2>&1; }
+# DIS-076: a message-post only advances the WORKTREE — republish the current
+# branch's own ref too (`post ?<branch>`, DIS-061's "standard advance"), since
+# later builder steps (`_tip`, a `?branch` patch URI) read that ref.
+_ci() {
+    _msg=$1; shift
+    _jab put "$@" >/dev/null 2>&1
+    _jab post "$_msg" >/dev/null 2>&1
+    _br=$(_orgbranch .); _jab post "?$_br" >/dev/null 2>&1
+}
+_orgbranch() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^branch: *?//p'; }
 # _tip BR: newest commit sha on branch BR (trunk = empty BR).  Exports nothing;
-# callers assign (e.g. F1=$(_tip feat)).
-_tip() { grep -a $'\tpost\t' .be/refs | grep -aE "\\?$1#" | grep -oE '[0-9a-f]{40}' | tail -1; }
+# callers assign (e.g. F1=$(_tip feat)).  DIS-076: every call site asks for the
+# tip of the branch the wt is CURRENTLY attached to, right after committing
+# onto it — a bare post no longer republishes that branch's ref (uniform
+# ruling), so the wt's OWN cur (jab refs) is the only tip that is current.
+_tip() { _orgtip .; }
 
 # the last `patch` wtlog row, ts-normalised (store-backed wt: .be IS the wtlog).
 _patch_row() {  # _patch_row WTDIR
@@ -121,8 +137,11 @@ patch_parity() {
     #  TEST-003: drop the origin's stale keeper.idx so the clone sees EVERY commit
     #  (the rolling idx indexes only the latest keeper — the t0 fork point is hid).
     rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref
+    #  needed — a bare post never mints one).
+    _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"
-    ( cd "$JS"  && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "JS clone failed"
+    ( cd "$JS"  && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
@@ -162,8 +181,10 @@ patch_js_golden() {
     #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
     #  TEST-003: drop the origin's stale keeper.idx so the clone sees every commit.
     rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur.
+    _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"
-    ( cd "$JS"  && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 ) || _fail "JS clone failed"
+    ( cd "$JS"  && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"
     ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
         || _fail "JS patch failed: $(cat "$WORK/js.err")"
 

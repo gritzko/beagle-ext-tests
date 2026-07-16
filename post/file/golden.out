@@ -8,8 +8,6 @@ T post ?SHA#mixed change-set
 
 === wtlog post row ===
 T	post	?#SHA
-=== refs row ===
-T	post	?#SHA
 === file set ===
 ./a.txt
 ./d/c.txt

@@ -12,12 +12,16 @@ C1=$(gr_tip_sha "$SRC")
 
 # jT: clone at trunk, then commit onto ?feat — cur is now ATTACHED to feat@Cf1
 # (a real commit with a message retargets cur's wtlog track, DIS-054/061).
+# DIS-076: a message-post is WT-only and never mints/moves ANY ref (not even
+# the branch it unties to) — publish `?feat` EXPLICITLY (bare, no message,
+# the "standard advance") so a real `feat` ref exists for jT2 to clone.
 gr_jclone "$SRC" "$WORK/jT"
 cd "$WORK/jT"
 printf 'FEAT1\n' > f1.txt
 "$JABC" put f1.txt >/dev/null 2>&1 || _fail "put f1.txt failed"
 "$JABC" post '?feat' '#feat1' >/dev/null 2>&1 || _fail "post ?feat failed"
 gr_wtlog_has "$WORK/jT" 'post\?feat#'
+"$JABC" post '?feat' >/dev/null 2>&1 || _fail "publish ?feat (jT) failed"
 
 # jT2: a SEPARATE wt cloned straight onto ?feat off the SAME store, advances
 # feat FURTHER without touching jT's wtlog — feat's real tip outruns jT's cur.
@@ -29,11 +33,14 @@ gr_file_is "$WORK/jT2/f1.txt" "FEAT1"          # confirms jT2 landed on feat, no
 printf 'FEAT2\n' > f2.txt
 "$JABC" put f2.txt >/dev/null 2>&1 || _fail "put f2.txt failed"
 "$JABC" post '#feat2' >/dev/null 2>&1 || _fail "post feat2 (jT2) failed"
+# DIS-076: that commit is WT-only — explicitly publish feat again so its ref
+# actually advances to Cf2 (a message-post alone never moves it).
+"$JABC" post '?feat' >/dev/null 2>&1 || _fail "publish ?feat (jT2) failed"
 
-# feat's real tip (Cf2) per the shared store's refs — jT's cur is still Cf1.
-FEATTIP=$(od -An -c "$SRC/.be/refs" 2>/dev/null | tr -d ' \n' \
-          | grep -oE '\?feat#[0-9a-f]{40}' | tail -1 | sed 's/^?feat#//')
-[ -n "$FEATTIP" ] || _fail "cannot read feat's tip from $SRC/.be/refs"
+# feat's real tip (Cf2) — RULE ZERO: ask jab (jT2's own cur, now == published
+# feat), never od/grep a refs ULOG by hand.
+FEATTIP=$( ( cd "$WORK/jT2" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p')
+[ -n "$FEATTIP" ] || _fail "cannot read feat's tip via jab refs"
 
 # The RED assertion: a bare `be get` in jT must FF to feat's tip (f2.txt
 # appears) — NOT the trunk's C1 (which would drop f1.txt and never show f2.txt).

@@ -12,6 +12,9 @@ cd "$W"
 # TEST-003: bootstrap base with a bare-post to a named `?base` (no pre-put).
 printf 'line one\nline two\nline three\nline four\nline five\n' > foo.c
 "$BE" post -m base '?base' >/dev/null 2>&1
+# DIS-076: a message-post never mints/moves a ref — publish the tag explicitly
+# (the `post "?<branch>"` pattern) so `?base`/`?fix1`/`?fix2` stay resolvable.
+"$BE" post '?base' >/dev/null 2>&1
 
 # branch fix1 off base, edit line one, post ONTO ?fix1.
 "$BE" put '?fix1' >/dev/null 2>&1
@@ -19,6 +22,7 @@ sleep 0.02
 printf 'LINE ONE edited\nline two\nline three\nline four\nline five\n' > foo.c
 "$BE" put foo.c >/dev/null 2>&1
 "$BE" post -m e1 '?fix1' >/dev/null 2>&1
+"$BE" post '?fix1' >/dev/null 2>&1
 
 # back to base, branch fix2, edit line five, post ONTO ?fix2.
 "$BE" get '?base'   >/dev/null 2>&1
@@ -27,6 +31,7 @@ sleep 0.02
 printf 'line one\nline two\nline three\nline four\nLINE FIVE edited\n' > foo.c
 "$BE" put foo.c >/dev/null 2>&1
 "$BE" post -m e2 '?fix2' >/dev/null 2>&1
+"$BE" post '?fix2' >/dev/null 2>&1
 
 diff_eq "tree fix1..fix2 (canonical)" 'diff:?fix1..fix2'
 have 'LINE ONE edited'  "fix1..fix2: fix1's line-one edit"

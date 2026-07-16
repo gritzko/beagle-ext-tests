@@ -31,9 +31,11 @@ sc_is40 "$TIP" "proj tip"
 cat > "$WORK/.mode.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
+const wtlog = require(process.argv[3] + "/shared/wtlog.js");
 const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
-const tip = k.resolveRef("");
+// DIS-076: a bare post never mints a ref — the worktree's own cur is the tip.
+const tip = wtlog.open(info).curTip().sha;
 const tree = k.commitTree(tip);
 let mode = "", kind = "";
 k.readTreeRecursive(tree, function (l) {

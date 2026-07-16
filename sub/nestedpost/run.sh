@@ -60,9 +60,11 @@ _subtip() { "$JABC" "$WORK/.subtip.js" "$1" "$BEDIR" 2>/dev/null; }
 cat > "$WORK/.pin.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
+const wtlog = require(process.argv[3] + "/shared/wtlog.js");
 const info  = be.treeAt(process.argv[2]);
 const k = store.open(info.storePath, info.project);
-const tip = k.resolveRef("");
+// DIS-076: a bare post never mints a ref — the worktree's own cur is the tip.
+const tip = wtlog.open(info).curTip().sha;
 let pin = "";
 if (tip) {
   const tree = k.commitTree(tip);
@@ -108,12 +110,16 @@ build_tree() {
         >/dev/null 2>&1 || _fail "P setup"
 
     # Mount mid inside P, then inn inside P/mid (double-slash file://).
+    # DIS-076: a bare post never mints a ref, so an un-fragmented remote has no
+    # trunk to resolve — pin each mount clone at the source store's own tip.
     mkdir -p "$_R/P/mid"
-    ( cd "$_R/P/mid" && "$BE" get "file://$_R/storeM/.be" ) >"$_R/getmid.out" 2>&1 \
+    _midtip=$(_subtip "$_R/storeM")
+    ( cd "$_R/P/mid" && "$BE" get "file://$_R/storeM/.be#$_midtip" ) >"$_R/getmid.out" 2>&1 \
         || { cat "$_R/getmid.out"; _fail "mount mid"; }
     [ -f "$_R/P/mid/.be" ] || _fail "P/mid/.be not a FILE redirect (mid not mounted)"
     mkdir -p "$_R/P/mid/inn"
-    ( cd "$_R/P/mid/inn" && "$BE" get "file://$_R/storeI/.be" ) >"$_R/getinn.out" 2>&1 \
+    _inntip=$(_subtip "$_R/storeI")
+    ( cd "$_R/P/mid/inn" && "$BE" get "file://$_R/storeI/.be#$_inntip" ) >"$_R/getinn.out" 2>&1 \
         || { cat "$_R/getinn.out"; _fail "mount inn"; }
     [ -f "$_R/P/mid/inn/.be" ] || _fail "P/mid/inn/.be not a FILE redirect (inn not mounted)"
 

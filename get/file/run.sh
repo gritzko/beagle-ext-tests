@@ -15,7 +15,11 @@ mkdir d; printf 'C\n' > d/c.txt
 
 # TEST-003: jab-seeded source is a single-shard UNNAMED-project colocated
 # primary, so the clone URI carries NO `?/name` (named `?/x` misses jab's trunk).
-REMOTE="file://$SRC/.be"
+# DIS-076: a bare post never mints a ref — pin the clone URI at the tip sha
+# (proven pattern: `file://<src>/.be#<sha>`, no trunk ref needed).
+SHA1=$("$JABC" "$_ROOT/put/tipsha.js" "$SRC")
+[ -n "$SHA1" ] || _fail "could not resolve c1's tip"
+REMOTE="file://$SRC/.be#$SHA1"
 mkdir "$WORK/nT" "$WORK/jT"
 
 # 1. fresh clone — all new (files + nested dirs).
@@ -31,6 +35,9 @@ rm b.txt; rm -r d
 "$BE" delete b.txt >/dev/null 2>&1
 "$BE" delete d/c.txt >/dev/null 2>&1
 "$BE" post 'multi' >/dev/null 2>&1
+SHA2=$("$JABC" "$_ROOT/put/tipsha.js" "$SRC")
+[ -n "$SHA2" ] || _fail "could not resolve multi's tip"
+REMOTE="file://$SRC/.be#$SHA2"
 
 # 3. update re-get — post banner + new/upd/del rows.
 get_both "$REMOTE" "$WORK/nT" "$WORK/jT"

@@ -85,7 +85,9 @@ mkdir -p "$WORK/storeS/.be" "$WORK/P/.be"
 ( cd "$WORK/storeS" && printf 'sub v1\n' > S.c && "$BE" post 'sub initial' ) >/dev/null 2>&1 || _fail "storeS setup"
 ( cd "$WORK/P"      && printf 'top v1\n' > TOP.c && "$BE" post 'parent initial' ) >/dev/null 2>&1 || _fail "P setup"
 mkdir -p "$WORK/P/sub"
-( cd "$WORK/P/sub" && "$BE" get "file://$WORK/storeS/.be" ) >"$WORK/gets.out" 2>&1 \
+# DIS-076: a bare post never mints a ref — pin the mount clone at storeS's own tip.
+_stip=$(_subtip "$WORK/storeS")
+( cd "$WORK/P/sub" && "$BE" get "file://$WORK/storeS/.be#$_stip" ) >"$WORK/gets.out" 2>&1 \
     || { cat "$WORK/gets.out"; _fail "mount sub"; }
 [ -f "$WORK/P/sub/.be" ] || _fail "P/sub/.be not a FILE redirect (sub not mounted)"
 S0=$(_subtip "$WORK/P/sub"); _is40 "$S0" "sub tip0"

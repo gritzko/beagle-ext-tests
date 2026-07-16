@@ -8,18 +8,19 @@
 
 # Source with TWO commits over a multi-line file so ours/theirs can touch
 # DISJOINT line regions (clean 3-way) or OVERLAPPING ones (conflict).
-nth_sha() { od -An -c "$1/refs" 2>/dev/null | tr -d ' \n' \
-                | grep -oE '#[0-9a-f]{40}' | sed -n "${2}p" | tr -d '#'; }
+# DIS-076: a bare post never mints a ref — the wt's OWN cur (jab refs) is the
+# only tip there is; never grep a `.be/refs` ULOG (that file no longer exists).
+_srctip() { ( cd "$SRC" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
 
 # ===== case A: disjoint edit -> clean 3-way merge, no silent loss =====
 SRC="$WORK/src"; mkdir -p "$SRC"; cd "$SRC"; mkdir .be
 printf 'l1\nl2\nl3\nl4\nl5\n' > f.txt
 "$BE" post 'c1' >/dev/null 2>&1
+C1=$(_srctip)
 printf 'l1\nl2\nl3\nl4\nL5\n' > f.txt            # theirs: l5 -> L5 (last line)
 "$BE" put f.txt >/dev/null 2>&1
 "$BE" post 'c2' >/dev/null 2>&1
-# TEST-003: jab-seeded source is single-shard/unnamed — refs sit at `.be/refs`.
-C1=$(nth_sha "$SRC/.be" 1); C2=$(nth_sha "$SRC/.be" 2)
+C2=$(_srctip)
 [ -n "$C1" ] && [ -n "$C2" ] && [ "$C1" != "$C2" ] || _fail "two-commit setup"
 # Clone, then pin back to c1 so the wt baseline is c1 (f.txt = l1..l5).
 gr_jclone "$SRC" "$WORK/A"

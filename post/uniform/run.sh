@@ -58,15 +58,20 @@ EOF
     "$JABC" "$WORK/.btip.js" "$1" "$BEDIR" "$2" 2>/dev/null
 }
 
+# DIS-076: a bare post never mints a ref — the ORG worktree's own cur is the
+# only tip there is; ask jab (`refs` cur:), never grep .be/refs.
+_orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
+
 # Origin store: post c1 (a.txt=A).
 ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
     printf 'A\n' > a.txt
     "$BE" post '#c1' >/dev/null 2>&1
 } )
+ORG_TIP=$(_orgtip "$ORG")
 
 # --- A. commit advances the WT only; `post ?` FFs cur's OWN branch ----------
 rm -rf "$WORK/a"; mkdir "$WORK/a"
-( cd "$WORK/a" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
+( cd "$WORK/a" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 )
 A_C1=$(_tip "$WORK/a")
 ( cd "$WORK/a" && printf 'A2\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 && \
   "$JABC" post '#c2' ) >"$WORK/a.out" 2>"$WORK/a.err" || _fail "plain post failed: $(cat "$WORK/a.err")"
@@ -83,7 +88,7 @@ A_CUR=$(_cur "$WORK/a")
 
 # --- B. absolute `?/x/y` routes through the branch codec (no bogus key) ------
 rm -rf "$WORK/b"; mkdir "$WORK/b"
-( cd "$WORK/b" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
+( cd "$WORK/b" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 )
 ( cd "$WORK/b" && printf 'B2\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 && \
   "$JABC" post '#c2b' >/dev/null 2>&1 ) || _fail "b: local c2 failed"
 B_CUR=$(_cur "$WORK/b")

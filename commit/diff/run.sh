@@ -98,13 +98,19 @@ echo "ok: root commit (0 parents) skips the diff (metadata only)"
 MWT="$WORK/mwt"; mkdir -p "$MWT/.be"
 cd "$MWT"
 printf 'base\n'         > f.txt; "$BE" post 'mbase' >/dev/null 2>&1 || _fail "merge: post base"
+# DIS-076: a worktree's base is its own — capture trunk's tip BEFORE switching
+# away (post-switch, a plain wt-cur read would answer feature's tip instead).
+TRUNK=$("$JABC" "$_ROOT/put/tipsha.js" "$MWT")
+[ -n "$TRUNK" ] || _fail "merge: could not resolve trunk tip"
 "$BE" put '?feature'    >/dev/null 2>&1 || true   # TEST-003: label-only, rc!=0 ok
 "$BE" get '?feature'    >/dev/null 2>&1 || _fail "merge: switch feature"
 printf 'base\nfeature\n' > f.txt; "$BE" post 'mfeat' >/dev/null 2>&1 || _fail "merge: post feature"
+# DIS-076: a message-post never advances a ref — publish `?feature` explicitly
+# (a later step reads it as a REF via `patch ?feature`).
+"$BE" post '?feature'   >/dev/null 2>&1 || _fail "merge: publish feature"
 # TEST-003: `get ?` FFs the CURRENT branch (feature), it does NOT switch back to
-# trunk — pin trunk's tip to the EMPTY branch (`?#<sha>`) to re-attach to trunk.
-TRUNK=$("$JABC" "$_ROOT/put/tipsha.js" "$MWT")
-[ -n "$TRUNK" ] || _fail "merge: could not resolve trunk tip"
+# trunk — pin trunk's tip (captured above) to the EMPTY branch (`?#<sha>`) to
+# re-attach to trunk.
 "$BE" get "?#$TRUNK"    >/dev/null 2>&1 || _fail "merge: back to trunk"
 printf 'trunk\n'        > g.txt; "$BE" put g.txt >/dev/null 2>&1; "$BE" post 'mtrunk' >/dev/null 2>&1 || _fail "merge: post trunk"
 "$BE" patch '?feature'  >/dev/null 2>&1 || _fail "merge: patch feature"

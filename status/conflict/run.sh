@@ -49,7 +49,9 @@ WT="$WORK/wt"; mkdir -p "$WT/.be"
 # T0 on trunk (post-alone auto-adds the wt); save the trunk tip.
 printf 'a\nb\nc\n' > "$WT/f.txt"
 _jab post 't0' >/dev/null 2>&1 || _fail "could not seed t0"
-BOOT=$(grep -a $'\tpost\t' "$WT/.be/refs" | grep -oE '[0-9a-f]{40}' | head -1)
+# DIS-076: a bare post never mints a ref — read the wt's OWN cur tip instead
+# of grepping a refs ULOG that no longer gets a row (RULE ZERO).
+BOOT=$("$JABC" "$_ROOT/put/tipsha.js" "$WT")
 [ -n "$BOOT" ] || _fail "no trunk tip"
 
 # feat = fork at T0, switch, F1 sets line2=X, back to trunk.
@@ -58,7 +60,8 @@ _jab get '?feat' >/dev/null 2>&1 || _fail "switch feat"
 printf 'a\nX\nc\n' > "$WT/f.txt"
 _jab put f.txt >/dev/null 2>&1 || _fail "stage f1"
 _jab post 'f1 line2=X' >/dev/null 2>&1 || _fail "commit f1"
-F1=$(grep -a $'\tpost\t' "$WT/.be/refs" | grep -aE '\?feat#' | grep -oE '[0-9a-f]{40}' | tail -1)
+# DIS-076: the wt is attached to `feat` right now — its OWN cur tip IS F1.
+F1=$("$JABC" "$_ROOT/put/tipsha.js" "$WT")
 [ -n "$F1" ] || _fail "no feat tip"
 _jab get "?#$BOOT" >/dev/null 2>&1 || _fail "switch back to trunk"
 

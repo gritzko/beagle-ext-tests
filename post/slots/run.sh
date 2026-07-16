@@ -32,6 +32,19 @@ EOF
     "$JABC" "$WORK/.tip.js" "$1" "$BEDIR" 2>/dev/null
 }
 
+# the wt's own cur (base) tip via wtlog.curTip() — DIS-076: the ONLY thing a
+# commit ever advances; a store REF (checked by _tip) never moves for it.
+_cur() {
+    cat > "$WORK/.cur.js" <<'EOF'
+const be=require(process.argv[3]+"/core/discover.js");
+const wtlog=require(process.argv[3]+"/shared/wtlog.js");
+const info=be.treeAt(process.argv[2]);
+const c=wtlog.open(info).curTip();
+const u=utf8.Encode(((c&&c.sha)||"")+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
+EOF
+    "$JABC" "$WORK/.cur.js" "$1" "$BEDIR" 2>/dev/null
+}
+
 # store tip sha of a NAMED branch in a clone's store (empty when absent).
 _branch_tip() {   # _branch_tip DIR BRANCH
     cat > "$WORK/.btip.js" <<'EOF'
@@ -56,15 +69,21 @@ EOF
     "$JABC" "$WORK/.cbr.js" "$1" "$BEDIR" 2>/dev/null
 }
 
-# read the committed git blob at PATH in a clone's TRUNK tip tree (empty when
-# absent) — proves a path actually landed (or did not) in the commit.
+# read the committed git blob at PATH in a clone's tip tree (empty when
+# absent) — proves a path actually landed (or did not) in the commit.  DIS-076:
+# with no BRANCH given, read the WORKTREE's own cur tip (wtlog) — a bare/local
+# commit never mints a ref, so resolveRef("") would always read empty.
 _blob_at() {   # _blob_at DIR PATH [BRANCH]
     cat > "$WORK/.blob.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
+const wtlog=require(process.argv[3]+"/shared/wtlog.js");
 const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
-const tip=k.resolveRef(process.argv[5]||"");
+const branch=process.argv[5]||"";
+let tip;
+if (branch) tip=k.resolveRef(branch);
+else { const c=wtlog.open(info).curTip(); tip=(c&&c.sha)||""; }
 let out="";
 if (tip){ const tree=k.commitTree(tip);
   const seg=process.argv[4].replace(/^\.\//,"").split("/");
@@ -75,18 +94,22 @@ EOF
     "$JABC" "$WORK/.blob.js" "$1" "$BEDIR" "$2" "${3:-}" 2>/dev/null
 }
 
+# DIS-076: a bare post never mints a ref — pin clones at an origin's own cur tip.
+_orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
+
 # Origin store: post c1 (a.txt=A).
 ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
     printf 'A\n' > a.txt
     "$BE" post '#c1' >/dev/null 2>&1
 } )
+ORG_TIP=$(_orgtip "$ORG")
 
 # A fresh clone of the origin store with one STAGED change to a.txt.
 # TEST-003: jab-seeded stores are unnamed-project, so all clones here use bare
 # `file://<store>` (no `?/orgN` selector — jab never mints a named shard).
 _clone_staged() {
     rm -rf "$WORK/$1"; mkdir "$WORK/$1"
-    ( cd "$WORK/$1" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
+    ( cd "$WORK/$1" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 )
     ( cd "$WORK/$1" && printf 'CHANGED\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 )
 }
 
@@ -154,45 +177,53 @@ fi
 # NEGATIVE (always runs): a bogus `//host` push must FAIL cleanly — non-zero,
 # no POSTPUSH refuse, and the local store tip UNCHANGED (no silent commit).
 _clone_staged hn
-HN_T0=$(_tip "$WORK/hn")
+HN_T0=$(_cur "$WORK/hn")
 if ( cd "$WORK/hn" && "$JABC" post "//host" ) >"$WORK/hn.out" 2>"$WORK/hn.err"; then
     _fail "post '//host' unexpectedly succeeded (silent local commit?): $(cat "$WORK/hn.out")"
 fi
 grep -q "POSTPUSH" "$WORK/hn.err" \
     && _fail "post '//host' refused via stale POSTPUSH — push is implemented now: $(cat "$WORK/hn.err")"
-[ "$(_tip "$WORK/hn")" = "$HN_T0" ] \
-    || _fail "post '//host' mutated the store tip (a failed push must not local-commit)"
+[ "$(_cur "$WORK/hn")" = "$HN_T0" ] \
+    || _fail "post '//host' mutated the worktree (a failed push must not local-commit)"
 
 # === Query slot: ?other#msg — COMMIT onto ?other + UNTIE wt from cur ========
+# DIS-076 (2026-07-15 ruling): a message-post is a WT-only motion — it NEVER
+# touches ANY ref, not even the named target.  `?other#msg` commits onto the
+# WORKTREE and unties cur's tracked branch to "other"; no `other` ref is ever
+# minted (that only happens via the bare, no-message `?branch` advance below).
 _clone_staged q1
 Q1_TRUNK0=$(_tip "$WORK/q1")
+Q1_CUR0=$(_cur "$WORK/q1")
 ( cd "$WORK/q1" && "$JABC" post '?other#commit on other' ) >"$WORK/q1.out" 2>"$WORK/q1.err" \
     || _fail "post '?other#msg' FAILED: $(cat "$WORK/q1.err")"
-Q1_OTHER=$(_branch_tip "$WORK/q1" other)
-[ -n "$Q1_OTHER" ] || _fail "post '?other#msg' did NOT advance ?other"
-[ "$Q1_OTHER" != "$Q1_TRUNK0" ] || _fail "post '?other#msg' landed ?other at the OLD tip (no commit)"
+[ -z "$(_branch_tip "$WORK/q1" other)" ] \
+    || _fail "post '?other#msg' minted a REF for 'other' (a message-post is WT-only now)"
+[ "$(_cur "$WORK/q1")" != "$Q1_CUR0" ] \
+    || _fail "post '?other#msg' did NOT advance the worktree"
 [ "$(_tip "$WORK/q1")" = "$Q1_TRUNK0" ] \
-    || _fail "post '?other#msg' moved TRUNK (must commit onto ?other only)"
+    || _fail "post '?other#msg' moved TRUNK (a commit is WT-only)"
 [ "$(_cur_branch "$WORK/q1")" = "other" ] \
     || _fail "post '?other#msg' did NOT untie the wt to ?other (cur=$(_cur_branch "$WORK/q1"))"
-# the new commit on ?other carries the staged change.
-[ "$(_blob_at "$WORK/q1" a.txt other)" = "CHANGED" ] \
-    || _fail "post '?other#msg' commit on ?other missing the staged a.txt change"
+# the new commit carries the staged change (read via the wt's own cur tip —
+# there is no 'other' ref to read it from).
+[ "$(_blob_at "$WORK/q1" a.txt)" = "CHANGED" ] \
+    || _fail "post '?other#msg' commit missing the staged a.txt change"
 
 # === Query slot: ?branch (bare) — FF-advance ?branch to cur's tip ==========
 # Clone, commit locally onto trunk (advance cur), THEN `?feat` advances feat to
 # cur's tip with NO new commit.  feat does not pre-exist → created at cur's tip.
 rm -rf "$WORK/q2"; mkdir "$WORK/q2"
-( cd "$WORK/q2" && "$BE" get "file://$ORG/.be" >/dev/null 2>&1 )
+( cd "$WORK/q2" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 )
 ( cd "$WORK/q2" && printf 'C2\n' > a.txt && "$BE" put a.txt >/dev/null 2>&1 && \
   "$JABC" post '#c2' >/dev/null 2>&1 ) || _fail "q2 local c2 post failed"
-Q2_CUR=$(_tip "$WORK/q2")
+Q2_TRUNK0=$(_tip "$WORK/q2")
+Q2_CUR=$(_cur "$WORK/q2")
 ( cd "$WORK/q2" && "$JABC" post '?feat' ) >"$WORK/q2.out" 2>"$WORK/q2.err" \
     || _fail "post '?feat' FAILED: $(cat "$WORK/q2.err")"
 [ "$(_branch_tip "$WORK/q2" feat)" = "$Q2_CUR" ] \
     || _fail "post '?feat' did NOT FF-advance feat to cur's tip ($Q2_CUR; got $(_branch_tip "$WORK/q2" feat))"
-[ "$(_tip "$WORK/q2")" = "$Q2_CUR" ] \
-    || _fail "post '?feat' moved trunk (a bare ?branch advance makes NO commit)"
+[ "$(_tip "$WORK/q2")" = "$Q2_TRUNK0" ] \
+    || _fail "post '?feat' moved trunk (a bare ?branch advance touches ONLY the named branch)"
 
 # === Path slot: ./path — NARROW the commit to that path ====================
 # Origin with TWO files; clone, change BOTH, stage BOTH, then `./a.txt` commits
@@ -201,8 +232,9 @@ ORG2="$WORK/org2"; mkdir -p "$ORG2"; ( cd "$ORG2" && mkdir .be && {
     printf 'A\n' > a.txt; printf 'B\n' > b.txt
     "$BE" post '#c1' >/dev/null 2>&1
 } )
+ORG2_TIP=$(_orgtip "$ORG2")
 rm -rf "$WORK/p1"; mkdir "$WORK/p1"
-( cd "$WORK/p1" && "$BE" get "file://$ORG2/.be" >/dev/null 2>&1 )
+( cd "$WORK/p1" && "$BE" get "file://$ORG2/.be#$ORG2_TIP" >/dev/null 2>&1 )
 ( cd "$WORK/p1" && printf 'A2\n' > a.txt && printf 'B2\n' > b.txt && \
   "$BE" put a.txt b.txt >/dev/null 2>&1 )
 ( cd "$WORK/p1" && "$JABC" post './a.txt#narrow a only' ) >"$WORK/p1.out" 2>"$WORK/p1.err" \
@@ -217,8 +249,9 @@ ORG3="$WORK/org3"; mkdir -p "$ORG3"; ( cd "$ORG3" && mkdir .be && {
     mkdir src; printf 'X\n' > src/a.txt; printf 'B\n' > b.txt
     "$BE" post '#c1' >/dev/null 2>&1
 } )
+ORG3_TIP=$(_orgtip "$ORG3")
 rm -rf "$WORK/p2"; mkdir "$WORK/p2"
-( cd "$WORK/p2" && "$BE" get "file://$ORG3/.be" >/dev/null 2>&1 )
+( cd "$WORK/p2" && "$BE" get "file://$ORG3/.be#$ORG3_TIP" >/dev/null 2>&1 )
 ( cd "$WORK/p2" && printf 'X2\n' > src/a.txt && printf 'B2\n' > b.txt && \
   "$BE" put src/a.txt b.txt >/dev/null 2>&1 )
 ( cd "$WORK/p2" && "$JABC" post 'src/a.txt#narrow src' ) >"$WORK/p2.out" 2>"$WORK/p2.err" \
@@ -230,10 +263,10 @@ rm -rf "$WORK/p2"; mkdir "$WORK/p2"
 
 # === NO REGRESSION: a plain local `#msg` still commits onto cur ============
 _clone_staged ok
-OK_T0=$(_tip "$WORK/ok")
+OK_T0=$(_cur "$WORK/ok")
 ( cd "$WORK/ok" && "$JABC" post '#local commit' ) >"$WORK/ok.out" 2>"$WORK/ok.err" \
     || _fail "plain local post FAILED (regression): $(cat "$WORK/ok.err")"
-[ "$(_tip "$WORK/ok")" != "$OK_T0" ] \
-    || _fail "plain local post did NOT advance the tip (regression)"
+[ "$(_cur "$WORK/ok")" != "$OK_T0" ] \
+    || _fail "plain local post did NOT advance the worktree (regression)"
 
 pass

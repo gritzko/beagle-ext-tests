@@ -14,14 +14,19 @@ mk() { printf '#include <stdio.h>\n\nint main(void) {\n%s    return 0;\n}\n' "$1
 # corrupts the store bootstrap; `post ?v1` auto-stages the fresh file).
 mk '    puts("hello");\n'
 "$BE" post -m v1 '?v1' >/dev/null 2>&1
+# DIS-076: a message-post never mints/moves a ref — publish the tag explicitly
+# (the `post "?<branch>"` pattern) so `?v1` is later resolvable.
+"$BE" post '?v1' >/dev/null 2>&1
 
 mk '    puts("hello, world");\n'
 "$BE" put foo.c >/dev/null 2>&1
 "$BE" post -m v2 '?v2' >/dev/null 2>&1
+"$BE" post '?v2' >/dev/null 2>&1
 
 mk '    puts("hello, world!");\n    fflush(stdout);\n'
 "$BE" put foo.c >/dev/null 2>&1
 "$BE" post -m v3 '?v3' >/dev/null 2>&1
+"$BE" post '?v3' >/dev/null 2>&1
 
 diff_eq "file v1#v2 (legacy range)"   'diff:foo.c?v1#v2'
 have '^\+    puts\("hello, world"\);' "v1#v2: v2 line added"

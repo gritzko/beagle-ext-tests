@@ -55,21 +55,17 @@ export WORK
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 pass() { echo "PASS [$NAME]"; }
 
-# sc_tip STORE [PROJ] — echo the full 40-hex CURRENT trunk tip of a
-# project-less colocated primary store.  TEST-003: works for BOTH shapes — a
-# source store whose `.be` is a DIR (refs at .be/refs) AND a store-backed
-# worktree whose `.be` is a FILE redirect (its committed refs live in the SHARED
-# source store the row-0 redirect points at).  be.find+store.resolveRef("")
-# resolves the right store either way; PROJ is ignored (legacy arg).
+# sc_tip STORE [PROJ] — echo STORE's own CURRENT worktree tip (wtlog cur).
+# DIS-076: a bare post never moves a store ref, so the worktree's own cur
+# (same reader as sc_subtip) is the only tip there is; PROJ ignored (legacy).
 sc_tip() {
     cat > "$WORK/.tip.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
-const store = require(process.argv[3] + "/shared/store.js");
+const wtlog = require(process.argv[3] + "/shared/wtlog.js");
 const info  = be.treeAt(process.argv[2]);
-const k = store.open(info.storePath, info.project);
-const tip = k.resolveRef("") || "";
+const cur = wtlog.open(info).curTip();
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
-w(tip);
+w((cur && cur.sha) || "");
 EOF
     "$JABC" "$WORK/.tip.js" "$1" "$BEDIR" 2>/dev/null
 }
@@ -97,9 +93,11 @@ sc_gitlink_pin() {
     cat > "$WORK/.pin.js" <<'EOF'
 const be    = require(process.argv[3] + "/core/discover.js");
 const store = require(process.argv[3] + "/shared/store.js");
+const wtlog = require(process.argv[3] + "/shared/wtlog.js");
 const info  = be.treeAt(process.argv[2]);
+// DIS-076: a bare post never moves a store ref — WT's own cur is the tip.
+const tip = wtlog.open(info).curTip().sha;
 const k = store.open(info.storePath, info.project);
-const tip = k.resolveRef("");
 let pin = "";
 if (tip) {
   const tree = k.commitTree(tip);
@@ -193,9 +191,24 @@ EOF
 
 # sc_jget DST REMOTE — JS-clone REMOTE into the (made) DST dir; stdout->last.out
 # stderr->last.err; echoes the exit code (never aborts under set -e).
+# DIS-076: a bare post never mints a ref, so an un-fragmented REMOTE has no
+# trunk to resolve — pin it at the referenced tree's own cur (sc_tip),
+# mirroring the get-harness `gr_jclone` fix.  Already-pinned (`#sha`) REMOTEs
+# pass through unchanged; an unresolvable REMOTE (e.g. a deliberately broken
+# fixture) also passes through unchanged, preserving its own failure mode.
 sc_jget() {
     mkdir -p "$1"
+    _remote=$2
+    case "$_remote" in
+        *'#'*) ;;
+        *) _path=${_remote#file://}; _path=${_path#file:}
+           _path=${_path%%\?*}; _path=${_path%/.be}
+           _tip=$(sc_tip "$_path" 2>/dev/null)
+           case "$_tip" in
+               ????????????????????????????????????????) _remote="${_remote}#${_tip}" ;;
+           esac ;;
+    esac
     _rc=0
-    ( cd "$1" && "$JABC" get "$2" ) >"$WORK/last.out" 2>"$WORK/last.err" || _rc=$?
+    ( cd "$1" && "$JABC" get "$_remote" ) >"$WORK/last.out" 2>"$WORK/last.err" || _rc=$?
     printf '%s\n' "$_rc"
 }

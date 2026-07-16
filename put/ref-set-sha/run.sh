@@ -31,6 +31,10 @@ seed_baseline 'printf "A\n" > a.txt'
   && "$BE" put a.txt      >/dev/null 2>&1 \
   && "$BE" post t2        >/dev/null 2>&1 )
 
+# DIS-076: a bare post never mints trunk's ref — establish it explicitly first
+# (else CASE A's no-op leg can't dedup: the first `?<sha>` set always writes).
+( cd "$BASE" && "$BE" post '?' >/dev/null 2>&1 ) || _fail "could not publish trunk"
+
 CUR=$("$JABC" "$(dirname "$0")/../tipsha.js" "$BASE")
 FEAT=$("$JABC" "$(dirname "$0")/../tipsha.js" "$BASE" feat)
 [ -n "$CUR" ]  || _fail "could not resolve cur tip sha"

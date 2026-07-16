@@ -42,12 +42,15 @@ PAR="$_WORKD/parent"
 mkdir -p "$PAR/.be"
 ( cd "$PAR" && printf 'PARENT-A\n' > a.txt \
     && "$JABC" post 'parent base' >/dev/null 2>&1 ) || _fail "parent seed failed"
+# DIS-076: a bare post never mints a ref — pin the sub clone at parent's own cur.
+PAR_TIP=$( ( cd "$PAR" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p')
+[ -n "$PAR_TIP" ] || _fail "no parent tip sha"
 
 # sub: a SECONDARY worktree nested INSIDE parent — its `.be` is a FILE redirect
 # to the parent store (exactly a mounted submodule's anchor shape).  Cloned over
 # a local `file:` source, NO wire.
 mkdir -p "$PAR/sub"
-( cd "$PAR/sub" && "$JABC" get "file:$PAR/.be?/" >/dev/null 2>&1 ) \
+( cd "$PAR/sub" && "$JABC" get "file:$PAR/.be#$PAR_TIP" >/dev/null 2>&1 ) \
     || _fail "sub secondary clone failed"
 [ -f "$PAR/sub/.be" ] || _fail "sub/.be is not a FILE redirect (setup broke)"
 
