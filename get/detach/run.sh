@@ -18,17 +18,18 @@ rc=$(gr_jget "$WORK/jT" "?$TIP")
 # The wt must still carry the tree (a.txt present).
 gr_file_is "$WORK/jT/a.txt" "A"
 
-# The wtlog's newest get row must be `?<40hex>` (sha in QUERY, no `#`): the
-# detached shape.  A pinned/attached row would be `?#<sha>` or `?<branch>#<sha>`.
-gr_wtlog_has "$WORK/jT" "get\\?$TIP"
-# And NOT a fragment-pin for that same sha as the tail (an attached `?#<sha>`).
+# DIS-075: `?<sha>` is the ARGUMENT; the RECORD is `#<40hex>` — sha in the
+# FRAGMENT, query slot ABSENT (nothing is tracked, so nothing is queried).
+gr_wtlog_has "$WORK/jT" "get#$TIP"
+# And NOT `?#<sha>`: a PRESENT-empty query is the TRUNK shape (attached).
 gr_wtraw "$WORK/jT" | grep -qE "get\\?#$TIP\$" \
-    && _fail "detach wrote an attached ?#<sha> row, not ?<sha>" || true
+    && _fail "detach wrote the trunk-shaped ?#<sha> row, not the detached #<sha>" || true
 
-# Short-hex detach must work too (D2: full OR short hex).
+# Short-hex detach must work too (D2: full OR short hex) — the short ARGUMENT
+# still records the resolved FULL sha as the detached `#<40hex>` record.
 SHORT=$(printf '%s' "$TIP" | cut -c1-10)
 rc=$(gr_jget "$WORK/jT" "?$SHORT")
 [ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get ?<shorthex> exit=$rc"; }
-gr_wtlog_has "$WORK/jT" "get\\?$TIP"
+gr_wtlog_has "$WORK/jT" "get#$TIP"
 
 pass
