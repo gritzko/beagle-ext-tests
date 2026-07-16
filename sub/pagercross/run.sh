@@ -8,7 +8,8 @@
 # every arg RAW, the context travels as CONTEXT (driveSpell reentry), and put/
 # delete resolve each arg against the CORRECT tree — byte-identical to the CLI:
 #   * PUT descends the mount per-arg (stageInSub) → BOTH files staged in the sub.
-#   * DELETE resolves against the parent → a safe DELDIRTY refusal, sub UNTOUCHED.
+#   * DELETE descends too (SUBS-039/DELETE, the put twin — was a DELDIRTY
+#     refusal pre-delegation): both named files unlink, rows in the SUB wtlog.
 # Builds par -> vendor/sub via the DIS-058 harness, clones it, then drives the
 # put + delete arms in-process through the SHARED composer + driveSpell reentry.
 . "$(dirname "$0")/../lib/subcase.sh"
@@ -39,12 +40,15 @@ grep -qE 'put[[:space:]]+x/k\.txt' "$D/vendor/sub/.be" \
 grep -qE 'put[[:space:]]+x/l\.txt' "$D/vendor/sub/.be" \
     || _fail "l.txt (the rest arg) not staged in sub wtlog: $(cat "$D/vendor/sub/.be")"
 
-# DELETE refused (parent context, like CLI) — it did NOT mis-target and destroy
-# the SUB's file: no `delete` row in the sub wtlog, both files still on disk.
-grep -qE 'delete[[:space:]]+x/' "$D/vendor/sub/.be" \
-    && _fail "delete mis-targeted the sub (destructive): $(cat "$D/vendor/sub/.be")"
-[ -f "$D/vendor/sub/x/k.txt" ] || _fail "k.txt was destroyed by the cross-mount delete"
-[ -f "$D/vendor/sub/x/l.txt" ] || _fail "l.txt was destroyed by the cross-mount delete"
+# DELETE delegates (SUBS-039/DELETE, like the CLI): both named files unlink
+# with `delete` rows in the SUB's own wtlog — correctly targeted, no parent leak.
+grep -qE 'delete[[:space:]]+x/k\.txt' "$D/vendor/sub/.be" \
+    || _fail "k.txt delete row not in the sub wtlog: $(cat "$D/vendor/sub/.be")"
+grep -qE 'delete[[:space:]]+x/l\.txt' "$D/vendor/sub/.be" \
+    || _fail "l.txt delete row not in the sub wtlog: $(cat "$D/vendor/sub/.be")"
+[ -f "$D/vendor/sub/x/k.txt" ] && _fail "k.txt not unlinked by the cross-mount delete"
+[ -f "$D/vendor/sub/x/l.txt" ] && _fail "l.txt not unlinked by the cross-mount delete"
+grep -qE 'delete' "$D/.be" && _fail "delete row leaked into the parent wtlog"
 
-echo "ok   pager cross-mount put stages both args in the sub; delete refuses safely"
+echo "ok   pager cross-mount put + delete both delegate into the sub"
 pass

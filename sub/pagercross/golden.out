@@ -8,7 +8,13 @@
 
 >> delete vendor/sub/x/k.txt vendor/sub/x/l.txt
 
-be delete: vendor/sub/x/k.txt has unstamped changes — stage with `be put` or revert before deleting
+   | T delete ?
 
-   ERR: DELDIRTY
+   |         delete vendor/sub/x/k.txt
+
+   | vendor/sub: deleted 1 file(s) (1 row(s))
+
+   |         delete vendor/sub/x/l.txt
+
+   | vendor/sub: deleted 1 file(s) (1 row(s))
 

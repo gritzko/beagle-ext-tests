@@ -4,7 +4,7 @@
 //  onto arg0); the nav context travels as CONTEXT through the driveSpell reentry
 //  (opts2.context), and put/delete resolve each arg against the CORRECT tree.
 //  PUT descends the mount per-arg (stageInSub) → both files staged in the sub.
-//  DELETE resolves against the parent (like CLI) → a safe DELDIRTY refusal, NOT
+//  DELETE descends too (SUBS-039/DELETE, like CLI) → rows in the SUB wtlog, NOT
 //  the RED destructive mis-target that silently deleted the sub's own file.
 "use strict";
 if (typeof process !== "undefined" && process.argv) process.argv[1] = io.cwd() + "/jsrc/loop.js";
@@ -25,7 +25,13 @@ function drive(ctxUri, spell) {
   try { hunks = bro.driveSpell(built, c.context) || []; } catch (e) { err = String(e); }
   let s = "";
   for (const h of hunks) if (h.text) s += utf8.Decode(h.text);
-  for (const line of s.split("\n")) if (line.replace(/\s/g, "")) io.log("   | " + line + "\n");
+  //  Strip the volatile wall-clock date column BEFORE the `   | ` prefix — the
+  //  golden_norm leading-date strip cannot reach a prefixed line (SUBS-039).
+  for (let line of s.split("\n")) {
+    if (!line.replace(/\s/g, "")) continue;
+    line = line.replace(/^ *[0-9]{1,2}:[0-9]{2} +/, "T ");
+    io.log("   | " + line + "\n");
+  }
   if (err) io.log("   ERR: " + err + "\n");
 }
 
