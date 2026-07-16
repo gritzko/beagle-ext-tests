@@ -13,7 +13,9 @@ mkdir -p "$SRC"; cd "$SRC"; mkdir .be
 printf 'A\n' > a.txt; printf 'B\n' > b.txt; printf 'M\n' > m.txt
 mkdir d; printf 'C\n' > d/c.txt
 # Fresh-repo `be post` commits the whole tree (`be put .` → PUTNONE here).
+# POST-027: DIS-076 — a commit mints no ref; publish trunk for the serve.
 "$BE" post 'c1' >/dev/null 2>&1
+"$BE" post '?' >/dev/null 2>&1
 
 # Derive the $HOME-relative path to the source .be for the ssh peer.
 case "$SRC" in
@@ -40,6 +42,7 @@ rm b.txt; rm -r d
 "$BE" delete b.txt >/dev/null 2>&1
 "$BE" delete d/c.txt >/dev/null 2>&1
 "$BE" post 'multi' >/dev/null 2>&1
+"$BE" post '?' >/dev/null 2>&1
 
 get_both "$REMOTE" "$WORK/nT" "$WORK/jT"
 status_both "$WORK/nT" "$WORK/jT"

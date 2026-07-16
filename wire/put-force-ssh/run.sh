@@ -1,7 +1,7 @@
 #!/bin/sh
 #  wire/put-force-ssh — GIT-014: `jab put ssh://…?master` is the UNCONSTRAINED
 #  remote ref-write (NO FF gate).  Clone master@A, commit C locally (parent A),
-#  advance the peer to B (divergent) — so a POST would refuse POSTNOFF — then
+#  advance the peer to B (divergent) — so a POST would refuse the non-FF — then
 #  `jab put` FORCE-resets the peer's master to cur (C), a NON-FF move POST will
 #  not do.  Asserts the bare's master == cur after, and stays fsck-clean.  Needs
 #  ssh-to-localhost (WITH_SSH).
@@ -18,7 +18,7 @@ if ( cd "$PWT" && "$JABC" post "ssh://localhost/$PREL?master" ) \
      >"$WORK/post.out" 2>"$WORK/post.err"; then
   _fail "POST non-FF unexpectedly succeeded (should refuse, PUT forces instead)"
 fi
-grep -q POSTNOFF "$WORK/post.err" || _fail "POST did not refuse non-FF via POSTNOFF"
+grep -q "can not be fast-forwarded" "$WORK/post.err" || _fail "POST did not refuse the non-FF"
 [ "$(git -C "$PBARE" rev-parse master)" = "$B" ] || _fail "refused POST moved the bare"
 
 #  PUT FORCE: reset the peer's master to cur — a NON-FF move (no ancestor gate).

@@ -1,6 +1,8 @@
 //  GIT-016 test/put/wire-refguard — shared/relate.js resolveRef branch->refs/
-//  heads/X (absolute-marker strip + empty-segment POSTREF guard) and put's
-//  POST->PUT message map (verbs/put/put.js pushWire) turning POSTREF into PUTREF:.
+//  heads/X (absolute-marker strip + empty-segment guard).  RULING 2026-07-16:
+//  the guard's refusal is verb-neutral plain text (one line, <=64 chars, no
+//  C-style code prefix), re-raised verbatim by put's/head's wire paths — the
+//  old POST->PUT `e.msg.replace(/^POST/, "PUT")` code map is gone.
 "use strict";
 
 const { eq, ok } = require("../../lib/assert.js");
@@ -12,26 +14,26 @@ eq(relate.resolveRef("main"),    "refs/heads/main",    "main -> main");
 eq(relate.resolveRef("dev"),     "refs/heads/dev",     "dev -> dev");
 eq(relate.resolveRef("/project"), "refs/heads/project", "/project: absolute-marker stripped");
 
-//  --- POSTREF guard: an empty ref segment / trailing slash is refused -----
+//  --- empty-ref-segment guard: a trailing/doubled slash is refused --------
 function refThrow(branch) {
   try { relate.resolveRef(branch); return null; }
   catch (e) { return e; }
 }
 const eSlashTail = refThrow("dev/");
-ok(eSlashTail && eSlashTail.code === "POSTREF", "dev/ -> POSTREF (trailing empty segment)");
+ok(typeof eSlashTail === "string" &&
+   eSlashTail.indexOf("empty ref segment") >= 0,
+   "dev/ -> refused, names the empty segment (trailing slash)");
+ok(eSlashTail.indexOf("refs/heads/dev/") >= 0,
+   "dev/ -> the refusal names the bad wire ref");
 const eDoubleSlash = refThrow("a//b");
-ok(eDoubleSlash && eDoubleSlash.code === "POSTREF", "a//b -> POSTREF (empty middle segment)");
+ok(typeof eDoubleSlash === "string" &&
+   eDoubleSlash.indexOf("empty ref segment") >= 0,
+   "a//b -> refused, names the empty segment (middle slash)");
 
-//  --- put's POST->PUT message map (put.js pushWire catch arm) -------------
-//  put re-raises resolveRef's {code,msg} with the POST prefix mapped to PUT:
-//  `e.msg.replace(/^POST/, "PUT")`.  The POSTREF: msg must become a PUTREF: str.
-function putMapped(branch) {
-  try { relate.resolveRef(branch); return null; }
-  catch (e) { return (e && e.msg) ? e.msg.replace(/^POST/, "PUT") : e; }
-}
-const mapped = putMapped("a//b");
-ok(typeof mapped === "string", "put map yields a string message");
-ok(mapped.indexOf("PUTREF:") === 0, "POSTREF msg mapped to a PUTREF: string");
-ok(mapped.indexOf("POST") === -1, "no residual POST prefix after the put map");
+//  --- RULING 2026-07-16 message shape: plain text, 1 line, <=64, no code --
+ok(eSlashTail.length <= 64 && eSlashTail.indexOf("\n") < 0,
+   "refusal is one line <= 64 chars");
+ok(!/^[A-Z]+[A-Z0-9]*:/.test(eSlashTail), "no C-style code prefix");
+ok(eSlashTail.indexOf("POST") < 0, "no residual POST code in the refusal");
 
 io.log("put/wire-refguard OK\n");

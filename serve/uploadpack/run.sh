@@ -38,6 +38,8 @@ SRC="$WORK/src"; mkdir -p "$SRC"; cd "$SRC"; mkdir .be
 printf 'A\n' > a.txt; printf 'B\n' > b.txt
 mkdir d; printf 'C\n' > d/c.txt
 "$JAB" post 'c1' >/dev/null 2>&1 || _fail "jab post c1 failed"
+# POST-027: DIS-076 — a commit mints no ref; publish trunk for the serve.
+"$JAB" post '?' >/dev/null 2>&1 || _fail "jab post ? failed"
 
 REMOTE="be:$SRC/.be?/src"
 REMOTE_SEL="$SRC/.be?/src"          # the serve-path arg `jab upload-pack` sees

@@ -1,8 +1,8 @@
 //  SUBS-050: shared/branch.js — the ONE parsed-branch codec.  All three
 //  recorded shapes (absolute / relative-dotted / plain) must parse → format /
-//  key round-trip; sub() must compose the synthetic-branch chain (byte-for-byte
-//  the retired submount.syntheticBranch output); wireRef/fromWireRef must map
-//  trunk ↔ `refs/heads/main` and strip the title.
+//  key round-trip; wireRef/fromWireRef must map trunk ↔ `refs/heads/main` and
+//  strip the title.  (DIS-072: sub(), the synthetic-child composer, is DELETED
+//  — a mounted sub tracks the parent's pin URI, never a dot-branch.)
 "use strict";
 
 const { eq, ok } = require("./lib/assert.js");
@@ -66,19 +66,6 @@ function legacyStrip(q) {
 for (const q of ["", "JS-101", "/proj/JS-101", "/libdog/.jab/JS-101",
                  ".libdog/.jab/JS-101", "/proj", "/proj/br&abc"])
   eq(branch.key(branch.parse(q, "t")), legacyStrip(q), "key == legacyStrip(" + q + ")");
-
-//  --- sub: the synthetic-branch chain (retired syntheticBranch strings) -----
-function syn(title, pt, pb) {
-  return branch.format(branch.sub(branch.parse(pb || "", pt || "parent"), title));
-}
-eq(syn("libdog", "jab", ""), "/libdog/.jab", "sub of a trunk parent");
-eq(syn("libdog", "jab", "JS-107"), "/libdog/.jab/JS-107", "sub of a branched parent");
-eq(syn("libabc", "libdog", "/libdog/.jab"), "/libabc/.libdog/.jab",
-   "nested sub folds the parent's synthetic branch");
-eq(syn("x", "libabc", "/libabc/.libdog/.jab"), "/x/.libabc/.libdog/.jab",
-   "third level keeps folding the chain");
-eq(syn("libabc", "libdog", "/libdog/.jab/JS-107"), "/libabc/.libdog/.jab/JS-107",
-   "the gp_branch stays the last undotted segment");
 
 //  --- wireRef / fromWireRef: trunk ↔ main, title-stripped ------------------
 eq(branch.wireRef(branch.parse("", "p")), "refs/heads/main", "wireRef trunk → main");

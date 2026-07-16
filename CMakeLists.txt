@@ -52,7 +52,7 @@ foreach(_run ${_be_runs})
     set_tests_properties(${_name} PROPERTIES
         ENVIRONMENT "BIN=${BEAGLE_BIN_DIR};JABC=${JAB_BIN};TMP=${BE_TEST_TMP};BE_ROOT=${BE_TEST_TMP};ASAN_OPTIONS=detect_leaks=0"
         FIXTURES_REQUIRED be_tmp
-        TIMEOUT 90)
+        TIMEOUT 10)
     if (_name IN_LIST _BE_WILL_FAIL)
         set_tests_properties(${_name} PROPERTIES WILL_FAIL TRUE)
     endif()

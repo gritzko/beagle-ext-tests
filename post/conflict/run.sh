@@ -1,6 +1,7 @@
 #!/bin/sh
 # test/js/post/conflict — `bin/post.js` POST-017 conflict pre-scan: a tracked
-# `add` carrying a complete WEAVE conflict-marker triple must refuse POSTCFLCT
+# `add` carrying a complete WEAVE conflict-marker triple must refuse with the
+# plain "conflict marker in tracked file <path>" text (RULING 2026-07-16)
 # BEFORE any store write, and `--force` overrides it.  A bare `<<<<` in prose
 # (no `||||`/`>>>>` partners) is NOT a conflict and posts fine.
 . "$(dirname "$0")/../../lib/postcase.sh"
@@ -26,7 +27,7 @@ ORG="$WORK/org"; mkdir -p "$ORG"; ( cd "$ORG" && mkdir .be && {
 _orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
 ORG_TIP=$(_orgtip "$ORG")
 
-# A tracked file with a full conflict triple → POSTCFLCT, no write.
+# A tracked file with a full conflict triple → conflict-marker refusal, no write.
 # TEST-003: jab-seeded store is unnamed-project, so clone bare `file://<store>`
 # (no `?/org` selector — jab never mints a named `org` shard).
 mkdir "$WORK/c"; ( cd "$WORK/c" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 )
@@ -34,9 +35,10 @@ mkdir "$WORK/c"; ( cd "$WORK/c" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/nu
 ( cd "$WORK/c" && "$BE" put a.txt >/dev/null 2>&1 )
 C_TIP0=$(_tip "$WORK/c")
 if ( cd "$WORK/c" && "$JABC" post '#merge' ) >"$WORK/c.out" 2>"$WORK/c.err"; then
-    _fail "conflict post did NOT refuse (expected POSTCFLCT): $(cat "$WORK/c.out")"
+    _fail "conflict post did NOT refuse (expected a conflict-marker refusal): $(cat "$WORK/c.out")"
 fi
-grep -q POSTCFLCT "$WORK/c.err" || _fail "conflict post refused but not POSTCFLCT: $(cat "$WORK/c.err")"
+grep -q "conflict marker in tracked file a.txt" "$WORK/c.err" \
+    || _fail "conflict post refused but not naming the marker'd file: $(cat "$WORK/c.err")"
 [ "$(_tip "$WORK/c")" = "$C_TIP0" ] || _fail "conflict post mutated the store tip"
 
 # --force overrides → the post lands.

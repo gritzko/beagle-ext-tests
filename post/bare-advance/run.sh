@@ -92,13 +92,13 @@ if [ "$RC" -ne 0 ] || [ "$FEAT1" != "$A_TIP" ]; then
 fi
 [ "$(_cur "$A")" = "$A_TIP" ] || _fail "bare post moved A's own cur (must stay $A_TIP)"
 
-# already up to date: a SECOND bare post refuses with a CLEAR "already at"
-# POSTNONE — never the commit-shaped "no changes since base".
+# already up to date: a SECOND bare post refuses with a CLEAR "already at
+# cur's tip" — never the commit-shaped "no changes since base".
 RC=0
 ( cd "$A" && "$JABC" post ) >"$WORK/a2.out" 2>"$WORK/a2.err" || RC=$?
 [ "$RC" -ne 0 ] || _fail "up-to-date bare post did not refuse: $(cat "$WORK/a2.out")"
-grep -q POSTNONE "$WORK/a2.err" \
-    || _fail "up-to-date bare post refused but not via POSTNONE: $(cat "$WORK/a2.err")"
+grep -q "already at cur's tip" "$WORK/a2.err" \
+    || _fail "up-to-date bare post refused but not 'already at cur's tip': $(cat "$WORK/a2.err")"
 if grep -q "no changes since base" "$WORK/a2.err"; then
     _fail "up-to-date bare post still reports 'no changes since base': $(cat "$WORK/a2.err")"
 fi

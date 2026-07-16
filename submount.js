@@ -115,25 +115,22 @@ eq(submount.titleFromUrl("file:/w/store/.be?/jab"), "jab",
    "beagle→beagle: the ?/proj selector wins over the basename");
 eq(submount.titleFromUrl(""), "", "no URL at all → caller improvises");
 
-//  --- SUBS-050: the synthetic-branch chain now composes through the ONE
-//  branch codec (branch.sub + branch.format), retiring submount.syntheticBranch.
-//  The expected strings are pinned byte-for-byte ([Submodules] bullet 1);
-//  verbatim append minted `/libabc/.libdog//libdog/.repo` (JS-107 repro).
-const branchlib = _req("shared/branch.js");
-function syntheticBranch(title, parentTitle, parentBranch) {
-  const parentBr = branchlib.parse(parentBranch || "", parentTitle || "parent");
-  return branchlib.format(branchlib.sub(parentBr, title));
-}
-eq(syntheticBranch("libdog", "jab", ""), "/libdog/.jab",
-   "first-level sub of a trunk parent");
-eq(syntheticBranch("libdog", "jab", "JS-107"), "/libdog/.jab/JS-107",
-   "first-level sub of a branched parent");
-eq(syntheticBranch("libabc", "libdog", "/libdog/.jab"),
-   "/libabc/.libdog/.jab", "nested sub folds the parent's synthetic branch");
-eq(syntheticBranch("x", "libabc", "/libabc/.libdog/.jab"),
-   "/x/.libabc/.libdog/.jab", "third level keeps folding the chain");
-eq(syntheticBranch("libabc", "libdog", "/libdog/.jab/JS-107"),
-   "/libabc/.libdog/.jab/JS-107", "the gp_branch stays the last undotted segment");
+//  --- DIS-072: trackUri IS the pin composer — a mounted sub tracks the
+//  parent's pin by the URI `//<wt>/<subpath>#<pin>`, never a dot-branch
+//  (branch.sub / submount.syntheticBranch are DELETED, do not resurrect).
+const PIN = "0123456789abcdef0123456789abcdef01234567";
+//  a wt that is NO beagle tree → the bare-hash fallback `#<pin>`.
+eq(submount.trackUri(wt + "/nowhere", "vendor/sub", PIN), "#" + PIN,
+   "trackUri: non-tree wt falls back to the bare-hash pin");
+//  a real (standalone) tree → `///vendor/sub#<pin>`: authority `//` + empty
+//  wt name, absolute subpath, the gitlink pin in the fragment.
+io.mkdir(wt + "/.be");
+const TRK = submount.trackUri(wt, "vendor/sub", PIN);
+eq(TRK, "///vendor/sub#" + PIN, "trackUri: the parent-pin URI shape");
+const tu = new URI(TRK);
+eq(tu.path, "/vendor/sub", "trackUri path is the mount subpath");
+eq(tu.fragment, PIN, "trackUri fragment is the gitlink pin");
+ok(TRK.indexOf("/.") < 0, "trackUri never mints a dot-branch segment");
 
 function w(s){const u=utf8.Encode(s+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
 w("PASS submount.js");

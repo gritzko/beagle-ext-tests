@@ -39,7 +39,8 @@ const be=require(process.argv[3]+"/core/discover.js");
 const store=require(process.argv[3]+"/shared/store.js");
 const info=be.treeAt(process.argv[2]);
 const k=store.open(info.storePath,info.project);
-const tip=k.resolveRef("");let out="";
+// POST-027: DIS-076 — a commit never moves a ref; read the wtlog cur tip.
+const tip=(require(process.argv[3]+"/shared/wtlog.js").open(info).curTip()||{}).sha;let out="";
 if(tip){const c=k.getObject(tip);if(c)out=utf8.Decode(c.bytes);}
 const u=utf8.Encode(out);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
 EOF

@@ -1,10 +1,6 @@
 #!/bin/sh
-# test/sub/pinref — DIS-061: a sub's pin REF is maintained by the PARENT, never
-# by the child's own commit (RULED 2026-07-13).
-#   1. a sub's OWN commit advances the sub wt only: the sub goes "adv" (cur tip
-#      descends the parent gitlink) and its synthetic-branch pin REF stays put.
-#   2. the PARENT commit bumps the gitlink AND refreshes the child's pin REF to
-#      that new gitlink (the pin tip IS the gitlink in the parent's new base).
+# test/sub/pinref — DIS-072: a mounted sub's pin is a `get //WT/path/sub#<gitlink>`
+# row in the SUB's own wtlog, rewritten ONLY by the PARENT's post (POST-027 postSubs).
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/sub/pinref
@@ -55,21 +51,24 @@ w(pin);
 EOF
 _pin() { "$JABC" "$WORK/.pin.js" "$1" "$BEDIR" "$2" 2>/dev/null; }
 
-# _pinref SUBWT — the sub's synthetic-branch pin REF (store.resolveRef of the
-# sub's tracked branch KEY), "" when absent.  This is the row the PARENT owns.
-cat > "$WORK/.pinref.js" <<'EOF'
+# _lastget SUBWT — the recentmost `get` row in SUBWT's OWN wtlog, printed as
+# `A=<authority> P=<path> F=<fragment>` (shared/wtlog.js rows, the
+# test/post/wt-target-detached probe pattern).  This is the pin row the
+# PARENT owns (DIS-072 re-attach).
+cat > "$WORK/.lastget.js" <<'EOF'
 const be=require(process.argv[3]+"/core/discover.js");
 const wtlog=require(process.argv[3]+"/shared/wtlog.js");
-const store=require(process.argv[3]+"/shared/store.js");
-const branchlib=require(process.argv[3]+"/shared/branch.js");
 const info=be.treeAt(process.argv[2]);
-const att=wtlog.open(info).attachedBranch();
-const k=store.open(info.storePath,info.project);
-const key=branchlib.key(att.br);
+let last;
+for(const r of wtlog.open(info).rows) if(r.verb==="get") last=r;
+let s;
+if(!last) s="NOROW";
+else s="A="+(last.uri.authority==null?"":last.uri.authority)
+       +" P="+(last.uri.path||"")+" F="+(last.uri.fragment||"");
 function w(s){const u=utf8.Encode(s);const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
-w((k.resolveRef(key)||"")+"\t"+key);
+w(s);
 EOF
-_pinref() { "$JABC" "$WORK/.pinref.js" "$1" "$BEDIR" 2>/dev/null | cut -f1; }
+_lastget() { "$JABC" "$WORK/.lastget.js" "$1" "$BEDIR" 2>/dev/null; }
 
 # _pinrow SUBPATH WTLOG SHA — seed a `put <subpath>#<sha>` gitlink-bump row.
 cat > "$WORK/.pinrow.js" <<'EOF'
@@ -95,8 +94,8 @@ _pinrow "sub" "$WORK/P/.be/wtlog" "$S0"
 ( cd "$WORK/P" && "$BE" post 'mount sub' ) >"$WORK/postp.out" 2>&1 || { cat "$WORK/postp.out"; _fail "commit sub gitlink"; }
 [ "$(_pin "$WORK/P" sub)" = "$S0" ] || _fail "build: P.sub gitlink != sub tip"
 
-# --- 1. the sub's OWN commit: sub goes adv, its pin REF stays put ------------
-PINREF0=$(_pinref "$WORK/P/sub")            # "" — the parent has not set it yet
+# --- 1. the sub's OWN commit: sub goes adv, its pin row stays put ------------
+GET0=$(_lastget "$WORK/P/sub")              # the mount-time get row
 printf 'sub v2 EDITED\n' > "$WORK/P/sub/S.c"
 ( cd "$WORK/P/sub" && "$BE" put S.c >/dev/null 2>&1 && "$JABC" post '#s2' ) \
     >"$WORK/s2.out" 2>"$WORK/s2.err" || _fail "sub own commit failed: $(cat "$WORK/s2.err")"
@@ -104,15 +103,18 @@ S1=$(_subtip "$WORK/P/sub"); _is40 "$S1" "sub tip1"
 [ "$S1" != "$S0" ] || _fail "sub commit did NOT advance the sub worktree"
 # the gitlink in the parent is still S0 → the sub is "adv".
 [ "$(_pin "$WORK/P" sub)" = "$S0" ] || _fail "sub own commit spuriously bumped the parent gitlink"
-# RULED: the sub's own commit must NOT move its pin REF (parent owns it).
-[ "$(_pinref "$WORK/P/sub")" = "$PINREF0" ] \
-    || _fail "sub own commit MOVED its pin ref (child must not; parent owns the pin ref)"
+# RULED (DIS-072): the sub's own commit must NOT write a pin row (parent owns it).
+[ "$(_lastget "$WORK/P/sub")" = "$GET0" ] \
+    || _fail "sub own commit MOVED its pin row (child must not; parent owns the pin row)"
 
-# --- 2. the PARENT commit bumps the gitlink AND refreshes the pin REF --------
+# --- 2. the PARENT commit bumps the gitlink AND rewrites the pin row ---------
 ( cd "$WORK/P" && "$JABC" post '#absorb sub' ) >"$WORK/pp.out" 2>"$WORK/pp.err" \
     || _fail "parent absorb post failed: $(cat "$WORK/pp.err")"
 [ "$(_pin "$WORK/P" sub)" = "$S1" ] || _fail "parent commit did NOT bump the sub gitlink to S1"
-[ "$(_pinref "$WORK/P/sub")" = "$S1" ] \
-    || _fail "parent commit did NOT refresh the sub pin ref to the new gitlink ($S1; got $(_pinref "$WORK/P/sub"))"
+# DIS-072 re-attach: the CHILD's wtlog recentmost get row is the parent-written
+# pin URI `//<parentwt>/sub#<newgitlink>` (P is a standalone tree → `///sub`).
+ROW=$(_lastget "$WORK/P/sub")
+[ "$ROW" = "A=// P=/sub F=$S1" ] \
+    || _fail "parent commit did NOT re-attach the sub pin row (want A=// P=/sub F=$S1; got $ROW)"
 
 echo "PASS [$NAME]"

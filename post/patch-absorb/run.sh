@@ -125,13 +125,13 @@ st=$(_jstatus "$JS")
 $st"
 echo "ok: a patch-conflicted file reads 'con' (STATUS-005 durable row + markers)"
 if ( cd "$JS" && "$JABC" post 'absorb feat (conf)' ) >"$WORK/c.out" 2>"$WORK/c.err"; then
-    _fail "post of a conflicted absorb should REFUSE (POSTCFLCT):
+    _fail "post of a conflicted absorb should REFUSE (conflict marker):
 $(cat "$WORK/c.out")"
 fi
-grep -q POSTCFLCT "$WORK/c.err" \
-    || _fail "expected POSTCFLCT on a conflict-marked file, got:
+grep -q "conflict marker in tracked file f.txt" "$WORK/c.err" \
+    || _fail "expected the conflict-marker refusal naming f.txt, got:
 $(cat "$WORK/c.err")"
-echo "ok: post REFUSES a conflict-marked (con) absorb (POSTCFLCT)"
+echo "ok: post REFUSES a conflict-marked (con) absorb (conflict-marker refusal)"
 ( cd "$JS" && "$JABC" post --force 'absorb feat (forced)' ) >"$WORK/cf.out" 2>"$WORK/cf.err" \
     || _fail "post --force of a conflict FAILED: $(cat "$WORK/cf.err")"
 grep -qE '(^|[[:space:]])mod f.txt$' "$WORK/cf.out" \
