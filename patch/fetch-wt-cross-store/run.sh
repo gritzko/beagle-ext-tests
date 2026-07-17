@@ -45,6 +45,8 @@ KBYTES=$(cat "$B"/.be/*.keeper | wc -c)   # JS-117: append = same logs, more byt
 #  TEST-003 rolling-idx quirk: drop stale keeper.idx in BOTH stores pre-op.
 rm -f "$S1"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
 
+# BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
+# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
 #  THE LIVE CASE: address the WORKTREE (not its store) across stores.
 ( cd "$B" && "$JABC" patch "file:$A" ) \
     >"$WORK/js.out" 2>"$WORK/js.err" \

@@ -60,8 +60,10 @@ WT="$WORK/wt"; mkdir -p "$WT/.be"
 #    8-char `<date7> ` prefix on per-file rows; banner + summary compare raw.
 ( cd "$WT" && "$JABC" status --plain ) >"$WORK/jab.plain" 2>/dev/null || true
 [ -s "$WORK/jab.plain" ] || _fail "jab status --plain emitted ZERO bytes"
-sed -E 's/^.{8}([a-z]{3}) /\1 /' "$WORK/jab.plain" >"$WORK/jab.norm"
-printf 'status\nnew new.txt\nmod mod.txt\nmis mis.txt\nunk unk.txt\n?\t1 ok, 1 new, 1 mod, 1 mis, 1 unk\n' >"$WORK/plain.golden"
+# BRO-030: quad default — `<quad4> <path>` rows, lex-sorted; staged UPPERCASE;
+# clean ok.txt emits NO row; summary carries quad-column counts.
+sed -E 's/^.{8}([.xovXOV!]{4}) /\1 /' "$WORK/jab.plain" >"$WORK/jab.norm"
+printf 'status\n...x mis.txt\n...v mod.txt\n...O new.txt\n...o unk.txt\n?\t4 wt, 1 staged\n' >"$WORK/plain.golden"
 cmp -s "$WORK/jab.norm" "$WORK/plain.golden" || {
     echo "--- jab --plain (date-normalised) ---"; cat -A "$WORK/jab.norm"
     echo "--- pre-change golden ---"; cat -A "$WORK/plain.golden"
@@ -71,6 +73,9 @@ grep -Fq '[put]' "$WORK/jab.plain" && _fail "plain output leaks the [put] label"
 grep -Fq '[del]' "$WORK/jab.plain" && _fail "plain output leaks the [del] label" || true
 echo "ok: jab status --plain is byte-identical to the pre-change capture"
 
+# BRO-030 CAVEAT: the quad default routes through the columnar out (no per-row
+# toks yet — status.js "first cut" TODO), so legs 2-3 have NO [put]/[del]/U toks
+# until quad packs tok spans through sinkOut. Blocked post-flip; see BRO-030 report.
 # 2. Button pair + unchanged U navs in the TLV stream.
 ( cd "$WT" && "$JABC" status --tlv ) >"$WORK/jab.tlv" 2>/dev/null || true
 [ -s "$WORK/jab.tlv" ] || _fail "jab status --tlv emitted ZERO bytes"

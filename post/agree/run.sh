@@ -31,7 +31,7 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
+    | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'; }
 
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 ( cd "$WT"
@@ -47,36 +47,37 @@ WT="$WORK/wt"; mkdir -p "$WT/.be"
   "$BE" put a.txt new.txt >/dev/null 2>&1
   "$BE" delete b.txt >/dev/null 2>&1 ) || _fail "could not stage the change-set"
 
-# 1. status (the renderer) shows the staged buckets in render order
-#    (put, new, …, del — status_step / ROW_ORDER, NOT lex across buckets).
+# 1. status (the renderer) shows the staged change-set — BRO-030 quad default
+#    (wiki/Status.mkd): lex-sorted `<quad4> <path>`, staged UPPERCASE (mod `...V`,
+#    del `...X`, new `...O`).
 st=$(_jstatus "$WT")
-expst='put a.txt
-new new.txt
-del b.txt'
+expst='...V a.txt
+...X b.txt
+...O new.txt'
 [ "$st" = "$expst" ] || _fail "status buckets != golden:
 golden:
 $expst
 js:
 $st"
-echo "ok: status renders the staged buckets (put/del/new)"
+echo "ok: status renders the staged change-set (...V mod / ...X del / ...O new)"
 
-# 2. post (the consumer) commits the SAME set: the banner's per-file verbs
-#    must agree with status — a `put` (mod) commits `mod`, `new` commits `add`,
-#    `del` commits `del`; keep.txt (count-only ok in status) is NOT reported but
-#    survives in the tree.
+# 2. post (the consumer) commits the SAME set: the banner's quad rows must
+#    agree with status — BRO-030 quad default (wiki/Status.mkd): a `put` (mod)
+#    is `...V`, `new` is `...O`, `del` is `...X`; keep.txt (count-only ok in
+#    status) is NOT reported but survives in the tree.
 ( cd "$WT" && "$JABC" post 'agree' ) >"$WORK/post.out" 2>"$WORK/post.err" \
     || _fail "jab post failed: $(cat "$WORK/post.err")"
-ban=$(grep -vE 'post post:|post \?' "$WORK/post.out" 2>/dev/null \
-        | sed -E 's/^ +//' | grep -E '^(add|mod|del) ' | sort)
-expban='add new.txt
-del b.txt
-mod a.txt'
+ban=$(sed -E 's/^ *[0-9A-Za-z:]+ +//' "$WORK/post.out" 2>/dev/null \
+        | grep -E '^\.\.\.[VOX] ' | sort)
+expban='...O new.txt
+...V a.txt
+...X b.txt'
 [ "$ban" = "$expban" ] || _fail "post banner != golden (status/post DISAGREE):
 golden:
 $expban
 js:
 $ban"
-echo "ok: post commits exactly what status showed (mod a / add new / del b)"
+echo "ok: post commits exactly what status showed (...V a / ...O new / ...X b)"
 
 # 3. the agreement is total: after post the wt is clean (every dirty path status
 #    showed is now committed; keep.txt rode through untouched).

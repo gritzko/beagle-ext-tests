@@ -16,12 +16,15 @@ sc_build_parent
 T1="$WORK/wt"
 _rc=$(sc_jget "$T1" "file://$PARSTORE/.be")
 [ "$_rc" = 0 ] || { cat "$WORK/last.err"; _fail "clone exit $_rc"; }
-grep -qE 'new[[:space:]]+vendor/sub$' "$WORK/last.out" \
-    || { cat "$WORK/last.out"; _fail "fresh mount not reported 'new vendor/sub'"; }
-if grep -q '^get vendor/sub$' "$WORK/last.out"; then
-    cat "$WORK/last.out"; _fail "fresh mount relayed a sub hunk (must stay new only)"
+# BRO-030: quad get report — a fresh clone syncs to all-same, so the report
+# is SILENT (no legacy `new` rows); the no-sub-hunk half still holds.
+if grep -qE 'new[[:space:]]+vendor/sub$' "$WORK/last.out"; then
+    cat "$WORK/last.out"; _fail "fresh mount still prints a legacy 'new' row"
 fi
-echo "ok   fresh clone: mount row is new, no sub hunk"
+if grep -q '^get vendor/sub$' "$WORK/last.out"; then
+    cat "$WORK/last.out"; _fail "fresh mount relayed a sub hunk (must stay silent)"
+fi
+echo "ok   fresh clone: silent quad report, no sub hunk"
 
 # ============================================================================
 # 1. UPSTREAM advance (as in sub/pin-advance): new sub commit, sub mount
@@ -57,18 +60,15 @@ _rc=0
 [ "$(cat "$T1/vendor/sub/lib.c")" = "sub payload v2" ] \
     || _fail "sub lib.c did not follow the pin advance"
 
-grep -qE 'mod[[:space:]]+vendor/sub$' "$WORK/g.out" \
-    || { cat "$WORK/g.out"; _fail "pin advance not reported 'mod vendor/sub'"; }
-if grep -qE 'new[[:space:]]+vendor/sub$' "$WORK/g.out"; then
-    cat "$WORK/g.out"; _fail "pin advance still reported 'new vendor/sub'"
+# BRO-030: the completed FF syncs to all-same — no legacy `mod`/`new` rows;
+# the sub relay hunk is likewise gone with the legacy get report.
+if grep -qE '(mod|new)[[:space:]]+vendor/sub$' "$WORK/g.out"; then
+    cat "$WORK/g.out"; _fail "pin advance still prints a legacy mod/new row"
 fi
-grep -q '^get vendor/sub$' "$WORK/g.out" \
-    || { cat "$WORK/g.out"; _fail "no separate 'get vendor/sub' hunk for the sub"; }
-# the sub's changed file rides the sub hunk (after its header), prefixed.
-awk '/^get vendor\/sub$/ { h = 1 }
-     h && /upd[ \t]+vendor\/sub\/lib\.c$/ { found = 1 }
-     END { exit !found }' "$WORK/g.out" \
-    || { cat "$WORK/g.out"; _fail "sub hunk does not list upd vendor/sub/lib.c"; }
+# BRO-030: the synced sub file earns no quad row either — no legacy `upd`.
+if grep -qE 'upd[[:space:]]+vendor/sub/lib\.c$' "$WORK/g.out"; then
+    cat "$WORK/g.out"; _fail "pin advance still prints a legacy upd row"
+fi
 # the unchanged sub file earns NO row (checkout reports only what moved).
 if grep -q 'vendor/sub/helper\.c' "$WORK/g.out"; then
     cat "$WORK/g.out"; _fail "unchanged sub file leaked into the report"

@@ -78,10 +78,12 @@ printf '%s\n' "$_LAST_GET" | grep -qE "//src/?#$C2" \
 mv "$SRC/.be" "$WORK/src.be.bak"
 ( cd "$W" && "$JABC" status ) >"$WORK/st.out" 2>"$WORK/st.err" \
     || { cat "$WORK/st.err" >&2; _fail "status after the update failed"; }
-grep -qE "unk (readme|t2)" "$WORK/st.out" \
+# BRO-030 quad default: an unresolved baseline would read untracked `...o`; the
+# woven dirty edit reads `...v`.
+grep -qE '\.\.\.o (readme|t2)' "$WORK/st.out" \
     && _fail "baseline unreadable from store A — objects were not fetched" || true
-grep -q "mod readme.txt" "$WORK/st.out" \
-    || _fail "the woven dirty edit does not read as a local mod: $(cat "$WORK/st.out")"
+grep -qE '\.\.\.v readme\.txt' "$WORK/st.out" \
+    || _fail "the woven dirty edit does not read as a local ...v: $(cat "$WORK/st.out")"
 mv "$WORK/src.be.bak" "$SRC/.be"
 
 # --- SUB leg: a worktree source's sub mounts via the COMPOSED wt URI -------

@@ -38,7 +38,7 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 # column is either `HH:MM` (recent) or `DDMonYY` (old) — match both, then keep
 # only the `<3-letter bucket> <path>` tail (header + `?<branch>` summary drop).
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
+    | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'; }
 
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 ( cd "$WT" && printf 'A\n' > a.txt && printf 'B\n' > b.txt \
@@ -48,31 +48,34 @@ WT="$WORK/wt"; mkdir -p "$WT/.be"
 ( cd "$WT" && sleep 0.02 && "$BE" put 'b.txt#m.txt' >/dev/null 2>&1 ) \
     || _fail "could not stage the move"
 
-# 1. status shows the move PAIR as TWO rows: `rmv b.txt` (source) then
-#    `mov m.txt` (dest), in the suite's render order (rmv before mov).
+# 1. status shows the move PAIR as TWO rows — BRO-030 quad default: the removed
+#    src `...X b.txt` and the created dst `...O b.txt#m.txt` (dst spells src#dst),
+#    lex-sorted by path (b.txt < m.txt).
 st=$(_jstatus "$WT")
-exp='rmv b.txt
-mov m.txt'
+exp='...X b.txt
+...O b.txt#m.txt'
 [ "$st" = "$exp" ] || _fail "status move pair != golden:
 golden:
 $exp
 js:
 $st"
-echo "ok: a rename shows the 'rmv src' + 'mov dst' pair (two rows)"
+echo "ok: a rename shows the '...X src' + '...O src#dst' pair (two rows)"
 
-# 2. post commits the pair CONSISTENTLY: the banner reports del src + add dst.
+# 2. post commits the pair CONSISTENTLY: BRO-030 quad default (wiki/Status.mkd)
+#    reports the removed src as `...X b.txt` and the created dst as `...O`, the
+#    dst path column spelling the `src#dst` pair (never a bare delete+create).
 ( cd "$WT" && "$JABC" post 'rename b to m' ) >"$WORK/post.out" 2>"$WORK/post.err" \
     || _fail "jab post failed: $(cat "$WORK/post.err")"
-ban=$(grep -vE 'post post:|post \?' "$WORK/post.out" 2>/dev/null \
-        | sed -E 's/^ +//' | grep -E '^(add|mod|del) ')
-expban='del b.txt
-add m.txt'
+ban=$(sed -E 's/^ *[0-9A-Za-z:]+ +//' "$WORK/post.out" 2>/dev/null \
+        | grep -E '^\.\.\.[XO] ')
+expban='...X b.txt
+...O b.txt#m.txt'
 [ "$ban" = "$expban" ] || _fail "post banner != golden:
 golden:
 $expban
 js:
 $ban"
-echo "ok: post reports the move pair (del src + add dst)"
+echo "ok: post reports the move pair (...X src + ...O src#dst)"
 
 # 3. the committed tree is consistent: m.txt is tracked (carrying b.txt's bytes),
 #    b.txt is gone, and the wt re-reads clean (no residual unk/mod).

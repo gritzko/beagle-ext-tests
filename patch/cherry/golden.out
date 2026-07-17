@@ -1,11 +1,11 @@
 === stdout ===
 #dc5b640eb7c29e2de9d7c7c45acd74133c9ec3ac
-        merged f.txt
+01Jul16 ..vv f.txt
 
 === patch row ===
 T	patch	#dc5b640eb7c29e2de9d7c7c45acd74133c9ec3ac
 === status ===
-mrg f.txt
+..vv f.txt
 === file bytes ===
 --- f.txt ---
 -rw-------

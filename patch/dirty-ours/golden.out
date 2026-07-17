@@ -1,11 +1,11 @@
 === stdout ===
 #3f08b9e1fe94cd29e92d333cc32fe66dd19e0f5c
-        merged keep.txt
+01Jul16 ..vv keep.txt
 
 === patch row ===
 T	patch	#3f08b9e1fe94cd29e92d333cc32fe66dd19e0f5c
 === status ===
-mrg keep.txt
+..vv keep.txt
 === file bytes ===
 --- keep.txt ---
 -rw-------

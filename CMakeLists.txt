@@ -100,7 +100,7 @@ endforeach()
 
 # Subdir unit tests (test/<topic>/<unit>.js).  LOG-001: log.js follows
 # non-spine (merge 2nd+) parents and greys them.  Same direct-script harness.
-foreach(_sub log/nonspine)
+foreach(_sub log/nonspine quad/model)
     string(REPLACE "/" "-" _subname "${_sub}")
     add_test(NAME be-js-unit-${_subname}
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_sub}.js"

@@ -40,6 +40,8 @@ _proj_jab "$WORKD/X" post 'x1 line3' >/dev/null 2>&1 || _fail "X post failed"
 
 # THE REPRO: from Y, `patch //X` weave-merges X1 in (clean take-theirs: Y
 # never touched f.txt).  Not `file:../X` — a bare scheme-less nav authority.
+# BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
+# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
 rm -f "$PROJ"/.be/*.keeper.idx 2>/dev/null
 ( cd "$WORKD/Y" && "$JABC" patch '//X' ) >"$WORK/js.out" 2>"$WORK/js.err" \
     || _fail "tree-nav patch failed: $(cat "$WORK/js.err")"

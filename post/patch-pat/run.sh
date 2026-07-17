@@ -36,7 +36,7 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
+    | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'; }
 
 # TEST-003 jab-only DAG.  The store's rolling keeper.idx indexes only the LATEST
 # keeper, so t0's object (the fork point) reads MISSING after a 2nd post; drop the
@@ -71,18 +71,22 @@ ORG_TIP=$(_orgtip "$ORG")
 ( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed"
 
-# 1. the take-theirs file reads `pat` (base=ours; wt==theirs!=ours).  k.txt is
-#    untouched by the patch (ours==theirs there) so it stays clean (count-only).
+# 1. the take-theirs f.txt reads `..vv` (BRO-030 quad default: patch+wt advanced;
+#    base=ours). k.txt (theirs differs from root, wt at ours) surfaces `..v.` —
+#    the patch column carries theirs, so it is a row now, not count-only.
 st=$(_jstatus "$JS")
-[ "$st" = "pat f.txt" ] || _fail "take-theirs status != 'pat f.txt' (base folded theirs?):
+[ "$st" = "..vv f.txt
+..v. k.txt" ] || _fail "take-theirs status != '..vv f.txt / ..v. k.txt' (base folded theirs?):
 $st"
-echo "ok: a clean take-theirs file reads 'pat' (base=ours, theirs a separate input)"
+echo "ok: a clean take-theirs file reads '..vv' (base=ours, theirs a separate input)"
 
 # 2. post still ABSORBS it: commits f.txt (theirs bytes) AND records theirs as a
 #    merge parent (the absorb is unchanged by base→ours).
 ( cd "$JS" && "$JABC" post 'absorb take-theirs' ) >"$WORK/p.out" 2>"$WORK/p.err" \
     || _fail "post of a pat absorb FAILED: $(cat "$WORK/p.err")"
-grep -qE '(^|[[:space:]])mod f.txt$' "$WORK/p.out" \
+# BRO-030: a take-theirs (pat) file commits as the `..vv f.txt` quad row (pat
+# and mrg are both ..vv; quad default, wiki/Status.mkd).
+grep -qE '\.\.vv f.txt$' "$WORK/p.out" \
     || _fail "pat absorb did not commit f.txt:
 $(cat "$WORK/p.out")"
 [ -z "$(_jstatus "$JS")" ] || _fail "wt not clean after absorbing the pat file:

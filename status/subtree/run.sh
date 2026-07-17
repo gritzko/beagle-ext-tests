@@ -44,23 +44,24 @@ printf 'B2\n' > other/b.txt
 # --- leg (a): `status wiki` (explicit dir arg) shows ONLY wiki/'s row ---------
 ( cd "$WT" && "$JABC" status wiki --plain ) >"$WORK/arg" 2>"$WORK/arg.err" \
     || _fail "status wiki failed: $(cat "$WORK/arg.err")"
-have "$WORK/arg" 'mod wiki/a\.txt' "status wiki: the wiki/ edit present"
+# BRO-030: quad-default — a wt-only edit reads `...v <path>`.
+have "$WORK/arg" '\.\.\.v wiki/a\.txt' "status wiki: the wiki/ edit present"
 miss "$WORK/arg" 'other/b\.txt'    "status wiki: the other/ edit must be absent"
 
 # --- leg (b): bare `status` from the wiki/ cwd scopes to wiki/ ----------------
 ( cd "$WT/wiki" && "$JABC" status --plain ) >"$WORK/bare" 2>"$WORK/bare.err" \
     || _fail "bare status from wiki/ failed: $(cat "$WORK/bare.err")"
-have "$WORK/bare" 'mod wiki/a\.txt' "bare status @wiki: the wiki/ edit present"
+have "$WORK/bare" '\.\.\.v wiki/a\.txt' "bare status @wiki: the wiki/ edit present"
 miss "$WORK/bare" 'other/b\.txt'    "bare status @wiki: the other/ edit must be absent"
 
 # --- no whole-wt degrade: a clean subtree emits NO dirty row ------------------
 mkdir -p clean; printf 'C\n' > clean/c.txt
 ( cd "$WT" && "$JABC" status clean --plain ) >"$WORK/clean" 2>/dev/null || true
-miss "$WORK/clean" 'mod (wiki|other)/' "status clean: no whole-wt degrade (clean subtree)"
+miss "$WORK/clean" '\.\.\.v (wiki|other)/' "status clean: no whole-wt degrade (clean subtree)"
 
 # --- bare `status` from the wt ROOT stays whole-wt (unchanged) ----------------
 ( cd "$WT" && "$JABC" status --plain ) >"$WORK/root" 2>/dev/null || true
-have "$WORK/root" 'mod wiki/a\.txt'  "root status: wiki/ present (whole-wt)"
-have "$WORK/root" 'mod other/b\.txt' "root status: other/ present (whole-wt)"
+have "$WORK/root" '\.\.\.v wiki/a\.txt'  "root status: wiki/ present (whole-wt)"
+have "$WORK/root" '\.\.\.v other/b\.txt' "root status: other/ present (whole-wt)"
 
 echo "PASS [status/$NAME]"

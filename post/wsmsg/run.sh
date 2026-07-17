@@ -60,7 +60,8 @@ _check() {   # _check MSG EXPECT_SUBSTR LABEL
       "$BE" put a.txt >/dev/null 2>&1 ) || _fail "[$3] stage failed"
     ( cd "$_wt" && "$JABC" post "$1" ) >"$WORK/$3.out" 2>"$WORK/$3.err" \
         || _fail "[$3] jab post '$1' FAILED (non-zero): $(cat "$WORK/$3.err")"
-    grep -qE '^ *mod a\.txt' "$WORK/$3.out" \
+    # BRO-030: staged-mod a.txt shows as the `...V a.txt` quad row (quad default).
+    grep -qE '\.\.\.V a\.txt$' "$WORK/$3.out" \
         || _fail "[$3] jab post '$1' produced NO commit (silent drop): $(cat "$WORK/$3.out")"
     _cb=$(_commit_bytes "$_wt")
     printf '%s' "$_cb" | grep -qF "$2" \

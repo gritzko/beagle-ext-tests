@@ -69,7 +69,8 @@ echo "ok: jab put banner carries no 'put:' scheme"
 # --- post: commit the staged change with `jab post`, assert no `post:` ----
 ( cd "$_wt" && "$JABC" post 'change' ) >"$WORK/post.out" 2>"$WORK/post.err" \
     || _fail "jab post FAILED (non-zero): $(cat "$WORK/post.err")"
-grep -qE '^ *mod a\.txt' "$WORK/post.out" \
+# BRO-030: post reports the quad transition (`...V` = staged-put absorbed).
+grep -qE '\.\.\.V a\.txt' "$WORK/post.out" \
     || _fail "jab post produced no commit row: $(cat "$WORK/post.out")"
 _assert_no_scheme post "$WORK/post.out"
 echo "ok: jab post banner carries no 'post:' scheme"

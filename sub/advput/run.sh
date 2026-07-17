@@ -35,8 +35,9 @@ mkdir -p "$D/vendor/sub/x"
 echo "f payload" > "$D/vendor/sub/x/f"
 
 # non-tty parity: the plain status shows the adv row but NO button chrome.
-( cd "$D" && "$JABC" status --plain 2>&1 ) | grep -qE 'adv[[:space:]]+vendor/sub' \
-    || _fail "no adv row in plain status"
+# BRO-030 quad default: an advanced sub gitlink reads `...v` (advance like a file).
+( cd "$D" && "$JABC" status --plain 2>&1 ) | grep -qE '\.\.\.v[[:space:]]+vendor/sub' \
+    || _fail "no ...v adv row in plain status"
 ( cd "$D" && "$JABC" status --plain 2>&1 ) | grep -q '\[put\]' \
     && _fail "plain (non-tty) status leaked a [put] button"
 
@@ -58,11 +59,13 @@ grep -qE "put[[:space:]]+vendor/sub#$SUBTIP" "$D/.be" \
     || _fail "arm2: gitlink bump not staged in the parent wtlog: $(tail -4 "$D/.be")"
 
 # The adv row re-buckets to `put` (staged) — and no more adv.
+# BRO-030 quad default: a staged gitlink bump reads UPPERCASE `...V`; a still-adv
+# (unstaged) one would read lowercase `...v`.
 STATUS2=$(cd "$D" && "$JABC" status --plain 2>&1)
-printf '%s\n' "$STATUS2" | grep -qE 'put[[:space:]]+vendor/sub' \
-    || _fail "adv row did not re-bucket to put: $STATUS2"
-printf '%s\n' "$STATUS2" | grep -qE 'adv[[:space:]]+vendor/sub' \
-    && _fail "adv row still adv after the bump: $STATUS2"
+printf '%s\n' "$STATUS2" | grep -qE '\.\.\.V[[:space:]]+vendor/sub' \
+    || _fail "adv row did not re-bucket to staged ...V: $STATUS2"
+printf '%s\n' "$STATUS2" | grep -qE '\.\.\.v[[:space:]]+vendor/sub' \
+    && _fail "adv row still unstaged ...v after the bump: $STATUS2"
 
 # END-TO-END: post the parent — fold-decide must commit a NEW 160000 pin equal
 # to the sub's CURRENT tip (postSubs recursed arm 1's staged x/f into a fresh

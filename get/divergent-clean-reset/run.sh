@@ -48,15 +48,17 @@ rc=$(gr_jget "$WORK/jL" '?U')
 gr_file_is "$WORK/jL/a.txt" "A"
 gr_file_is "$WORK/jL/b.txt" "B2"
 
-# 2. ZERO weave rows: a committed delta is never re-applied as a merge.
-if grep -qE '(^| )(mrg|con) ' "$WORK/last.out"; then
+# 2. BRO-030 quad default: a clean divergent reset is SILENT — a.txt/b.txt reset
+#    to the target (all-same, omitted), track==base (no commit divergence row).
+if grep -qE '(\.txt$|(^| )(post|mrg|con|upd|new|del) )' "$WORK/last.out"; then
     echo "--- get out ---"; cat "$WORK/last.out"
-    _fail "divergent+clean get weaved the COMMITTED delta (mrg/con rows)"
+    _fail "clean divergent reset emitted rows (quad default: report is silent)"
 fi
 
-# 3. status is CLEAN after — no phantom pending mods of the committed delta.
+# 3. status is CLEAN after — no phantom pending rows of the committed delta.
+#    BRO-030 quad default: a dirty file row is `<date7> <quad4> <path>`.
 ( cd "$WORK/jL" && "$JABC" status ) > "$WORK/st.out" 2>&1 || true
-if grep -qE '(^| )mod ' "$WORK/st.out"; then
+if grep -qE '^.{8}[.xovXOV!]{4} ' "$WORK/st.out"; then
     echo "--- status ---"; cat "$WORK/st.out"
     _fail "reset left phantom `mod` rows (committed delta replayed as dirty)"
 fi

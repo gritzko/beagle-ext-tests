@@ -1,10 +1,9 @@
 === stdout ===
 ?#mixed change-set
-T post ?SHA#mixed change-set
-        mod a.txt
-        del b.txt
-        add g/g.txt
-        add new.txt
+T ...V a.txt
+T ...X b.txt
+T ...O g/g.txt
+T ...O new.txt
 
 === wtlog post row ===
 T	post	?#SHA

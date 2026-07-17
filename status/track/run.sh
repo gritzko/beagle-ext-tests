@@ -63,9 +63,10 @@ grep -qF "(ahead 1)" "$WORK/st2.out" || {
     echo "--- sub status (ahead) ---"; cat "$WORK/st2.out"
     _fail "no (ahead 1) note — divergence not computed vs the track's tip"
 }
-grep -qE 'post[[:space:]]+\?[0-9a-f]{6,40}#sub ahead' "$WORK/st2.out" || {
+# BRO-030: the quad-default commit row for a local (base-side) ahead commit is `.o..`.
+grep -qE '\.o\.\.[[:space:]]+\?[0-9a-f]{6,40}#sub ahead' "$WORK/st2.out" || {
     echo "--- sub status (ahead) ---"; cat "$WORK/st2.out"
-    _fail "no ahead \`post\` commit row for the sub-ahead commit"
+    _fail "no ahead \`.o..\` commit row for the sub-ahead commit"
 }
 
 # ---- leg 3: a query-shaped track keeps the old label (trunk `?`) -------------

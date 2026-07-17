@@ -45,11 +45,13 @@ mkdir junk; printf 'noise\n' > junk/n.txt
 printf 'junk/\n' > .gitignore
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"
 
-# --- 1. status: the tracked file is clean, NOT `mis` -------------------------
+# --- 1. status: the tracked file is clean, NOT removed (`...x`) --------------
+# BRO-030: quad default — a swallowed file would read `...x`; a clean tree emits
+# NO rows, only the summary frame line.
 "$BE" status > "$WORK/st.out" 2>&1 || _fail "jab status failed: $(cat "$WORK/st.out")"
-grep -q 'mis a\.txt' "$WORK/st.out" && _fail "enclosing repo's work/ swallowed the wt: a.txt reads mis"
-grep -q 'mis \.gitignore' "$WORK/st.out" && _fail "wt tree invisible: .gitignore reads mis"
-grep -q 'ok' "$WORK/st.out" || _fail "status reports no clean files: $(cat "$WORK/st.out")"
+grep -q '\.\.\.x a\.txt' "$WORK/st.out" && _fail "enclosing repo's work/ swallowed the wt: a.txt reads removed"
+grep -q '\.\.\.x \.gitignore' "$WORK/st.out" && _fail "wt tree invisible: .gitignore reads removed"
+grep -q '^?' "$WORK/st.out" || _fail "status emitted no summary (did not classify): $(cat "$WORK/st.out")"
 
 # --- 2. the wt's OWN .gitignore still applies -------------------------------
 grep -q 'junk/n\.txt' "$WORK/st.out" && _fail "wt's own .gitignore lost: junk/n.txt surfaced"
@@ -58,6 +60,7 @@ grep -q 'junk/n\.txt' "$WORK/st.out" && _fail "wt's own .gitignore lost: junk/n.
 printf 'seed2\n' > a.txt
 "$BE" put a.txt > "$WORK/put.out" 2>&1 || _fail "be put PUTNONE'd: $(cat "$WORK/put.out")"
 "$BE" status > "$WORK/st2.out" 2>&1 || _fail "jab status (2) failed"
-grep -q 'put a\.txt' "$WORK/st2.out" || _fail "staged a.txt not reported put: $(cat "$WORK/st2.out")"
+# BRO-030: a staged edit reads UPPERCASE `...V` (staged) in the quad default.
+grep -q '\.\.\.V a\.txt' "$WORK/st2.out" || _fail "staged a.txt not reported `...V`: $(cat "$WORK/st2.out")"
 
 echo "PASS [status/$NAME]"

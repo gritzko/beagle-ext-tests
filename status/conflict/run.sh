@@ -40,9 +40,10 @@ _fail() { echo "FAIL [status/$NAME] $*" >&2; exit 1; }
 # jab is ASAN — drop the rolling keeper.idx before each op so an earlier commit's
 # fork-point object stays visible after a later post (patchcase.sh idiom).
 _jab() { rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
-# f.txt's status bucket (the 3-letter verb column), or empty if no row.
+# BRO-030: quad default — f.txt's WT (4th quad) char, or empty if no row.
+# Conflict spells the wt char `!`, an ordinary edit `v` (track/base/patch same).
 _bucket() { ( cd "$WT" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +f\.txt$/\1/p' | head -1; }
+    | sed -nE 's/^.{8}\.\.\.(.) f\.txt$/\1/p' | head -1; }
 
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 
@@ -79,13 +80,13 @@ grep -a $'\tcon\t' "$WT/.be/wtlog" "$WT/.be" 2>/dev/null | grep -q 'f\.txt' \
 
 # status must show the conflict as `con`, NOT `mod`.
 b=$(_bucket)
-[ "$b" = "con" ] || _fail "status shows f.txt as '$b', expected 'con' (red conflict)"
-echo "ok: get-merge conflict statuses 'con' + durable wtlog row"
+[ "$b" = "!" ] || _fail "status shows f.txt wt char '$b', expected '!' (red conflict)"
+echo "ok: get-merge conflict statuses '...!' + durable wtlog row"
 
-# resolve the markers (edit them away) -> degrades to ordinary `mod`.
+# resolve the markers (edit them away) -> degrades to an ordinary edit `...v`.
 printf 'a\nZ\nc\n' > "$WT/f.txt"
 b=$(_bucket)
-[ "$b" = "mod" ] || _fail "resolved f.txt shows '$b', expected 'mod' (markers gone)"
-echo "ok: resolving the markers degrades 'con' -> 'mod'"
+[ "$b" = "v" ] || _fail "resolved f.txt wt char '$b', expected 'v' (markers gone)"
+echo "ok: resolving the markers degrades '...!' -> '...v'"
 
 echo "PASS [status/$NAME]"

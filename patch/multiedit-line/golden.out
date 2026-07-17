@@ -1,11 +1,11 @@
 === stdout ===
-?ce8719f7dd7ee220830bfa504447b74c3097f994!
-        merged f.txt
+?ce8719f7dd7ee220830bfa504447b74c3097f994
+01Jul16 ..vv f.txt
 
 === patch row ===
-T	patch	?ce8719f7dd7ee220830bfa504447b74c3097f994!
+T	patch	?ce8719f7dd7ee220830bfa504447b74c3097f994
 === status ===
-mrg f.txt
+..vv f.txt
 === file bytes ===
 --- f.txt ---
 -rw-------

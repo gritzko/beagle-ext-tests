@@ -37,7 +37,7 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 
 _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
+    | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'; }
 
 # TEST-003 jab-only DAG.  The store's rolling keeper.idx indexes only the LATEST
 # keeper, so t0's object (the fork point) reads MISSING after a 2nd post; drop the
@@ -71,13 +71,16 @@ JS="$WORK/merge"; mkdir -p "$JS"
 ORG_TIP=$(_orgtip "$ORG")
 ( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed (merge)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (merge)"
+# BRO-030 quad default: a patch-merged file reads `..vv` (patch+wt advanced).
 st=$(_jstatus "$JS")
-[ "$st" = "mrg f.txt" ] || _fail "merge-absorb status != 'mrg f.txt':
+[ "$st" = "..vv f.txt" ] || _fail "merge-absorb status != '..vv f.txt':
 $st"
-echo "ok: a patch-merged file reads 'mrg' (stamp offset)"
+echo "ok: a patch-merged file reads '..vv' (stamp offset)"
 ( cd "$JS" && "$JABC" post 'absorb feat (merge)' ) >"$WORK/m.out" 2>"$WORK/m.err" \
     || _fail "post of a merged absorb FAILED (POSTSCOPE not subsumed?): $(cat "$WORK/m.err")"
-grep -qE '(^|[[:space:]])mod f.txt$' "$WORK/m.out" \
+# BRO-030: a patch-merged file commits as the `..vv f.txt` quad row (base=root,
+# patch and wt both advanced from theirs; quad default, wiki/Status.mkd).
+grep -qE '\.\.vv f.txt$' "$WORK/m.out" \
     || _fail "merged absorb did not commit f.txt:
 $(cat "$WORK/m.out")"
 [ -z "$(_jstatus "$JS")" ] || _fail "wt not clean after absorbing the merge:
@@ -120,10 +123,11 @@ JS="$WORK/conf"; mkdir -p "$JS"
 ORG_TIP=$(_orgtip "$ORG")
 ( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
 ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (conf)"
+# BRO-030 quad default: a patch-conflicted file spells the wt char `!` → `..v!`.
 st=$(_jstatus "$JS")
-[ "$st" = "con f.txt" ] || _fail "conflict-absorb status != 'con f.txt':
+[ "$st" = "..v! f.txt" ] || _fail "conflict-absorb status != '..v! f.txt':
 $st"
-echo "ok: a patch-conflicted file reads 'con' (STATUS-005 durable row + markers)"
+echo "ok: a patch-conflicted file reads '..v!' (STATUS-005 durable row + markers)"
 if ( cd "$JS" && "$JABC" post 'absorb feat (conf)' ) >"$WORK/c.out" 2>"$WORK/c.err"; then
     _fail "post of a conflicted absorb should REFUSE (conflict marker):
 $(cat "$WORK/c.out")"
@@ -134,7 +138,9 @@ $(cat "$WORK/c.err")"
 echo "ok: post REFUSES a conflict-marked (con) absorb (conflict-marker refusal)"
 ( cd "$JS" && "$JABC" post --force 'absorb feat (forced)' ) >"$WORK/cf.out" 2>"$WORK/cf.err" \
     || _fail "post --force of a conflict FAILED: $(cat "$WORK/cf.err")"
-grep -qE '(^|[[:space:]])mod f.txt$' "$WORK/cf.out" \
+# BRO-030: the PRE-post state of a forced conflict absorb is `..v!` (the wt char
+# spells conflict `!`; quad default, wiki/Status.mkd).
+grep -qE '\.\.v! f.txt$' "$WORK/cf.out" \
     || _fail "forced conflict absorb did not commit f.txt:
 $(cat "$WORK/cf.out")"
 echo "ok: post --force commits the conflict-marked absorb"

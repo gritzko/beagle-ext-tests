@@ -56,19 +56,26 @@ L5"
 # 2. the COMMITTED delta did NOT survive the reset: a.txt is the target's A.
 gr_file_is "$WORK/jL/a.txt" "A"
 
-# 3. exactly the uncommitted edit is a weave: `mrg m.txt` yes, `mrg a.txt` NO.
-grep -q 'mrg m.txt' "$WORK/last.out" || { echo "--- get out ---"; \
-    cat "$WORK/last.out"; _fail "uncommitted m.txt edit was not weaved (no mrg row)"; }
-if grep -q 'mrg a.txt' "$WORK/last.out"; then
+# 3. BRO-030 quad default: the uncommitted m.txt weave is the wt-advanced quad
+#    `...v`; the committed a.txt delta reset to all-same, so a.txt has NO row.
+grep -qF '...v m.txt' "$WORK/last.out" || { echo "--- get out ---"; \
+    cat "$WORK/last.out"; _fail "uncommitted m.txt weave not the wt-advanced quad (...v)"; }
+if grep -qE ' a\.txt$' "$WORK/last.out"; then
     echo "--- get out ---"; cat "$WORK/last.out"
-    _fail "COMMITTED a.txt delta reappeared as a weave (mrg a.txt)"
+    _fail "COMMITTED a.txt delta reappeared as a quad row"
+fi
+# BRO-030: no legacy checkout vocabulary survives the quad-default flip.
+if grep -qE '(^| )(mrg|con|upd|new|del) ' "$WORK/last.out"; then
+    echo "--- get out ---"; cat "$WORK/last.out"
+    _fail "legacy checkout rows leaked into the quad-default report"
 fi
 
-# 4. status: the weaved m.txt reads mod (a real pending edit); a.txt does NOT.
+# 4. status: BRO-030 quad default — the weaved m.txt reads `...v` (a real pending
+#    edit); a.txt does NOT (its committed delta is not replayed as dirty).
 ( cd "$WORK/jL" && "$JABC" status ) > "$WORK/st.out" 2>&1 || true
-grep -q 'mod m.txt' "$WORK/st.out" || { echo "--- status ---"; \
+grep -qE '\.\.\.v m\.txt' "$WORK/st.out" || { echo "--- status ---"; \
     cat "$WORK/st.out"; _fail "weaved m.txt edit not pending after get"; }
-if grep -q 'mod a.txt' "$WORK/st.out"; then
+if grep -qE '\.\.\.v a\.txt' "$WORK/st.out"; then
     echo "--- status ---"; cat "$WORK/st.out"
     _fail "committed a.txt delta replayed as a phantom pending mod"
 fi

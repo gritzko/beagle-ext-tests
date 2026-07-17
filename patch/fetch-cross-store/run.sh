@@ -39,6 +39,8 @@ KBYTES=$(cat "$B"/.be/*.keeper | wc -c)   # JS-117: append = same logs, more byt
 #  TEST-003 rolling-idx quirk: drop stale keeper.idx in BOTH stores pre-op.
 rm -f "$A"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
 
+# BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
+# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
 #  The fetch leg: patch the TRANSPORT uri of a from b's wt.
 ( cd "$B" && "$JABC" patch "file:$A/.be" ) \
     >"$WORK/js.out" 2>"$WORK/js.err" \

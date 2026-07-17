@@ -76,9 +76,11 @@ echo "ok   wt-source get recorded the real store anchor: $_row0"
 
 # `jab status` in the new wt classifies — the baseline resolves, so the clean
 # checkout reads 0-modified / no `unk` (NOT the all-`unk` GET-038 symptom).
+# BRO-030 quad default: an unresolved baseline would surface untracked `...o` rows;
+# a clean classified checkout emits none, only the summary frame line.
 _st=$( ( cd "$T1" && "$JABC" status ) 2>"$WORK/st.err" )
-echo "$_st" | grep -q ' unk ' && { echo "$_st"; _fail "wt-source get: status reports unk (baseline unresolvable — GET-038)"; }
-echo "$_st" | grep -qE '[0-9]+ ok' || { echo "$_st"; _fail "wt-source get: status did not classify against the baseline"; }
+echo "$_st" | grep -qE '\.\.\.o ' && { echo "$_st"; _fail "wt-source get: status reports untracked ...o (baseline unresolvable — GET-038)"; }
+echo "$_st" | grep -q '^?' || { echo "$_st"; _fail "wt-source get: status did not classify against the baseline (no summary)"; }
 echo "ok   jab status classifies against the real baseline (no all-\`unk\`)"
 
 # Contrast: the STORE-form source records the SAME real-store anchor (unchanged).

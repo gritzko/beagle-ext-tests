@@ -1,11 +1,11 @@
 === stdout ===
 #56cfcde00bb3376e3f28d2bdf0d7be4d569df364
-        con f.txt
+01Jul16 ..v! f.txt
 
 === patch row ===
 T	patch	#56cfcde00bb3376e3f28d2bdf0d7be4d569df364
 === status ===
-con f.txt
+..v! f.txt
 === file bytes ===
 --- f.txt ---
 -rw-------

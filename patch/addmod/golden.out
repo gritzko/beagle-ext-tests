@@ -1,13 +1,13 @@
 === stdout ===
 #f6554a58f077b02b883a47c83b64d1f8aa9d6cea
-        merged keep.txt
-        applied new.txt
+01Jul16 ..vv keep.txt
+01Jul16 ..oo new.txt
 
 === patch row ===
 T	patch	#f6554a58f077b02b883a47c83b64d1f8aa9d6cea
 === status ===
-pat new.txt
-mrg keep.txt
+..vv keep.txt
+..oo new.txt
 === file bytes ===
 --- keep.txt ---
 -rw-------

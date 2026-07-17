@@ -80,24 +80,31 @@ WT="$WORK/wt"; mkdir -p "$WT/.be"
 # 8 spaces for a ts-less `mis` row), then read `<verb> <path>` from each per-file
 # row.  The `status:` banner (7 chars, no col) + the `?<branch>\t<counts>`
 # summary don't match the `^.{8}<verb> ` shape, so they drop out naturally.
-jrows=$(sed -nE 's/^.{8}([a-z]{3}) (.*)$/\1 \2/p' "$WORK/jab.plain")
-exprows='rmv b.txt
-mov m.txt
-mod a.txt
-mod d/c.txt
-del r.txt
-mis k.txt
-unk n.txt'
+# BRO-030: quad default — rows are `<quad4> <path>`, lex-sorted by path (NOT
+# ROW_ORDER); staged is UPPERCASE, a move dst spells `src#dst`.  b.txt staged
+# rmv = `...X`, its m.txt dst = `...O b.txt#m.txt`; r.txt staged del = `...X`;
+# a.txt/d/c.txt edits = `...v`; k.txt gone = `...x`; n.txt untracked = `...o`.
+jrows=$(sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p' "$WORK/jab.plain")
+exprows='...v a.txt
+...X b.txt
+...v d/c.txt
+...x k.txt
+...O b.txt#m.txt
+...o n.txt
+...X r.txt'
 [ "$jrows" = "$exprows" ] || {
     echo "--- jab --plain ---"; cat -A "$WORK/jab.plain"
-    _fail "plain rows != DIS-057 golden:
+    _fail "plain rows != BRO-030 quad golden:
 golden:
 $exprows
 js:
 $jrows"
 }
-echo "ok: jab status --plain shows the DIS-057 rmv/mov pair (U bytes hidden)"
+echo "ok: jab status --plain shows the BRO-030 quad rows (lex-sorted, U bytes hidden)"
 
+# BRO-030 CAVEAT: the quad default routes through the columnar out (status.js
+# "first cut" TODO — no per-row toks), so this leg has NO U navs until quad
+# packs tok spans through sinkOut. Blocked post-flip; see BRO-030 report.
 # 2. U click-targets: capture the on-wire HUNK stream (--tlv) and assert each
 #    per-file row carries a `U` token decoding to its nav URI.  RED pre-fix
 #    (flat text, no toks → no U tokens); GREEN after.

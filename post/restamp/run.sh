@@ -38,7 +38,7 @@ _fail() { echo "FAIL [$NAME] $*" >&2; exit 1; }
 
 # `jab status` reduced to date-normalised `<bucket> <path>` rows (post/move's).
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
+    | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'; }
 
 # --- the POST-029 invariant checker ------------------------------------------
 # jab .stampchk.js BEDIR MODE WT rel...  — for each rel: mtime ∈ wtl.has() (the
@@ -113,7 +113,8 @@ WA="$WORK/a"; mkdir -p "$WA/.be"
 sleep 0.02
 printf 'A2\n' > "$WA/a.txt"
 ( cd "$WA" && "$BE" put a.txt ) >/dev/null 2>&1 || _fail "A: put a.txt"
-st=$(_jstatus "$WA"); [ "$st" = "put a.txt" ] || _fail "A: precheck != 'put a.txt': $st"
+# BRO-030 quad default: a put-staged edit reads `...V`.
+st=$(_jstatus "$WA"); [ "$st" = "...V a.txt" ] || _fail "A: precheck != '...V a.txt': $st"
 ( cd "$WA" && "$BE" post '#staged a' ) >/dev/null 2>&1 || _fail "A: post"
 grep -qE "put[[:space:]]+a\.txt" "$WA/.be/wtlog" \
     || _fail "A: the consumed put row vanished from the wtlog"
@@ -128,9 +129,10 @@ WB="$WORK/b"; mkdir -p "$WB/.be"
     && printf 'C1\n' > c.txt && "$BE" post '#base' ) >/dev/null 2>&1 || _fail "B: seed"
 sleep 0.02
 printf 'A2\n' > "$WB/a.txt"; printf 'B2\n' > "$WB/b.txt"
+# BRO-030 quad default: bare (unstaged) edits read `...v`.
 st=$(_jstatus "$WB")
-[ "$st" = "mod a.txt
-mod b.txt" ] || _fail "B: precheck != two mod rows: $st"
+[ "$st" = "...v a.txt
+...v b.txt" ] || _fail "B: precheck != two ...v rows: $st"
 ( cd "$WB" && "$BE" post '#commit all' ) >/dev/null 2>&1 || _fail "B: post"
 _chk -aged "$WB" a.txt b.txt c.txt    # c.txt untouched: its stamp is pre-pd
 echo "ok   B. commit-all post: mod files restamped, 0 reads"

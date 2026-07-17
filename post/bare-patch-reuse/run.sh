@@ -55,7 +55,7 @@ export BE_ROOT="$WORK"
 _cur() { ( cd "$1" && "$JABC" refs ) 2>/dev/null | sed -n 's/^cur: *//p'; }
 # in-scope status rows (the post/patch-absorb probe).
 _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-    | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'; }
+    | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'; }
 # the MESSAGE of commit $3 as seen from wt $1 (sub/selfloop's commit-body
 # decode: store.open + getObject, the message is past the header's blank line).
 _msg() {   # _msg DIR SHA
@@ -110,9 +110,10 @@ _absorbwt() {
     _fresh
     ( cd "$1" && "$JABC" patch "#$F1" ) >/dev/null 2>&1 \
         || _fail "$(basename "$1"): patch #f1 failed"
+    # BRO-030 quad default: an absorbed patch-merged file reads `..vv`.
     st=$(_jstatus "$1")
-    [ "$st" = "mrg f.txt" ] \
-        || _fail "$(basename "$1"): absorbed-patch status != 'mrg f.txt': $st"
+    [ "$st" = "..vv f.txt" ] \
+        || _fail "$(basename "$1"): absorbed-patch status != '..vv f.txt': $st"
 }
 
 # ===== leg 1: a BARE post reuses the absorbed message ========================

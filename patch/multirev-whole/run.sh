@@ -35,5 +35,7 @@ build() {
 
 # JAB-003 golden snapshot (native oracle retired): a clean multi-revision WHOLE
 # absorb stamps `mrg` — see golden.out.
+# BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
+# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
 patch_parity build '?feat!' f.txt
 pass

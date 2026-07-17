@@ -99,9 +99,10 @@ grep -q "ahead" "$WORK/st1.out" && {
     echo "--- status ///ext ---"; cat "$WORK/st1.out"
     _fail "phantom ahead rows — cur's log walked against a foreign tip"
 }
-grep -qE "miss[[:space:]]+\?$EXT8" "$WORK/st1.out" || {
+# BRO-030: quad default — an unabsorbed track (behind) commit reads `o...`.
+grep -qE "o\.\.\.[[:space:]]+\?$EXT8" "$WORK/st1.out" || {
     echo "--- status ///ext ---"; cat "$WORK/st1.out"
-    _fail "no miss row for ext's own trunk tip ?$EXT8"
+    _fail "no o... behind-commit row for ext's own trunk tip ?$EXT8"
 }
 grep -qF "$PAR8" "$WORK/st1.out" && {
     echo "--- status ///ext ---"; cat "$WORK/st1.out"
@@ -115,7 +116,8 @@ grep -qE "\((behind|ahead)" "$WORK/st2.out" && {
     echo "--- status ///orph ---"; cat "$WORK/st2.out"
     _fail "unresolvable track still reports divergence"
 }
-grep -qE "(post|miss)[[:space:]]+\?" "$WORK/st2.out" && {
+# BRO-030: quad default — a commit row is `<quad4> ?<hashlet>`; orph must emit none.
+grep -qE "[.oxvOV!]{4}[[:space:]]+\?[0-9a-f]" "$WORK/st2.out" && {
     echo "--- status ///orph ---"; cat "$WORK/st2.out"
     _fail "unresolvable track emits commit rows (silent wrong DAG walk)"
 }
@@ -123,9 +125,11 @@ grep -qF "$PAR8" "$WORK/st2.out" && {
     echo "--- status ///orph ---"; cat "$WORK/st2.out"
     _fail "FOREIGN project tip $PAR8 leaked into orph's status"
 }
-grep -q "1 ok" "$WORK/st2.out" || {
+# BRO-030: orph is clean → no dirty rows; assert the summary frame proves status
+# classified its OWN shard (rather than erroring / walking a foreign DAG).
+grep -q "^?" "$WORK/st2.out" || {
     echo "--- status ///orph ---"; cat "$WORK/st2.out"
-    _fail "orph's own file rows lost"
+    _fail "orph status emitted no summary (did not classify its own shard)"
 }
 
 echo "PASS [status/$NAME]"

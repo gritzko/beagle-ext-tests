@@ -155,11 +155,11 @@ patch_parity() {
     } | golden_assert "$NAME" "$GOLDEN"
 }
 
-# `jab status` of a wt, reduced to date-normalised `<bucket> <path>` rows (the
-# header + summary stripped) — the JS-only restamp/classify golden (DIS-057).
+# BRO-030: quad default — reduce `jab status --plain` to `<quad4> <path>` rows
+# (8-char date col stripped, header + summary dropped), lex-sorted by path.
 _jstatus() {  # _jstatus WTDIR
     ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-      | sed -nE 's/^ *[0-9A-Za-z:]+ +([a-z]{3}) +(.*)$/\1 \2/p'
+      | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'
 }
 
 # JAB-003 patch_js_golden: JS-only path for the DOG-005 same-anchor residual.

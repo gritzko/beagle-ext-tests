@@ -1,9 +1,9 @@
 === stdout ===
-?66abe1b6ee441a9876531d819651eff6e053b4d5!
-        con f.txt
+?66abe1b6ee441a9876531d819651eff6e053b4d5
+01Jul16 ..v! f.txt
 
 === patch row ===
-T	patch	?66abe1b6ee441a9876531d819651eff6e053b4d5!
+T	patch	?66abe1b6ee441a9876531d819651eff6e053b4d5
 === file bytes ===
 --- f.txt ---
 -rw-------

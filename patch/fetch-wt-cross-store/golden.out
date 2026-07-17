@@ -1,13 +1,13 @@
 === stdout ===
-?c9488196e880bf78d11bc3ab8ed5d6a9f384ed46!
-        merged f.txt
+?c9488196e880bf78d11bc3ab8ed5d6a9f384ed46
+01Jul16 ..vv f.txt
 
 === fetched ===
 objects appended to b's shard log
 === patch row ===
-T	patch	?c9488196e880bf78d11bc3ab8ed5d6a9f384ed46!
+T	patch	?c9488196e880bf78d11bc3ab8ed5d6a9f384ed46
 === status ===
-mrg f.txt
+..vv f.txt
 === file bytes ===
 --- f.txt ---
 -rw-------

@@ -38,14 +38,16 @@ echo "u payload" > "$D/vendor/sub/u.txt"                      # sub unk
 # carrying the sub's mod/unk rows path-prefixed under vendor/sub/.
 ST=$(cd "$D" && "$JABC" status --plain 2>&1)
 printf '%s\n' "$ST"
-printf '%s\n' "$ST" | grep -qE 'put[[:space:]]+vendor/sub' \
-    || _fail "parent staged put row missing: $ST"
+# BRO-030 quad default: parent staged gitlink bump `...V`; sub edit `...v`; sub
+# untracked `...o`; the recursion banner `status vendor/sub` is unchanged.
+printf '%s\n' "$ST" | grep -qE '\.\.\.V[[:space:]]+vendor/sub' \
+    || _fail "parent staged ...V row missing: $ST"
 printf '%s\n' "$ST" | grep -q '^status vendor/sub$' \
     || _fail "staged sub's status section missing (silent skip): $ST"
-printf '%s\n' "$ST" | grep -qE 'mod[[:space:]]+vendor/sub/helper\.c' \
-    || _fail "sub mod row missing from the sub section: $ST"
-printf '%s\n' "$ST" | grep -qE 'unk[[:space:]]+vendor/sub/u\.txt' \
-    || _fail "sub unk row missing from the sub section: $ST"
+printf '%s\n' "$ST" | grep -qE '\.\.\.v[[:space:]]+vendor/sub/helper\.c' \
+    || _fail "sub ...v row missing from the sub section: $ST"
+printf '%s\n' "$ST" | grep -qE '\.\.\.o[[:space:]]+vendor/sub/u\.txt' \
+    || _fail "sub ...o row missing from the sub section: $ST"
 
 echo "ok   staged-bump sub still emits its status section (rows + banner)"
 pass

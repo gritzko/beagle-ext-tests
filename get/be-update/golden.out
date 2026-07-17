@@ -1,10 +1,6 @@
 === get stdout ===
 ?#H
 T get ?#H
-T new a.txt
-T new b.txt
-T new d/c.txt
-T new m.txt
 
 === worktree ===
 ./a.txt
@@ -21,16 +17,10 @@ C
 M
 === status ===
 status
-?	4 ok
+?	
 === get stdout ===
 ?#H
 T get ?#H
-T post ?H#multi
-T new g/g.txt
-T upd m.txt
-T new z.txt
-T del b.txt
-T del d/c.txt
 
 === worktree ===
 ./a.txt
@@ -47,4 +37,4 @@ M2
 Z
 === status ===
 status
-?	4 ok
+?	

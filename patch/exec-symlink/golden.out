@@ -1,14 +1,14 @@
 === stdout ===
 #20a2f228cfb682bd4960e8290e3ebfd14e3f4e6e
-        applied link
-        mod plain.txt
-        applied run.sh
+01Jul16 ..oo link
+01Jul16 ..oo run.sh
 
 === patch row ===
 T	patch	#20a2f228cfb682bd4960e8290e3ebfd14e3f4e6e
 === status ===
-pat link
-pat run.sh
+..oo link
+..v. plain.txt
+..oo run.sh
 === file bytes ===
 --- link ---
 -> plain.txt

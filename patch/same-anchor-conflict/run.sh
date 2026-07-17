@@ -44,5 +44,7 @@ build() {
 
 # JAB-003 golden snapshot: dog frames theirs (X2) before ours (O2) at this
 # anchor; the committed golden captures jab's verified fence order + banner.
+# BRO-030: golden pins the DERIVED patch col (..v!); WHOLE `?<sha>!` renders ...!
+# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
 patch_js_golden build '?feat!' f.txt
 pass

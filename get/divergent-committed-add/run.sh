@@ -45,15 +45,21 @@ rc=$(gr_jget "$WORK/jL" '?U')
 [ ! -e "$WORK/jL/z.txt" ] || _fail "reset left z.txt (target never had it)"
 gr_file_is "$WORK/jL/a.txt" "A2"
 
-# 2. NO upstream-deletion lie: the get hunk carries no `del z.txt` row.
-if grep -q 'del z.txt' "$WORK/last.out"; then
+# 2. BRO-030 quad default: z.txt never enters the report (target never had it,
+#    all-same) and a.txt resets all-same too, so the report is SILENT.
+if grep -qE 'z\.txt' "$WORK/last.out"; then
     echo "--- get out ---"; cat "$WORK/last.out"
-    _fail "locally-COMMITTED add reported as an upstream del (ABC-016)"
+    _fail "committed-only add surfaced in the quad report (target never had z.txt)"
+fi
+if grep -qE '(\.txt$|(^| )(post|mrg|con|upd|new|del) )' "$WORK/last.out"; then
+    echo "--- get out ---"; cat "$WORK/last.out"
+    _fail "divergent reset emitted rows (quad default: report is silent)"
 fi
 
 # 3. status clean after — the reset is total, no phantom pending rows.
+#    BRO-030 quad default: a dirty file row is `<date7> <quad4> <path>`.
 ( cd "$WORK/jL" && "$JABC" status ) > "$WORK/st.out" 2>&1 || true
-if grep -qE '(^| )(mod|del) ' "$WORK/st.out"; then
+if grep -qE '^.{8}[.xovXOV!]{4} ' "$WORK/st.out"; then
     echo "--- status ---"; cat "$WORK/st.out"
     _fail "divergent reset left pending rows in status"
 fi
