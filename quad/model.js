@@ -78,7 +78,7 @@ let m = quad.quadModel({ k: k, base: B1, track: T2, patches: [], wtRows: wtRows 
 eq(m.root, R, "root is the LCA of track and base");
 let by = rowsByPath(m);
 eq(by.a.quad, "v...", "theirs-side change pending sync");
-eq(by.b.quad, ".v.v", "committed base change: base and clean wt advance together");
+eq(by.b.quad, ".v..", "committed base change: wt is CLEAN vs base (local-dirt axis)");
 eq(by.d.quad, "...v", "mod: wt-only advance");
 eq(by.e.quad, "...o", "unk: wt-only create");
 eq(by.g.quad, "...x", "del: wt-only removal");
@@ -135,6 +135,8 @@ ok(colored.join("").indexOf("\x1b[38;2;30;144;255m") >= 0,
    "track glyph paints blue");
 ok(colored.join("").indexOf("∅") >= 0 && colored.join("").indexOf("●") >= 0,
    "tty glyphs: removed is ∅, created is ●");
+ok(colored.some(function (l) { return l.indexOf("✔") >= 0 && l.indexOf(" ?") >= 0; }),
+   "commit rows render presence as ✔");
 //  a conflicted row paints the wt char white on dark red
 const mc = quad.quadModel({ k: k, base: B1, track: T2, patches: [T2],
   wtRows: [{ bucket: "con", path: "b", ts: 5n }] });

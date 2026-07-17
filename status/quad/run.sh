@@ -17,7 +17,8 @@ SUBWT="$T1/vendor/sub"
 
 # ---- fixture: a base-ahead commit + a dirty + a staged + an untracked file ---
 # the ahead post advances the sub's base past its tracked parent pin (root =
-# the pin, so the new commit is base-side `.o..` and lib.c reads `.v.v`).
+# the pin, so the new commit is base-side `.o..` and lib.c reads `.v..`
+# (BRO-030 ruling: the wt column is LOCAL dirt vs base, clean = '.').
 ( cd "$SUBWT" && printf 'sub payload v2\n' > lib.c \
     && "$JABC" put lib.c && "$JABC" post '#quad ahead' ) >/dev/null 2>&1 \
     || _fail "sub: ahead post failed"
@@ -42,10 +43,10 @@ grep -q '\.\.\.v helper\.c$' "$WORK/q.out" || {
     echo "--- quad status ---"; cat "$WORK/q.out"
     _fail "no ...v quad row for the dirty helper.c"
 }
-# lib.c posted ahead of root: base + wt both advanced → `.v.v`
-grep -q '\.v\.v lib\.c$' "$WORK/q.out" || {
+# lib.c posted ahead of root: base advanced, wt CLEAN vs base → `.v..`
+grep -q '\.v\.\. lib\.c$' "$WORK/q.out" || {
     echo "--- quad status ---"; cat "$WORK/q.out"
-    _fail "no .v.v quad row for the base-ahead lib.c"
+    _fail "no .v.. quad row for the base-ahead lib.c"
 }
 # untracked reads lowercase `...o`; the staged-new reads UPPERCASE `...O`
 grep -q '\.\.\.o untracked\.c$' "$WORK/q.out" || {
@@ -57,10 +58,10 @@ grep -q '\.\.\.O staged\.c$' "$WORK/q.out" || {
     _fail "no ...O (staged) quad row for the staged new file"
 }
 # the summary carries quad-COLUMN counts (zero segments omitted) + the note:
-# lib.c `.v.v`, helper.c/staged.c/untracked.c wt dirt, staged.c staged.
-grep -qF '1 base, 4 wt, 1 staged' "$WORK/q.out" || {
+# lib.c `.v..`, helper.c/staged.c/untracked.c wt dirt, staged.c staged.
+grep -qF '1 base, 3 wt, 1 staged' "$WORK/q.out" || {
     echo "--- quad status ---"; cat "$WORK/q.out"
-    _fail "summary lacks the quad-column counts [1 base, 4 wt, 1 staged]"
+    _fail "summary lacks the quad-column counts [1 base, 3 wt, 1 staged]"
 }
 grep -qF '(ahead 1)' "$WORK/q.out" || {
     echo "--- quad status ---"; cat "$WORK/q.out"
