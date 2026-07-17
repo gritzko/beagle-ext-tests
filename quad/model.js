@@ -142,3 +142,14 @@ const mc = quad.quadModel({ k: k, base: B1, track: T2, patches: [T2],
   wtRows: [{ bucket: "con", path: "b", ts: 5n }] });
 const cl = quadrender.renderModel(mc, { color: true }).join("");
 ok(cl.indexOf("\x1b[38;2;255;255;255;48;2;220;40;40m") >= 0, "conflicted wt char is white on dark red");
+
+//  BRO-030: a declared-submodule (gitlink) row renders its PATH column BOLD on a
+//  tty (ESC[1m…ESC[22m); PLAIN output is byte-identical (bold is decoration only).
+const glArgs = { path: "dog", quad: "...v", ts: 7n, gitlink: true };
+eq(quadrender.fileRow(glArgs, false),
+   quadrender.fileRow({ path: "dog", quad: "...v", ts: 7n }, false),
+   "plain gitlink row is byte-identical to a plain row (no bold)");
+ok(quadrender.fileRow(glArgs, true).indexOf("\x1b[1mdog\x1b[22m") >= 0,
+   "colored gitlink path is wrapped in ESC[1m…ESC[22m (bold)");
+ok(quadrender.fileRow({ path: "dog", quad: "...v", ts: 7n }, true).indexOf("\x1b[1m") < 0,
+   "a non-gitlink colored row carries no bold");
