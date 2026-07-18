@@ -81,6 +81,11 @@ foreach(_sm wire-ssh-clone wire-ssh-update wire-ssh-incremental
     endif()
 endforeach()
 
+#  WORK-002 pty click sessions (three pty.fork pagers + settle sleeps): 60 s.
+if (TEST be-js-work-getctx)
+    set_tests_properties(be-js-work-getctx PROPERTIES TIMEOUT 60)
+endif()
+
 # Top-level jab unit tests (run the script directly; be-relative requires
 # resolve via the script's own upward be/-scan).  Only the landed, general
 # ones are registered.  barrier/loop/resolve/emit are dev repro tests pinned to
