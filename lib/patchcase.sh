@@ -112,11 +112,25 @@ _fbytes() {
     done
 }
 
+# PATCH.mkd 2026-07-17: conflicts exit NON-ZERO loudly.  PATCH_EXPECT=conflict
+# makes the runner REQUIRE a non-zero patch exit (markers/status/bytes still
+# golden-asserted); unset keeps the legacy exit-0 requirement (compatible).
+_run_patch() {  # _run_patch WTDIR URI
+    _rp_rc=0
+    ( cd "$1" && "$JABC" patch "$2" ) >"$WORK/js.out" 2>"$WORK/js.err" || _rp_rc=$?
+    case "${PATCH_EXPECT:-}" in
+        conflict) [ "$_rp_rc" -ne 0 ] \
+            || _fail "conflict patch exited 0 — spec: NON-ZERO (PATCH.mkd 2026-07-17)" ;;
+        *) [ "$_rp_rc" -eq 0 ] || _fail "JS patch failed: $(cat "$WORK/js.err")" ;;
+    esac
+}
+
 # --- patch_parity: clone ONLY a JS worktree of $ORG, patch it, golden-assert --
 # Usage:  patch_parity ORIGIN_BUILDER PATCH_URI [FILES...]
 #   ORIGIN_BUILDER  builds the origin store in $ORG (a fresh primary repo,
 #                   leaving cur at the branch we patch INTO).
-#   PATCH_URI       the `be patch` arg (`#<sha>` | `?<br>` | `?<br>!`); a
+#   PATCH_URI       the `be patch` arg (`#<sha>` | `?<br>`); a
+#                   (PATCH.mkd 2026-07-17: URI bangs retired — no `?<br>!`.)
 #                   literal `@F1` is expanded to the F1 sha the builder exports.
 #   FILES           worktree files whose merged bytes go into the golden stream.
 # Builder must `export F1=...` (etc.) for any `@NAME` refs in PATCH_URI.
@@ -142,8 +156,7 @@ patch_parity() {
     _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"
     ( cd "$JS"  && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"
-    ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
-        || _fail "JS patch failed: $(cat "$WORK/js.err")"
+    _run_patch "$JS" "$_uri"
 
     #  JAB-003 fold jab stdout + the `patch` ULOG row + `jab status` buckets +
     #  the merged worktree bytes into ONE stream, diffed vs the committed golden.
@@ -155,11 +168,11 @@ patch_parity() {
     } | golden_assert "$NAME" "$GOLDEN"
 }
 
-# BRO-030: quad default — reduce `jab status --plain` to `<quad4> <path>` rows
-# (8-char date col stripped, header + summary dropped), lex-sorted by path.
+# `jab status` of a wt, reduced to date-normalised `<bucket> <path>` rows (the
+# header + summary stripped) — the JS-only restamp/classify golden (DIS-057).
 _jstatus() {  # _jstatus WTDIR
     ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
-      | sed -nE 's/^.{8}([.xovXOV!]{4}) (.*)$/\1 \2/p'
+      | sed -nE 's/^ *([0-9A-Za-z:]+ +)?([.xovXV!]{4}) +(.*)$/\2 \3/p'
 }
 
 # JAB-003 patch_js_golden: JS-only path for the DOG-005 same-anchor residual.
@@ -185,8 +198,7 @@ patch_js_golden() {
     _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"
     ( cd "$JS"  && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"
-    ( cd "$JS" && "$JABC" patch "$_uri" ) >"$WORK/js.out" 2>"$WORK/js.err" \
-        || _fail "JS patch failed: $(cat "$WORK/js.err")"
+    _run_patch "$JS" "$_uri"
 
     #  JAB-003 fold jab stdout + the `patch` ULOG row + the merged FILE bytes
     #  into ONE stream, diffed vs the committed golden.

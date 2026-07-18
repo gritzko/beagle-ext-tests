@@ -33,5 +33,7 @@ build() {
 
 # JAB-003 golden snapshot (native oracle retired): a true content conflict
 # spells `cnf` in the banner AND stamps `cnf` in status — see golden.out.
+# PATCH spec 2026-07-17: RED until the conflict non-zero exit lands
+PATCH_EXPECT=conflict
 patch_parity build '#@F1' f.txt
 pass

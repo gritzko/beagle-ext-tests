@@ -107,12 +107,14 @@ _lib=$(cat "$T1/vendor/sub/lib.c")
     || _fail "D17: vendor/sub/lib.c [$_lib] != advanced v2 (sub merge did not descend)"
 echo "ok   3a. patch descended: the sub's changed + new files landed in the mount"
 
-# (b) the PARENT gitlink bumped to the advanced sub pin (the synthesised
-#     `put <sub>#<newpin>` D7 bump) — recorded in the wtlog.  TEST-003:
-#     store-backed clone — the parent wtlog IS the `.be` FILE (rows inline).
-grep -qE "put[[:space:]]+vendor/sub#$SUBTIP1" "$T1/.be" \
-    || { echo "--- wtlog ---"; cat "$T1/.be"; \
-         _fail "D17: no 'put vendor/sub#$SUBTIP1' gitlink bump in the wtlog (D7)"; }
-echo "ok   3b. patch bumped the parent gitlink to the advanced sub pin ($SUBTIP1)"
+# (b) PATCH.mkd 2026-07-17: patch STAGES NOTHING — no synthesised
+#     `put <sub>#<pin>` bump row may land in the parent wtlog (staging is
+#     PUT's job; the next POST consumes the wtlog patch row instead).
+# PATCH spec 2026-07-17: RED until patch.js stops staging the gitlink bump
+if grep -qE "put[[:space:]]+vendor/sub#" "$T1/.be"; then
+    echo "--- wtlog ---"; cat "$T1/.be"
+    _fail "patch STAGED a 'put vendor/sub#...' bump row — spec: patch stages NOTHING"
+fi
+echo "ok   3b. patch staged NO parent gitlink bump (patch stages nothing)"
 
 pass

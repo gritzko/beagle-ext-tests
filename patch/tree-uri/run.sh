@@ -43,10 +43,10 @@ printf 'A\nb\nc\nd\ne\n' > "$W1/f.txt"
 _org_jab "$W1" put f.txt >/dev/null 2>&1 || _fail "w1 put failed"
 _org_jab "$W1" post 't1 line1' >/dev/null 2>&1 || _fail "w1 post failed"
 
-# BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
-# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
 #  THE REPRO: a relative `file:<path>` tree URI absorbs w2's cur tip into w1
 rm -f "$ORG"/.be/*.keeper.idx
+# PATCH spec 2026-07-17: RED until the bang-less `?<sha>` row + `?<br>!`-less
+# refusal help text land
 ( cd "$W1" && "$JABC" patch 'file:../w2' ) >"$WORK/js.out" 2>"$WORK/js.err" \
     || _fail "tree-uri patch failed: $(cat "$WORK/js.err")"
 

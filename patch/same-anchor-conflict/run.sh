@@ -44,7 +44,8 @@ build() {
 
 # JAB-003 golden snapshot: dog frames theirs (X2) before ours (O2) at this
 # anchor; the committed golden captures jab's verified fence order + banner.
-# BRO-030: golden pins the DERIVED patch col (..v!); WHOLE `?<sha>!` renders ...!
-# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
-patch_js_golden build '?feat!' f.txt
+# PATCH spec 2026-07-17: bang-less ?ref = whole missing line (URI bangs retired);
+# RED until the conflict non-zero exit lands
+PATCH_EXPECT=conflict
+patch_js_golden build '?feat' f.txt
 pass

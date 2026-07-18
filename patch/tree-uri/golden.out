@@ -15,7 +15,7 @@ C
 d
 e
 === refuse bogus scheme ===
-JS exception: PATCHFAIL: cannot patch from 'svn:trunk/x' — supported: ?<br> | ?<br>! | #<sha> | a worktree address
+JS exception: PATCHFAIL: cannot patch from 'svn:trunk/x' — supported: ?<br> | #<sha> | a worktree address
 === refuse dead wire (be://) ===
 refused loudly
 rows=1
@@ -27,4 +27,4 @@ C
 d
 e
 === refuse file:+query ===
-JS exception: PATCHFAIL: cannot patch from 'file:../w2?feat' — supported: ?<br> | ?<br>! | #<sha> | a worktree address
+JS exception: PATCHFAIL: cannot patch from 'file:../w2?feat' — supported: ?<br> | #<sha> | a worktree address

@@ -33,7 +33,6 @@ build() {
 
 # JAB-003 golden snapshot (native oracle retired): a clean multi-edit merge
 # stamps `mrg` — see golden.out.
-# BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
-# today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
-patch_parity build '?feat!' f.txt
+# PATCH spec 2026-07-17: bang-less ?ref = whole missing line (URI bangs retired)
+patch_parity build '?feat' f.txt
 pass

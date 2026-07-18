@@ -52,7 +52,10 @@ JS="$WORK/js"; mkdir -p "$JS"
 #  (c) unaffected files keep their mtimes byte-for-byte (ns) across the patch.
 own_pre=$(stat -c '%y' "$JS/own.txt"); keep_pre=$(stat -c '%y' "$JS/keep.txt")
 
-( cd "$JS" && "$JABC" patch "#$F1" ) >"$WORK/js.out" 2>"$WORK/js.err" \
+#  PATCH.mkd 2026-07-17: the cnf fixture file makes patch exit NON-ZERO (loud
+#  conflict); a crash (any other non-zero) still fails — assert.js is the gate.
+_rc=0; ( cd "$JS" && "$JABC" patch "#$F1" ) >"$WORK/js.out" 2>"$WORK/js.err" || _rc=$?
+[ "$_rc" = 0 ] || grep -q PATCHCONFLICT "$WORK/js.err" \
     || _fail "JS patch failed: $(cat "$WORK/js.err")"
 
 [ "$(stat -c '%y' "$JS/own.txt")"  = "$own_pre" ]  || _fail "patch touched own.txt's mtime"

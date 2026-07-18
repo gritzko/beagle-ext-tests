@@ -70,7 +70,8 @@ _build B D; F1=$(cat "$WORK/F1")
 JS="$WORK/merge"; mkdir -p "$JS"
 ORG_TIP=$(_orgtip "$ORG")
 ( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed (merge)"
-( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (merge)"
+# PATCH-015: `?<sha>` = LINE absorb → merge `parent`; `#<sha>` is a cherry (picked).
+( cd "$JS" && "$JABC" patch "?$F1" >/dev/null 2>&1 ) || _fail "patch failed (merge)"
 # BRO-030 quad default: a patch-merged file reads `..vv` (patch+wt advanced).
 st=$(_jstatus "$JS")
 [ "$st" = "..vv f.txt" ] || _fail "merge-absorb status != '..vv f.txt':
@@ -122,7 +123,10 @@ _build2; F1=$(cat "$WORK/F1")
 JS="$WORK/conf"; mkdir -p "$JS"
 ORG_TIP=$(_orgtip "$ORG")
 ( cd "$JS" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) || _fail "clone failed (conf)"
-( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ) || _fail "patch failed (conf)"
+# PATCH.mkd: a conflicted patch is LOUD — markers land, then a non-zero exit.
+if ( cd "$JS" && "$JABC" patch "#$F1" >/dev/null 2>&1 ); then
+    _fail "a conflicted patch should exit non-zero (PATCHCONFLICT)"
+fi
 # BRO-030 quad default: a patch-conflicted file spells the wt char `!` → `..v!`.
 st=$(_jstatus "$JS")
 [ "$st" = "..v! f.txt" ] || _fail "conflict-absorb status != '..v! f.txt':

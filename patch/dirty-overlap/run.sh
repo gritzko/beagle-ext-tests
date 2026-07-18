@@ -37,8 +37,11 @@ dirty_patch() {
     ( cd "$JS" && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"
     #  DIRTY the cloned wt: an uncommitted line-3 edit that COLLIDES with theirs.
     printf '1\n2\nOURS\n4\n' > "$JS/keep.txt"
-    ( cd "$JS" && "$JABC" patch "#$_f1" ) >"$WORK/js.out" 2>"$WORK/js.err" \
-        || _fail "JS patch failed: $(cat "$WORK/js.err")"
+    # PATCH spec 2026-07-17: RED until the conflict non-zero exit lands
+    _rc=0
+    ( cd "$JS" && "$JABC" patch "#$_f1" ) >"$WORK/js.out" 2>"$WORK/js.err" || _rc=$?
+    [ "$_rc" -ne 0 ] \
+        || _fail "conflict patch exited 0 — spec: NON-ZERO (PATCH.mkd 2026-07-17)"
     {
         echo "=== stdout ==="; cat "$WORK/js.out"
         echo "=== patch row ==="; _patch_row "$JS"
