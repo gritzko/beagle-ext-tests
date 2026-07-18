@@ -20,6 +20,17 @@ ln -sfn "$_WT" "$WORK/jsrc"                      # exercise THIS get.js
 : > "$TMP/$$/.be" 2>/dev/null || true            # be.find firewall
 
 fail() { echo "FAIL [confdrop] $*" >&2; exit 1; }
+# POST-032: count durable `con` rows in DIR's wtlog (the mark+record state).
+_conrows() {
+    cat > "$WORK/.conrows.js" <<'EOF'
+const be=require(process.argv[3]+"/core/discover.js");
+const wtlog=require(process.argv[3]+"/shared/wtlog.js");
+const r=wtlog.open(be.treeAt(process.argv[2]));
+let n=0;for(const row of r.rows)if(row.verb==="con")n++;
+const u=utf8.Encode(n+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
+EOF
+    "$JAB" "$WORK/.conrows.js" "$1" "$_WT" 2>/dev/null
+}
 # DIS-076: a bare post never mints a ref — the wt's OWN cur (jab refs) is the
 # only tip there is; never grep a `.be/refs` ULOG (that file no longer exists).
 _srctip() { ( cd "$SRC" && "$JAB" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
@@ -45,11 +56,13 @@ WT="$WORK/wt"; mkdir -p "$WT"
 grep -q '^old clean content$' "$WT/later/clean.txt" || fail "c1 baseline"
 printf 'l1\nl2\nl3\nl4\nMINE\n' > "$WT/conf.txt"
 
-# ===== the conflicted get: LOUD on the conflict, NO other leaf dropped =====
+# ===== the conflicted get: a marked STATE (POST-032), NO leaf dropped =====
 rc=0
 ( cd "$WT" && "$JAB" get "?#$C2" ) >"$WORK/get.out" 2>"$WORK/get.err" || rc=$?
-[ "$rc" != 0 ] || fail "a conflict must exit NON-ZERO"
-grep -q 'GETCONF' "$WORK/get.err" || { cat "$WORK/get.err"; fail "expected GETCONF"; }
+[ "$rc" = 0 ] || { cat "$WORK/get.err"; fail "POST-032: a conflict must not hard-err (exit=$rc)"; }
+grep -q 'merged with conflicts' "$WORK/get.err" || \
+    { cat "$WORK/get.err"; fail "POST-032: missing plain-words conflict state line"; }
+[ "$(_conrows "$WT")" = 1 ] || fail "POST-032: want ONE con row, got $(_conrows "$WT")"
 grep -q '<<<<' "$WT/conf.txt" || fail "conf.txt lacks conflict markers"
 grep -q 'MINE' "$WT/conf.txt" || fail "ours' side missing from the conflict"
 # THE GET-043 assert: the clean remote-changed leaf must be materialised.

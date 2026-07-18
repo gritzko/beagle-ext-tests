@@ -1,15 +1,13 @@
 #!/bin/sh
-# test/post/wt-target-conflict — POST-027 cell 4-conflict: `post //B` where B
-# is BEHIND and B's local edit CONFLICTS with A's change to the SAME lines
-# must REFUSE (GETCONF/GETOVRL class) and B's base must NOT move.
-# Spec: /wiki/POST.mkd §"Summary of invocation patterns" row 4 — "a conflict
-# refuses BEFORE the base moves"; advanceWorktree (post.js:318-367) reuses the
-# get merge fan-out (:339-347), so the refusal is get's own GETCONF/GETOVRL.
+# test/post/wt-target-conflict — `post //B` where B is BEHIND and B's local
+# edit CONFLICTS with A's change to the SAME lines.  POST-032 ruling
+# (2026-07-18, overturns the POST-027 cell-4 refusal): the weave completes,
+# marks the conflict, records ONE durable `con` row in B's wtlog, reports
+# "merged with conflicts" in plain words, and B's base FF-ADVANCES.
 #
 # Like get's own conflict (test/get/confdrop), the weave leaves MARKERS in the
 # conflicted file with B's side INSIDE them — B's local edit is never lost,
-# never silently overwritten by A's version, and the base stays put so a
-# re-run converges after a hand-resolve.
+# never silently overwritten by A's version, and a hand-resolve converges.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/post/wt-target-conflict
@@ -54,6 +52,18 @@ EOF
     "$JABC" "$WORK/.base.js" "$1" "$BEDIR" 2>/dev/null
 }
 
+# POST-032: count durable `con` rows in DIR's wtlog (the mark+record state).
+_conrows() {
+    cat > "$WORK/.conrows.js" <<'EOF'
+const be=require(process.argv[3]+"/core/discover.js");
+const wtlog=require(process.argv[3]+"/shared/wtlog.js");
+const r=wtlog.open(be.treeAt(process.argv[2]));
+let n=0;for(const row of r.rows)if(row.verb==="con")n++;
+const u=utf8.Encode(n+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);
+EOF
+    "$JABC" "$WORK/.conrows.js" "$1" "$BEDIR" 2>/dev/null
+}
+
 # --- worktree A: commit c1 with the future conflict file ---------------------
 mkdir -p "$WORKD/A/.be"
 ( cd "$WORKD/A" && printf 'l1\nl2\nl3\nl4\nl5\n' > conf.txt && "$BE" post '#c1' ) >/dev/null 2>&1 \
@@ -75,20 +85,22 @@ A_TIP=$(_base "$WORKD/A")
 
 A_WTLOG_BEFORE=$(wc -l < "$WORKD/A/.be/wtlog" 2>/dev/null || echo 0)
 
-# --- the op under test: `post //B` must REFUSE, base must NOT move -----------
+# --- the op under test: `post //B` marks, records, FF-advances (POST-032) ----
 RC=0
 ( cd "$WORKD/A" && "$JABC" post '//B' ) >"$WORK/post.out" 2>"$WORK/post.err" || RC=$?
 
-[ "$RC" -ne 0 ] || { echo "  stdout: $(cat "$WORK/post.out")" >&2; \
-    _fail "post //B onto a CONFLICTING target SUCCEEDED — must refuse"; }
-grep -qE 'GETCONF|GETOVRL' "$WORK/post.err" \
+[ "$RC" -eq 0 ] || { cat "$WORK/post.err" >&2; \
+    _fail "POST-032: a marked conflict must not hard-err (exit=$RC)"; }
+grep -q 'merged with conflicts' "$WORK/post.err" \
     || { cat "$WORK/post.err" >&2; \
-         _fail "refusal is not the GETCONF/GETOVRL merge class"; }
+         _fail "POST-032: missing plain-words conflict state line"; }
 
-# THE cell assert: the refusal came BEFORE the base moved.
+# THE cell assert (POST-032): the base FF-advances past the marked conflict.
 B_BASE1=$(_base "$WORKD/B")
-[ "$B_BASE1" = "$C1" ] \
-    || _fail "post //B MOVED B's base despite the conflict (got $B_BASE1 want $C1)"
+[ "$B_BASE1" = "$A_TIP" ] \
+    || _fail "POST-032: B's base must FF-advance (got $B_BASE1 want $A_TIP)"
+[ "$(_conrows "$WORKD/B")" = 1 ] \
+    || _fail "POST-032: want ONE con row in B, got $(_conrows "$WORKD/B")"
 # B's side of the edit is intact — present in the file (inside markers, the
 # get/confdrop weave shape), never silently replaced by A's version.
 grep -q 'MINE' "$WORKD/B/conf.txt" \
@@ -100,5 +112,5 @@ A_WTLOG_AFTER=$(wc -l < "$WORKD/A/.be/wtlog" 2>/dev/null || echo 0)
 [ "$A_WTLOG_AFTER" = "$A_WTLOG_BEFORE" ] \
     || _fail "post //B mutated A's own wtlog ($A_WTLOG_BEFORE -> $A_WTLOG_AFTER)"
 
-echo "ok   post //B refused ($(grep -oE 'GETCONF|GETOVRL' "$WORK/post.err" | head -1)) and B's base stayed at c1"
+echo "ok   post //B merged with a marked conflict and B's base FF-advanced"
 pass

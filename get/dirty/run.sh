@@ -2,8 +2,9 @@
 # test/get/dirty — DIS-055 D5 (DATA SAFETY): a dirty baselined file that
 # upstream ALSO changed must be 3-WAY MERGED (re-apply the user's uncommitted
 # edit onto the new tree), NOT clean-overwritten (silent loss).  GET.mkd intro:
-# GET resets the wt "maybe re-applying uncommitted changes".  A genuine conflict
-# surfaces loudly (non-zero, markers).  `be get!` discards (clean reset).
+# GET resets the wt "maybe re-applying uncommitted changes".  POST-032: a
+# genuine conflict marks+records (exit 0, fences, plain-words state line).
+# `be get!` discards (clean reset).
 . "$(dirname "$0")/../../lib/getrepro.sh"
 
 # Source with TWO commits over a multi-line file so ours/theirs can touch
@@ -42,12 +43,15 @@ grep -q '^X1$' "$WORK/A/f.txt" || { echo "--- f.txt ---"; cat "$WORK/A/f.txt"; \
 grep -q '^L5$' "$WORK/A/f.txt" || { echo "--- f.txt ---"; cat "$WORK/A/f.txt"; \
     _fail "D5: theirs' L5 change was not applied"; }
 
-# ===== case A2: OVERLAPPING edit -> real conflict surfaces LOUDLY =====
+# ===== case A2: OVERLAPPING edit -> conflict marks + records (POST-032) =====
 gr_jclone "$SRC" "$WORK/A2"
 gr_jget "$WORK/A2" "?#$C1" >/dev/null 2>&1     # baseline c1 (l5)
 printf 'l1\nl2\nl3\nl4\nMINE5\n' > "$WORK/A2/f.txt"   # ours edits l5 too
 rc=$(gr_jget "$WORK/A2" "?#$C2")               # theirs also edits l5 -> conflict
-[ "$rc" != 0 ] || _fail "D5: a real conflict must exit NON-ZERO (got $rc)"
+[ "$rc" = 0 ] || { cat "$WORK/last.err"; \
+    _fail "D5/POST-032: a conflict must not hard-err (exit=$rc)"; }
+grep -q 'merged with conflicts' "$WORK/last.err" || { cat "$WORK/last.err"; \
+    _fail "D5/POST-032: missing plain-words conflict state line"; }
 grep -q '<<<<' "$WORK/A2/f.txt" || { cat "$WORK/A2/f.txt"; \
     _fail "D5: a conflict must leave merge markers in the wt"; }
 grep -q 'MINE5' "$WORK/A2/f.txt" || _fail "D5: ours' side missing from conflict"
