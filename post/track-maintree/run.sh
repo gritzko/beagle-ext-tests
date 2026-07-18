@@ -10,10 +10,10 @@
 # NONE refusal, so postSubs re-threw it and the parent's (FF-able) maintree
 # advance never ran.  RED on the pre-fix code with that exact exception.
 #
-# Ruling (gritzko 2026-07-17): a bare-track advance is a PURE FF — a clean
-# target gets cur checked out clean; a DIRTY target REFUSES rather than weaves.
-# Spec: /wiki/POST.mkd §"Summary of invocation patterns" item 1 (bare post
-# advances the TRACK; a worktree track FFs the target's base).
+# Ruling (gritzko 2026-07-18, overturning the 07-17 pure-FF gate): a bare-track
+# advance WEAVES the target's uncommitted changes like the explicit `//X` arm —
+# ff constrains the BASE motion only.  Spec: /wiki/POST.mkd item 1 (a worktree
+# track get-style-merges cur's tip into the target, then FFs its base).
 #
 # Fixture: SRC project root; SRC/be is the maintree (resolves as ///be/); a
 # clone under SRC/work/WT tracks ///be/ and mounts a self-ref sub S with a
@@ -169,20 +169,22 @@ grep -q "already at cur's tip" "$WORK/p2.err" \
     || { cat "$WORK/p2.err" >&2; _fail "second bare post did not refuse 'already at cur's tip'"; }
 [ "$(_base "$SRC/be")" = "$WT_TIP" ] || _fail "second post moved the maintree base"
 
-# ===== leg 3: a DIRTY target REFUSES (just-ff ruling — no weave) ============
-# WT commits c3 (ahead again); dirty the maintree; bare post must refuse and
-# leave the maintree base + its dirty file untouched.
-( cd "$WORKD/WT" && printf 'A3\n' > a.txt && "$BE" put a.txt && "$BE" post '#c3' ) >/dev/null 2>&1 || _fail "WT c3"
+# ===== leg 3: a DIRTY target WEAVES — pending edits ride, base FFs ==========
+# (2026-07-18 ruling, the live pager.js shape.)  WT commits c3 adding b.txt
+# (a.txt untouched); dirty the maintree's a.txt; bare post must FF the base,
+# materialise b.txt, and leave the disjoint pending edit in place.
+( cd "$WORKD/WT" && printf 'B1\n' > b.txt && "$BE" put b.txt && "$BE" post '#c3' ) >/dev/null 2>&1 || _fail "WT c3"
 WT_TIP3=$(_base "$WORKD/WT")
 [ "$WT_TIP3" != "$WT_TIP" ] || _fail "fixture: WT c3 did not advance"
-BE_BASE_PRE=$(_base "$SRC/be")
 printf 'DIRTY\n' > "$SRC/be/a.txt"          # uncommitted change in the target
 RC=0
 ( cd "$WORKD/WT" && "$BE" post ) >"$WORK/p3.out" 2>"$WORK/p3.err" || RC=$?
-[ "$RC" -ne 0 ] || { echo "  stdout: $(cat "$WORK/p3.out")" >&2; _fail "bare post onto a DIRTY target SUCCEEDED (must refuse)"; }
 grep -q "uncommitted changes" "$WORK/p3.err" \
-    || { cat "$WORK/p3.err" >&2; _fail "dirty-target refusal does not say 'uncommitted changes'"; }
-[ "$(_base "$SRC/be")" = "$BE_BASE_PRE" ] || _fail "dirty-target post moved the maintree base"
-[ "$(cat "$SRC/be/a.txt")" = "DIRTY" ] || _fail "dirty-target post touched the target's file"
+    && { cat "$WORK/p3.err" >&2; _fail "dirty target still refused (overturned POST-030 gate)"; }
+[ "$RC" = 0 ] || { echo "  stderr: $(cat "$WORK/p3.err")" >&2; _fail "bare post onto a dirty target failed rc=$RC"; }
+[ "$(_base "$SRC/be")" = "$WT_TIP3" ] \
+    || _fail "maintree base did not FF (got $(_base "$SRC/be") want $WT_TIP3)"
+[ "$(cat "$SRC/be/b.txt" 2>/dev/null)" = "B1" ] || _fail "maintree b.txt not materialised by the weave"
+[ "$(cat "$SRC/be/a.txt")" = "DIRTY" ] || _fail "the pending a.txt edit did not survive the weave"
 
 pass
