@@ -56,8 +56,10 @@ cat > "$META/vend/ext/.gitmodules" <<'EOF'
 	url = git@github.com:nowhere/deepproj.git
 EOF
 mkdir -p "$META/todo/DET"
+# WORK-008: PIN-1's header carries a [HIGH] status mark — the [post] button must
+# strip it so the minted `post 'PIN-1: pin sample ticket'` is the bare KEY: title.
 cat > "$META/todo/PIN/PIN-1.mkd" <<'EOF'
-#   PIN-1: pin sample ticket
+#   PIN-1 [HIGH]: pin sample ticket
 EOF
 cat > "$META/todo/DET/DET-3.mkd" <<'EOF'
 #   DET-3: detached sample ticket

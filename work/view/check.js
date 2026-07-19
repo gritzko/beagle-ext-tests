@@ -14,9 +14,21 @@
 
 const pager = require("views/bro/pager.js");
 const bro = require("view/bro.js");             // WORK-005: the real pager paint
+const todo = require("views/todo/todo.js");     // WORK-008: the shared mark grammar
 
 function fail(m) { io.log("FAIL " + m + "\n"); throw "FAIL " + m; }
 function ok(v, m) { if (!v) fail(m); }
+
+//  WORK-008: the work view mints `post '<title>'` off the ticket page header;
+//  the [OPEN]/[HIGH]/… status mark must NOT leak into the commit message.  The
+//  strip shares todo.js's mark grammar and handles BOTH placements around the
+//  colon; a markless title passes through unchanged.
+ok(todo.stripMark("PIN-1", "PIN-1 [HIGH]: pin sample ticket") === "PIN-1: pin sample ticket",
+   "stripMark leaves a `KEY [MARK]:` mark in the title");
+ok(todo.stripMark("PIN-1", "PIN-1: [OPEN] pin sample ticket") === "PIN-1: pin sample ticket",
+   "stripMark leaves a `KEY: [MARK]` mark in the title");
+ok(todo.stripMark("PIN-1", "PIN-1: pin sample ticket") === "PIN-1: pin sample ticket",
+   "stripMark mangles a markless title");
 
 const tlvPath = process.argv[2];
 const st = io.lstat(tlvPath);
