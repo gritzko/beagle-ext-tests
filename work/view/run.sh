@@ -56,10 +56,8 @@ cat > "$META/vend/ext/.gitmodules" <<'EOF'
 	url = git@github.com:nowhere/deepproj.git
 EOF
 mkdir -p "$META/todo/DET"
-# WORK-008: PIN-1's header carries a [HIGH] status mark — the [post] button must
-# strip it so the minted `post 'PIN-1: pin sample ticket'` is the bare KEY: title.
 cat > "$META/todo/PIN/PIN-1.mkd" <<'EOF'
-#   PIN-1 [HIGH]: pin sample ticket
+#   PIN-1: pin sample ticket
 EOF
 cat > "$META/todo/DET/DET-3.mkd" <<'EOF'
 #   DET-3: detached sample ticket
@@ -142,6 +140,19 @@ printf '26718JG011\tget\tfile:%s/vend/ext/.be/?\n26718JG012\tget\t///vend/ext/#%
 mkdir -p "$META/work/WT-B"
 printf '26718JG013\tget\tfile:%s/vend/ext/.be/?\n26718JG014\tget\t//WT-A#%s\n' \
     "$META" "$SHA2" > "$META/work/WT-B/.be"
+# WORK-010: PIN — a TOPIC-named wt (todo/PIN exists) tracks the vend/ext BASE in
+# sync -> under vend/ext; its `[?]` mints `todo:PIN` (the topic listing), vs the
+# ticket-named PIN-1/DET-3 `[?]` -> `todo:PIN-1`/`todo:DET-3`.
+mkdir -p "$META/work/PIN"
+printf '26718JG015\tget\tfile:%s/vend/ext/.be/?\n26718JG016\tget\t///vend/ext/#%s\n' \
+    "$META" "$SHA2" > "$META/work/PIN/.be"
+# WORK-010 (ruling 2): a SUFFIXED ticket-named wt — a letter suffix (PIN-1b) and a
+# `-word` suffix (PIN-1-retry) — both resolve to the BASE ticket -> `//: todo PIN-1`.
+for sfx in 1b 1-retry; do
+  mkdir -p "$META/work/PIN-$sfx"
+  printf '26718JG015\tget\tfile:%s/vend/ext/.be/?\n26718JG016\tget\t///vend/ext/#%s\n' \
+      "$META" "$SHA2" > "$META/work/PIN-$sfx/.be"
+done
 
 h() { printf '%s' "$1" | cut -c1-8; }
 
@@ -191,7 +202,10 @@ work
 meta ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$RSHA") root commit
 ├── vend/ext ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
 │   ├── deep ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$DSHA") deep one with a very long subject line
+│   ├┄┄ //PIN ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
 │   ├┄┄ //PIN-1 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄      -1 DDMMM #$(h "$SHA1") ext one
+│   ├┄┄ //PIN-1-retry ┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
+│   ├┄┄ //PIN-1b ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
 │   ├┄┄ //TRK-5 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
 │   └┄┄ //WT-A ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
 │       └┄┄ //WT-B ┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
@@ -294,7 +308,9 @@ grep -qi 'not a work' "$WORK/refuse.out" || _fail "refusal lacks a plain-words r
 # The view IGNORES work/done/ entirely: the moved wts vanish from the forest.
 ( cd "$META" && "$BE" work --plain ) > "$WORK/after.out" 2>"$WORK/after.err" \
     || _fail "jab work after done/dont failed: $(cat "$WORK/after.err")"
-grep -q '//PIN-1\|//DET-3\|//BR-2' "$WORK/after.out" \
+# WORK-010: match the WHOLE wt token (trailing space) so the live suffixed
+# //PIN-1b / //PIN-1-retry rows are not mistaken for the discarded //PIN-1.
+grep -q '//PIN-1 \|//DET-3 \|//BR-2 ' "$WORK/after.out" \
     && _fail "the view still lists a discarded wt"
 grep -q '//TRK-5' "$WORK/after.out" || _fail "the view lost a LIVE wt after discards"
 

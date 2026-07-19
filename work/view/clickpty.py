@@ -80,22 +80,60 @@ if pid == 0:
     os._exit(127)
 fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 220, 0, 0))
 s = Sess(fd, pid)
-painted = s.wait_for(lambda o: b"[diff]" in o and b"//PIN-1" in o, 15)
+# WORK-010: the [diff] face compacted to `[±]`; ticket-named rows grow a `[?]`.
+painted = s.wait_for(lambda o: "[±]".encode() in o and b"//PIN-1" in o, 15)
 check("frame painted", painted)
+
+def press(cell):
+    os.write(fd, ("\x1b[<0;%d;%dM" % (cell[1], cell[0])).encode())
+    os.write(fd, ("\x1b[<0;%d;%dm" % (cell[1], cell[0])).encode())
+
 if painted:
     time.sleep(0.3); os.write(fd, b"\x1b"); s.absorb(1.0)  # nudge a repaint
     lines = frame_lines(s.out)
     joined = "\n".join(lines)
-    # RENDER: the ahbeh counts are buttons; [get] is retired.
+    # RENDER: the ahbeh counts are buttons; [get] retired; [diff] is now [±].
     check("frame shows a [-N] behind button", "[-1]" in joined)
     check("frame shows a [+N] ahead button", "[+1]" in joined)
     check("frame has NO retired [get] button", "[get]" not in joined)
+    check("frame shows the compact [±] face (no wide [diff])",
+          "[±]" in joined and "[diff]" not in joined)
+    check("frame shows a [?] ticket button", "[?]" in joined)
+    # The ticket-named //PIN-1 row carries [?]; the non-ticket //TRK-5 row does NOT.
+    check("[?] on the ticket-named //PIN-1 row",
+          find_button(lines, "//PIN-1", "[?]") is not None)
+    check("NO [?] on the non-ticket //TRK-5 row",
+          find_button(lines, "//TRK-5", "[?]") is None)
+    # WORK-010 fire [?]: press it, the pager must NAVIGATE to the `todo PIN-1`
+    # ticket page, whose body carries the PIN-1 title.  The page frame has no
+    # `//PIN-` row, so match the ESC-STRIPPED stream (SGR is cell-interspersed).
+    def stripped_has(sub):
+        return lambda o: sub in ESC_RE.sub(b"", o).decode("utf-8", "replace")
+    hc = find_button(lines, "//PIN-1", "[?]")
+    check("[?] locatable on the //PIN-1 row", hc is not None)
+    if hc is not None:
+        press(hc)
+        fired = s.wait_for(stripped_has("PIN-1: pin sample ticket"), 10)
+        s.absorb(0.6)
+        check("[?] click navigated to the todo PIN-1 ticket page", fired)
+        os.write(fd, b"-"); s.absorb(0.8)                       # back to the forest
+    # WORK-010 fire [±]: a real press NAVIGATES (the compact diff); back out.
+    lines = frame_lines(s.out)
+    dc = find_button(lines, "//PIN-1", "[±]")
+    check("[±] re-locatable on the //PIN-1 row after back", dc is not None)
+    if dc is not None:
+        mark = len(s.out)
+        press(dc)
+        check("[±] click fired (the pager repainted)",
+              s.wait_for(lambda o: len(o) > mark, 10))
+        os.write(fd, b"-"); s.absorb(0.8)                       # back to the forest
+    # Keep the WORK-004 mutation-gate proof: press behind [-1], .be stays intact.
+    lines = frame_lines(s.out)
     rc = find_button(lines, "//PIN-1", "[-1]")
     check("behind [-1] locatable on the //PIN-1 row", rc is not None)
     if rc is not None:
         mark = len(s.out)
-        os.write(fd, ("\x1b[<0;%d;%dM" % (rc[1], rc[0])).encode())
-        os.write(fd, ("\x1b[<0;%d;%dm" % (rc[1], rc[0])).encode())
+        press(rc)
         s.wait_for(lambda o: len(o) > mark, 10)
         s.absorb(1.0)
         post = ESC_RE.sub(b"", s.out[mark:]).decode("utf-8", "replace")

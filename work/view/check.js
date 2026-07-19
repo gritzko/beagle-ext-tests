@@ -14,21 +14,9 @@
 
 const pager = require("views/bro/pager.js");
 const bro = require("view/bro.js");             // WORK-005: the real pager paint
-const todo = require("views/todo/todo.js");     // WORK-008: the shared mark grammar
 
 function fail(m) { io.log("FAIL " + m + "\n"); throw "FAIL " + m; }
 function ok(v, m) { if (!v) fail(m); }
-
-//  WORK-008: the work view mints `post '<title>'` off the ticket page header;
-//  the [OPEN]/[HIGH]/… status mark must NOT leak into the commit message.  The
-//  strip shares todo.js's mark grammar and handles BOTH placements around the
-//  colon; a markless title passes through unchanged.
-ok(todo.stripMark("PIN-1", "PIN-1 [HIGH]: pin sample ticket") === "PIN-1: pin sample ticket",
-   "stripMark leaves a `KEY [MARK]:` mark in the title");
-ok(todo.stripMark("PIN-1", "PIN-1: [OPEN] pin sample ticket") === "PIN-1: pin sample ticket",
-   "stripMark leaves a `KEY: [MARK]` mark in the title");
-ok(todo.stripMark("PIN-1", "PIN-1: pin sample ticket") === "PIN-1: pin sample ticket",
-   "stripMark mangles a markless title");
 
 const tlvPath = process.argv[2];
 const st = io.lstat(tlvPath);
@@ -99,8 +87,44 @@ ok(hasPair("meta", "C", "U", "status"), "root row not bold/nav'd");
 //  --- the buttons: verb names, colors, BRO-025 three-part O invites -------
 //  WORK-004: [get] is retired; the ahbeh counts became buttons — `[+N]` (salad
 //  'A') mints bare `post`, `[-N]` (salmon 'M') mints bare `get`, in the ROW ctx.
-ok(hasPair("[diff]", "E", "U", "diff //PIN-1"),
-   "PIN-1 [diff] lacks yellow E + U `diff //PIN-1`");
+//  WORK-010: [diff] compacts to the `[±]` face (SAME `diff //KEY` verb).
+ok(hasPair("[±]", "E", "U", "diff //PIN-1"),
+   "PIN-1 [±] lacks yellow E + U `diff //PIN-1`");
+ok(visible.indexOf("[diff]") < 0, "the old wide [diff] face survived WORK-010");
+//  WORK-010 RULING (gritzko): the `[?]` is the cyan 'V' face + a hidden 'O'
+//  invite with EMPTY context, verb `todo`, the ticket key as ARG — `//: todo KEY`
+//  (a page must exist); a TOPIC-named wt mints `//: todo TOPIC` (the topic dir).
+//  rowHelp(key): the [?] O-invite bytes on wt row `key` ("" when the row has none).
+function rowHelp(key) {
+  for (let i = 0; i < toks.length; i++) {
+    if (!(toks[i].tag === "S" && toks[i].text === "//" + key)) continue;
+    for (let j = i + 1; j < toks.length; j++) {
+      if (toks[j].text === "\n") break;                 // row boundary
+      if (toks[j].text === "[?]" && toks[j].tag === "V" &&
+          j + 1 < toks.length && toks[j + 1].tag === "O") return toks[j + 1].text;
+    }
+    return "";                                          // row found, no [?]
+  }
+  return "";
+}
+ok(rowHelp("PIN-1") === "//: todo PIN-1",
+   "ticket-named PIN-1 [?] must mint `//: todo PIN-1`, got '" + rowHelp("PIN-1") + "'");
+ok(rowHelp("DET-3") === "//: todo DET-3",
+   "ticket-named DET-3 [?] must mint `//: todo DET-3`, got '" + rowHelp("DET-3") + "'");
+ok(rowHelp("PIN") === "//: todo PIN",
+   "topic-named PIN [?] must mint `//: todo PIN`, got '" + rowHelp("PIN") + "'");
+//  WORK-010 (ruling 2): SUFFIXED ticket names (letter PIN-1b, `-word` PIN-1-retry)
+//  are ticket-named too; the [?] mints the BASE ticket link `//: todo PIN-1`.
+ok(rowHelp("PIN-1b") === "//: todo PIN-1",
+   "suffixed PIN-1b [?] must mint the base `//: todo PIN-1`, got '" + rowHelp("PIN-1b") + "'");
+ok(rowHelp("PIN-1-retry") === "//: todo PIN-1",
+   "suffixed PIN-1-retry [?] must mint base `//: todo PIN-1`, got '" + rowHelp("PIN-1-retry") + "'");
+//  A non-ticket-named wt (TRK/FOR/WT — no board topic, no page) grows NO [?].
+for (const key of ["TRK-5", "FOR-4", "WT-A", "WT-B", "PINP-6"])
+  ok(rowHelp(key) === "", key + " (non-ticket) must have NO [?], got '" + rowHelp(key) + "'");
+for (const t of toks)
+  if (t.tag === "O" && /^\/\/: todo (TRK|FOR|WT)/.test(t.text))
+    fail("a non-ticket wt grew a [?] todo invite: " + t.text);
 ok(hasPair("[post]", "W", "O", "//PIN-1/: post 'PIN-1: pin sample ticket'"),
    "PIN-1 [post] lacks green W + O `//PIN-1/: post '<ticket title>'`");
 ok(hasPair("[-1]", "A", "O", "//PIN-1/: get"),
@@ -126,20 +150,23 @@ for (const t of toks) {
   if (t.text.indexOf("rm ") >= 0) fail("a retired rm spell survived: " + t.text);
 }
 
-//  --- button placement: [diff] after the key, ahbeh after [post] ----------
+//  --- button placement: [?] then [±] FIRST, then the rest ------------------
+//  WORK-010 RULING: [?] and [±] are the FIRST TWO buttons (that order), ahead
+//  of the run; then [post], the ahbeh, [done]/[dont].
 const iKey  = idxOf("//PIN-1", "U", "status //PIN-1");
-const iDiff = idxOf("[diff]", "U", "diff //PIN-1");
+const iHelp = idxOf("[?]", "O", "//: todo PIN-1");
+const iDiff = idxOf("[±]", "U", "diff //PIN-1");
 const iPost = idxOf("[post]", "O", "//PIN-1/: post 'PIN-1: pin sample ticket'");
 const iBeh  = idxOf("[-1]", "O", "//PIN-1/: get");
 const iDone = idxOf("[done]", "O", "//PIN-1/: done .");
 const iDont = idxOf("[dont]", "O", "//PIN-1/: dont .");
-ok(iKey >= 0 && iDiff > iKey && iPost > iDiff && iBeh > iPost &&
+ok(iKey >= 0 && iHelp > iKey && iDiff > iHelp && iPost > iDiff && iBeh > iPost &&
    iDone > iBeh && iDont > iDone,
-   "PIN-1 button order is not key<[diff]<[post]<[-1]<…<[done]<[dont]");
-//  Between the key and [diff]: only the dotted leader / spacers (r2 filler).
-for (let i = iKey + 2; i < iDiff; i++)
+   "PIN-1 button order is not key<[?]<[±]<[post]<[-1]<…<[done]<[dont]");
+//  Between the key and [?]: only the dotted leader / spacers (r2 filler).
+for (let i = iKey + 2; i < iHelp; i++)
   ok(/^[ ┄]+$/.test(toks[i].text),
-     "non-filler between the key and [diff]: '" + toks[i].text + "'");
+     "non-filler between the key and [?]: '" + toks[i].text + "'");
 
 //  --- r2: NAME-only bold, one dotted leader per row, aligned columns --------
 //  Every C (bold) token is exactly a repo NAME — never a date/hash/msg tail.
@@ -148,16 +175,17 @@ for (const t of toks)
   if (t.tag === "C" && !NAMES[t.text])
     fail("a non-name token rides the bold C tag: '" + t.text + "'");
 ok(visible.indexOf("//PIN-1 ┄") >= 0, "the //PIN-1 row lacks its dotted leader");
-//  Alignment: [diff] and the #hashlet sit at ONE visible column on EVERY row
-//  that has them (KEYW + fixed button slots — chars, not bytes).
+//  Alignment: [±] and the #hashlet sit at ONE visible column on EVERY row
+//  that has them (KEYW + fixed button slots — chars, not bytes).  The absent
+//  [?] slot ┄-pads to the SAME width, so [±] holds its column either way.
 {
   let diffCol = -1, hashCol = -1;
   for (const s of visible.split("\n")) {
-    const di = s.indexOf("[diff]");
+    const di = s.indexOf("[±]");
     if (di >= 0) {
       const col = Array.from(s.slice(0, di)).length;
       if (diffCol < 0) diffCol = col;
-      else if (col !== diffCol) fail("[diff] column drifts: " + col + " vs " + diffCol);
+      else if (col !== diffCol) fail("[±] column drifts: " + col + " vs " + diffCol);
     }
     const hm = s.match(/#[0-9a-f]{8}/);
     if (hm) {
@@ -177,11 +205,15 @@ function wtLine(key) {
   return "";
 }
 //  A title-less row (FOR-4: no ticket page → absent [post]) and an in-sync row
-//  (TRK-5: zero ahbeh) carry a ┄ leader AFTER [diff], never a blank gap.
+//  (TRK-5: zero ahbeh) carry a ┄ leader AFTER [±], never a blank gap.  Both
+//  are also non-ticket wts, so the leading [?] slot ┄-pads before [±] too.
 for (const key of ["//FOR-4", "//TRK-5"]) {
-  const s = wtLine(key), di = s.indexOf("[diff]");
-  ok(di >= 0 && s.slice(di + 6).indexOf("┄") >= 0,
-     key + " row has a blank (not ┄) button/ahbeh gap after [diff]");
+  const s = wtLine(key), di = s.indexOf("[±]");
+  ok(di >= 0 && s.slice(di + 3).indexOf("┄") >= 0,
+     key + " row has a blank (not ┄) button/ahbeh gap after [±]");
+  const hi = s.indexOf("[±]"), ki = s.indexOf(key);
+  ok(ki >= 0 && hi > ki && s.slice(ki + key.length, hi).indexOf("┄") >= 0,
+     key + " (non-ticket) lacks a ┄-padded absent [?] slot before [±]");
 }
 //  [done] lands at ONE visible column on EVERY wt row (short subjects ┄-pad).
 {
@@ -297,6 +329,21 @@ ok(navCell, "no clickable cell resolves to `status //BR-2`");
 click(navCell);
 ok(runs.length === 1 && runs[0][0] === "status //BR-2" && runs[0][1] === undefined,
    "the key click must _runSpell(`status //BR-2`) context-less, got " + JSON.stringify(runs));
+//  WORK-010: [±] and [?] are NAV clicks (non-mutation → _runSpell), context-less.
+//  The cell resolves to the raw token; the dispatch parseOspell-splits it, so the
+//  [?] O-invite `//: todo KEY` drives the verb `todo KEY` in the EMPTY context.
+function clickRun(label, cellTok, wantSpell) {
+  const cell = cellOf(cellTok);
+  ok(cell, "no clickable " + label + " cell resolves to `" + cellTok + "`");
+  click(cell);
+  const r = runs[runs.length - 1] || [];
+  ok(r[0] === wantSpell && r[1] === undefined,
+     "the " + label + " click must _runSpell(`" + wantSpell + "`) context-less, got " +
+     JSON.stringify(r));
+}
+clickRun("[±] diff", "diff //PIN-1", "diff //PIN-1");
+clickRun("[?] ticket", "//: todo PIN-1", "todo PIN-1");
+clickRun("[?] topic", "//: todo PIN", "todo PIN");
 tty.size = realSize;
 
 io.log("test/work/view OK (" + toks.length + " tokens)\n");
