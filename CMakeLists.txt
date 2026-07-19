@@ -93,7 +93,7 @@ endif()
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
 foreach(_unit store ulog ingest idxmaint packlog packsalvage patchband wire wire_stream wirepush
         submount submountstamp branch uri checkout_guard submount_guard stage_guard resolve_confine
-        statusfast)
+        statusfast wtlog_track)
     add_test(NAME be-js-unit-${_unit}
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
