@@ -66,7 +66,7 @@ printf 'fixture, not a worktree\n' > "$META/work/README.mkd"
 
 # WORK-005: the age fade reads be.now - commit ts (real now at `work` time), so
 # PIN the seed COMMIT ts via SOURCE_DATE_EPOCH — never mock now.  ext one is
-# aged 8.5d (PIN-1 tracks SHA1 -> #888888), ext two 3.5d (TRK-5 -> #333333);
+# aged 8.5d (PIN-1 tracks SHA1 -> #888888), ext two 3.5d (TRK-5 -> #444444);
 # root/deep/foreign stay fresh (DET-3/FOR-4 -> #000000).
 NOWSEC=$(date +%s)
 AGE8=$((NOWSEC - 8*86400 - 43200)); AGE3=$((NOWSEC - 3*86400 - 43200))
@@ -182,7 +182,7 @@ grep -q 'work: BOGUS: WORKNONE' "$WORK/miss.out" || _fail "miss lacks the unifor
 
 # --- 3a. WORK-005: the age fade END-TO-END through the real --color render ----
 # `jab work --color` paints each wt row's default-fg by its tip age: PIN-1 (ext
-# one, 8.5d) truecolor #888888, TRK-5 (ext two, 3.5d) #333333; the marker never
+# one, 8.5d) truecolor #888888, TRK-5 (ext two, 3.5d) #444444; the marker never
 # leaks as visible text.  The SGR core is `38;2;R;G;B` (view/bro.js paintWhyRow).
 # MUST run BEFORE the click legs (3b/check.js) — their real clicks bare-get/post
 # the fixture wts, refreshing the aged rows the fade assertions pin.
@@ -191,9 +191,9 @@ ESC=$(printf '\033')
     || _fail "jab work --color failed"
 grep -q "$ESC\[38;2;136;136;136m" "$WORK/forest.color" \
     || _fail "the 8+day PIN-1 row lacks the #888888 truecolor fade in --color"
-grep -q "$ESC\[38;2;51;51;51m" "$WORK/forest.color" \
-    || _fail "the 3-day TRK-5 row lacks the #333333 truecolor fade in --color"
-grep -q '#888888\|#333333\|#000000' "$WORK/forest.color" \
+grep -q "$ESC\[38;2;68;68;68m" "$WORK/forest.color" \
+    || _fail "the 3-day TRK-5 row lacks the #444444 truecolor fade in --color"
+grep -q '#888888\|#444444\|#000000' "$WORK/forest.color" \
     && _fail "an age-fade marker leaked as visible text in --color"
 
 "$JABC" "$_CASE/check.js" "$WORK/forest.tlv" >"$WORK/check.out" 2>&1 \

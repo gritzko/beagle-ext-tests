@@ -194,7 +194,7 @@ ok(hasTagged("A", "[-1]"), "PIN-1's behind button lacks the salmon 'A' span");
 ok(hasTagged("G", "[+1]"), "BR-2's ahead button lacks the salad 'G' span");
 
 //  --- WORK-005: the age fade — each wt row carries a leading bare `#rrggbb` O
-//  (the row's default-fg), darkening by the day: fresh #000000, 3-day #333333,
+//  (the row's default-fg), darkening by the day: fresh #000000, 3-day #444444,
 //  week+ #888888.  run.sh ages ext one 8.5d (PIN-1) and ext two 3.5d (TRK-5);
 //  DET-3/FOR-4 stay fresh.  The marker is the O right before the row's `//KEY`.
 function rowFade(key) {
@@ -208,8 +208,8 @@ function rowFade(key) {
 }
 ok(rowFade("DET-3") === "#000000",
    "fresh DET-3 row lacks the black #000000 fade, got " + rowFade("DET-3"));
-ok(rowFade("TRK-5") === "#333333",
-   "3-day TRK-5 row lacks the #333333 fade, got " + rowFade("TRK-5"));
+ok(rowFade("TRK-5") === "#444444",
+   "3-day TRK-5 row lacks the #444444 fade, got " + rowFade("TRK-5"));
 ok(rowFade("PIN-1") === "#888888",
    "8+day PIN-1 row lacks the #888888 fade, got " + rowFade("PIN-1"));
 //  The fade is INVISIBLE in plain (an O token, hidden) — visible text unchanged.
@@ -230,8 +230,8 @@ function paintFind(key) {
 }
 ok(paintFind("PIN-1").indexOf("38;2;136;136;136") >= 0,
    "the real pager did not paint PIN-1 with the #888888 truecolor fg");
-ok(paintFind("TRK-5").indexOf("38;2;51;51;51") >= 0,
-   "the real pager did not paint TRK-5 with the #333333 truecolor fg");
+ok(paintFind("TRK-5").indexOf("38;2;68;68;68") >= 0,
+   "the real pager did not paint TRK-5 with the #444444 truecolor fg");
 
 //  --- the REAL click path (the rowclick model): a mouse press on a button ---
 //  Drives Pager._feed with a raw SGR mouse press so the BRO-025 dispatch runs
