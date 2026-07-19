@@ -105,9 +105,10 @@ mkdir -p "$META/work/TRK-5"
 ( cd "$META/work/TRK-5" && "$BE" get "file:$META/vend/ext/.be?" ) \
     >/dev/null 2>&1 || _fail "TRK-5 clone"
 grep -q "$SHA2" "$META/work/TRK-5/.be" || _fail "TRK-5 clone not at trunk"
-# PIN-1: tracks the vend/ext WORKTREE (a URI-shaped track), based at SHA1.
+# PIN-1: tracks the vend/ext WORKTREE'S OWN BASE (`///vend/ext/`, the slashed
+# de-facto rev), based at SHA1 -> hangs under vend/ext, behind 1 (WORK-007 base).
 mkdir -p "$META/work/PIN-1"
-printf '26718JG001\tget\tfile:%s/vend/ext/.be/?\n26718JG002\tget\t///vend/ext#%s\n' \
+printf '26718JG001\tget\tfile:%s/vend/ext/.be/?\n26718JG002\tget\t///vend/ext/#%s\n' \
     "$META" "$SHA1" > "$META/work/PIN-1/.be"
 # BR-2: tracks branch `feature` (pinned at SHA1), based at SHA2 -> ahead 1.
 mkdir -p "$META/work/BR-2"
@@ -122,6 +123,24 @@ mkdir -p "$META/work/FOR-4"
 printf '26718JG007\tget\tfile:%s/foreign/.be/?\n26718JG008\tget\t?#%s\n' \
     "$WORK" "$FSHA" > "$META/work/FOR-4/.be"
 
+# --- WORK-007: link by TRACKING edge — the pin/base slash + a wt-tracks-wt chain
+# PINP-6: tracks the vend/ext GITLINK PIN (`///vend/ext`, slashLESS de-jure pin
+# recorded in META) -> hangs under META (the pin holder), NOT under vend/ext.
+# Based at the root tip so it reads in sync vs META (no ahbeh button noise).
+mkdir -p "$META/work/PINP-6"
+printf '26718JG009\tget\tfile:%s/vend/ext/.be/?\n26718JG010\tget\t///vend/ext#%s\n' \
+    "$META" "$RSHA" > "$META/work/PINP-6/.be"
+# WT-A: tracks the vend/ext BASE (`///vend/ext/`, slashed) -> under vend/ext; a
+# work wt that is ITSELF a track target (the WHY node of WHY-002->WHY->///be).
+mkdir -p "$META/work/WT-A"
+printf '26718JG011\tget\tfile:%s/vend/ext/.be/?\n26718JG012\tget\t///vend/ext/#%s\n' \
+    "$META" "$SHA2" > "$META/work/WT-A/.be"
+# WT-B: tracks the WORK WT `//WT-A` (a wt-tracks-wt edge) -> hangs under WT-A,
+# recursively (the WHY-002 leaf).  Based at WT-A's base -> in sync.
+mkdir -p "$META/work/WT-B"
+printf '26718JG013\tget\tfile:%s/vend/ext/.be/?\n26718JG014\tget\t//WT-A#%s\n' \
+    "$META" "$SHA2" > "$META/work/WT-B/.be"
+
 h() { printf '%s' "$1" | cut -c1-8; }
 
 # --- 1. plain: the pinned forest (dates normalized, chrome-free) -------------
@@ -131,6 +150,29 @@ h() { printf '%s' "$1" | cut -c1-8; }
 # `DDMon`) to DDMMM — WORK-005 ages ext two ~3.5d, so it renders the weekday form.
 sed 's/[0-9][0-9]:[0-9][0-9]/DDMMM/g; s/[0-9][0-9][A-Z][a-z][a-z]/DDMMM/g; s/[A-Z][a-z][a-z][0-9][0-9]/DDMMM/g' \
     "$WORK/forest.out" > "$WORK/forest.norm"
+
+# --- WORK-007: link by the TRACKING edge (structural, rail-detail agnostic) ---
+# block 1 is the FIRST hunk (from the first `work` banner to the next blank).
+_block1() { awk '/^work$/{f=1;next} f&&/^$/{exit} f' "$WORK/forest.norm"; }
+# PINP-6 tracks the slashLESS gitlink pin `///vend/ext` -> it hangs under META
+# (the pin holder, a ROOT-level dotted tracker: no `│`/indent before `└┄┄`),
+# NOT under vend/ext.  RED on the pre-WORK-007 code (pin resolved to the dir ->
+# demoted under vend/ext or to block 2).
+_block1 | grep -q '^└┄┄ //PINP-6' \
+    || _fail "WORK-007: PINP-6 (slashless pin ///vend/ext) not hung under META as a root tracker"
+_block1 | grep -qE '^[│ ].*//PINP-6' \
+    && _fail "WORK-007: PINP-6 is indented under a subtree, not a META-level tracker"
+# WT-A tracks the slashED base `///vend/ext/` -> under vend/ext (base case).
+_block1 | grep -q '//WT-A' \
+    || _fail "WORK-007: WT-A (slashed base ///vend/ext/) missing from block 1 under vend/ext"
+# WT-B tracks the WORK WT `//WT-A` -> it must appear in block 1 nested UNDER
+# WT-A (a deeper dotted rail carrying `│`), recursively — the WHY-002->WHY edge.
+# RED on the pre-WORK-007 code (a wt-tracks-wt fell through to the store block).
+_block1 | grep -qE '^│ +[├└]┄┄ //WT-B' \
+    || _fail "WORK-007: WT-B (tracks //WT-A) not nested under WT-A in block 1"
+awk '/^work$/{h++} h>=2 && /\/\/WT-B/{print; found=1} END{exit !found}' "$WORK/forest.norm" \
+    && _fail "WORK-007: WT-B leaked into the branch/foreign block instead of hanging under WT-A"
+
 # The plain edge prints each hunk's `work` banner + a trailing blank separator;
 # store paths render home-abbreviated (the sketch's `file:~/...` form).
 MTIL=$(printf '%s' "$META" | sed "s|^$HOME|~|")
@@ -145,10 +187,13 @@ WTIL=$(printf '%s' "$WORK" | sed "s|^$HOME|~|")
 cat > "$WORK/forest.want" <<EOF
 work
 meta ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$RSHA") root commit
-└── vend/ext ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
-    ├── deep ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$DSHA") deep one with a very long subject line
-    ├┄┄ //PIN-1 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄      -1 DDMMM #$(h "$SHA1") ext one
-    └┄┄ //TRK-5 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
+├── vend/ext ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
+│   ├── deep ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$DSHA") deep one with a very long subject line
+│   ├┄┄ //PIN-1 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄      -1 DDMMM #$(h "$SHA1") ext one
+│   ├┄┄ //TRK-5 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
+│   └┄┄ //WT-A ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
+│       └┄┄ //WT-B ┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$SHA2") ext two
+└┄┄ //PINP-6 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$RSHA")
 
 work
 file:$MTIL/vend/ext/.be
