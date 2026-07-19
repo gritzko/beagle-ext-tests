@@ -1,13 +1,13 @@
 //  test/work/view/check.js — WORK-001 assert: the `work` FOREST's pager chrome
 //  (review 2026-07-18 form).
 //
-//  argv[2] = captured `jab work --tlv` bytes (a file).  Wt row layout:
-//  `//KEY  [get] [diff] [post]  <ahbeh8>  <time5> #<hashlet8> <subject≤30>
-//  [done] [dont]` — buttons named for their verbs right after the key ([get]
-//  blue 'Y', [diff] yellow 'E', [post] green 'W'), ahbeh behind/ahead colored
-//  ('M'/'G'), [done]/[dont] after the message minting `//KEY/: done .` /
-//  `//KEY/: dont .` (the BE-044 slot reshaped: mv + ticket flip).  Main-tree
-//  repo rows (root + mounts) are BOLD ('C'); tracker wt keys unstyled ('S').
+//  argv[2] = captured `jab work --tlv` bytes (a file).  WORK-004 wt row layout:
+//  `//KEY  [diff] [post]  [+N][-N]  <time5> #<hashlet8> <subject≤30> [done]
+//  [dont]` — [diff] yellow 'E', [post] green 'W'; the ahbeh counts ARE buttons:
+//  `[+N]` salad 'G' mints bare `post` (advance track), `[-N]` salmon 'A' mints
+//  bare `get` (pull), each a `//KEY/: verb` O-invite; [get] is RETIRED.
+//  [done]/[dont] after the message mint `//KEY/: done .` / `//KEY/: dont .`.
+//  Main-tree repo rows (root + mounts) are BOLD ('C'); tracker wt keys 'S'.
 //  Hidden bytes never leak into the visible text; a REAL mouse press drives
 //  the BRO-025 dispatch (_feed → parseOspell → _actSpell(spell, //KEY)).
 "use strict";
@@ -84,44 +84,49 @@ ok(hasPair("deep", "C", "U", "status vend/ext/deep"), "deep mount row not bold/n
 ok(hasPair("meta", "C", "U", "status"), "root row not bold/nav'd");
 
 //  --- the buttons: verb names, colors, BRO-025 three-part O invites -------
-ok(hasPair("[get]", "Y", "O", "//TRK-5/: get ///vend/ext"),
-   "TRK-5 [get] lacks blue Y + O `//TRK-5/: get ///vend/ext`");
-ok(hasPair("[get]", "Y", "O", "//PIN-1/: get ///vend/ext"),
-   "PIN-1 [get] lacks blue Y + O `//PIN-1/: get ///vend/ext`");
+//  WORK-004: [get] is retired; the ahbeh counts became buttons — `[+N]` (salad
+//  'A') mints bare `post`, `[-N]` (salmon 'M') mints bare `get`, in the ROW ctx.
 ok(hasPair("[diff]", "E", "U", "diff //PIN-1"),
    "PIN-1 [diff] lacks yellow E + U `diff //PIN-1`");
 ok(hasPair("[post]", "W", "O", "//PIN-1/: post 'PIN-1: pin sample ticket'"),
    "PIN-1 [post] lacks green W + O `//PIN-1/: post '<ticket title>'`");
+ok(hasPair("[-1]", "A", "O", "//PIN-1/: get"),
+   "PIN-1 behind button lacks salmon A `[-1]` + O `//PIN-1/: get`");
+ok(hasPair("[+1]", "G", "O", "//BR-2/: post"),
+   "BR-2 ahead button lacks salad G `[+1]` + O `//BR-2/: post`");
 ok(hasPair("[done]", null, "O", "//PIN-1/: done ."),
    "PIN-1 [done] lacks O `//PIN-1/: done .`");
 ok(hasPair("[dont]", null, "O", "//PIN-1/: dont ."),
    "PIN-1 [dont] lacks O `//PIN-1/: dont .`");
 ok(hasPair("[done]", null, "O", "//FOR-4/: done ."),
    "FOR-4 [done] lacks O `//FOR-4/: done .`");
-//  Non-block-1 wts hang under no mount -> NO [get]; FOR-4 has no ticket page
-//  -> NO [post]; the [rm -rf] spell is retired everywhere.
+//  [get] is gone everywhere; FOR-4 has no ticket page -> NO commit [post]; a wt
+//  in sync (TRK-5) shows NO ahbeh button; the [rm -rf] spell stays retired.
 for (const t of toks) {
   if (t.tag !== "O") continue;
-  if (t.text.indexOf("//BR-2/: get") === 0 || t.text.indexOf("//DET-3/: get") === 0 ||
-      t.text.indexOf("//FOR-4/: get") === 0 || t.text.indexOf("//FOR-4/: post") === 0)
-    fail("a non-block-1 wt grew a [get]/[post] spell: " + t.text);
+  if (t.text.indexOf(": get ///") >= 0)
+    fail("a retired [get] `get ///` spell survived: " + t.text);
+  if (t.text.indexOf("//FOR-4/: post '") === 0)
+    fail("a page-less wt grew a commit [post] spell: " + t.text);
+  if (t.text.indexOf("//TRK-5/: get") === 0 || t.text.indexOf("//TRK-5/: post") === 0)
+    fail("an in-sync wt grew an ahbeh button: " + t.text);
   if (t.text.indexOf("rm ") >= 0) fail("a retired rm spell survived: " + t.text);
 }
 
-//  --- button placement: [get] right after the key, [done] after the message --
+//  --- button placement: [diff] after the key, ahbeh after [post] ----------
 const iKey  = idxOf("//PIN-1", "U", "status //PIN-1");
-const iGet  = idxOf("[get]", "O", "//PIN-1/: get ///vend/ext");
 const iDiff = idxOf("[diff]", "U", "diff //PIN-1");
 const iPost = idxOf("[post]", "O", "//PIN-1/: post 'PIN-1: pin sample ticket'");
+const iBeh  = idxOf("[-1]", "O", "//PIN-1/: get");
 const iDone = idxOf("[done]", "O", "//PIN-1/: done .");
 const iDont = idxOf("[dont]", "O", "//PIN-1/: dont .");
-ok(iKey >= 0 && iGet > iKey && iDiff > iGet && iPost > iDiff &&
-   iDone > iPost && iDont > iDone,
-   "PIN-1 button order is not key<[get]<[diff]<[post]<…<[done]<[dont]");
-//  Between the key and [get]: only the dotted leader / spacers (r2 filler).
-for (let i = iKey + 2; i < iGet; i++)
+ok(iKey >= 0 && iDiff > iKey && iPost > iDiff && iBeh > iPost &&
+   iDone > iBeh && iDont > iDone,
+   "PIN-1 button order is not key<[diff]<[post]<[-1]<…<[done]<[dont]");
+//  Between the key and [diff]: only the dotted leader / spacers (r2 filler).
+for (let i = iKey + 2; i < iDiff; i++)
   ok(/^[ ┄]+$/.test(toks[i].text),
-     "non-filler between the key and [get]: '" + toks[i].text + "'");
+     "non-filler between the key and [diff]: '" + toks[i].text + "'");
 
 //  --- r2: NAME-only bold, one dotted leader per row, aligned columns --------
 //  Every C (bold) token is exactly a repo NAME — never a date/hash/msg tail.
@@ -151,13 +156,41 @@ ok(visible.indexOf("//PIN-1 ┄") >= 0, "the //PIN-1 row lacks its dotted leader
   ok(diffCol >= 0 && hashCol > diffCol, "no aligned [diff]/#hashlet columns found");
 }
 
-//  --- the ahbeh column: behind 'M' (salmon slot), ahead 'G' (salad slot) ----
+//  --- WORK-006: the grid closes up with ┄ leaders --------------------------
+//  Absent button slots ┄-fill (not blanks) and short subjects ┄-pad to 30, so
+//  [done]/[dont] land at ONE column on every wt row.
+function wtLine(key) {
+  for (const s of visible.split("\n")) if (s.indexOf(key + " ") >= 0) return s;
+  return "";
+}
+//  A title-less row (FOR-4: no ticket page → absent [post]) and an in-sync row
+//  (TRK-5: zero ahbeh) carry a ┄ leader AFTER [diff], never a blank gap.
+for (const key of ["//FOR-4", "//TRK-5"]) {
+  const s = wtLine(key), di = s.indexOf("[diff]");
+  ok(di >= 0 && s.slice(di + 6).indexOf("┄") >= 0,
+     key + " row has a blank (not ┄) button/ahbeh gap after [diff]");
+}
+//  [done] lands at ONE visible column on EVERY wt row (short subjects ┄-pad).
+{
+  let doneCol = -1, seen = 0;
+  for (const s of visible.split("\n")) {
+    const d = s.indexOf("[done]");
+    if (d < 0) continue;
+    seen++;
+    const col = Array.from(s.slice(0, d)).length;
+    if (doneCol < 0) doneCol = col;
+    else if (col !== doneCol) fail("[done] column drifts: " + col + " vs " + doneCol);
+  }
+  ok(seen >= 3, "expected [done] on several wt rows, saw " + seen);
+}
+
+//  --- the ahbeh buttons: behind '[-N]' salmon 'A', ahead '[+N]' salad 'G' ----
 function hasTagged(tag, text) {
   for (const t of toks) if (t.tag === tag && t.text === text) return true;
   return false;
 }
-ok(hasTagged("M", "-1"), "PIN-1's behind count lacks the 'M' span");
-ok(hasTagged("G", "+1"), "BR-2's ahead count lacks the 'G' span");
+ok(hasTagged("A", "[-1]"), "PIN-1's behind button lacks the salmon 'A' span");
+ok(hasTagged("G", "[+1]"), "BR-2's ahead button lacks the salad 'G' span");
 
 //  --- the REAL click path (the rowclick model): a mouse press on a button ---
 //  Drives Pager._feed with a raw SGR mouse press so the BRO-025 dispatch runs
@@ -188,11 +221,24 @@ function cellOf(spell) {
 function click(cell) {
   p._feed(utf8.Encode("\x1b[<0;" + cell.col + ";" + cell.row + "M"));
 }
-const doneCell = cellOf("//PIN-1/: done .");
-ok(doneCell, "no clickable [done] cell resolves to `//PIN-1/: done .`");
-click(doneCell);
-ok(acts.length === 1 && acts[0][0] === "done ." && acts[0][1] === "//PIN-1",
-   "the [done] click must _actSpell(`done .`, `//PIN-1`), got " + JSON.stringify(acts));
+//  clickAct(spell, ctx): press the cell resolving to `spell`, assert the LAST
+//  _actSpell was (verb-args, ctx) — the mutation ran in the ROW's own context.
+function clickAct(label, spell, wantSpell, ctx) {
+  const cell = cellOf(spell);
+  ok(cell, "no clickable " + label + " cell resolves to `" + spell + "`");
+  click(cell);
+  const a = acts[acts.length - 1] || [];
+  ok(a[0] === wantSpell && a[1] === ctx,
+     "the " + label + " click must _actSpell(`" + wantSpell + "`, `" + ctx +
+     "`), got " + JSON.stringify(a));
+}
+//  WORK-004: the ahbeh buttons mint BARE post/get in the row ctx; [post] the
+//  titled commit; [done] the move+mark — all anchored on the row, not the pager.
+clickAct("[-N] behind", "//PIN-1/: get", "get", "//PIN-1");
+clickAct("[+N] ahead", "//BR-2/: post", "post", "//BR-2");
+clickAct("[post] commit", "//PIN-1/: post 'PIN-1: pin sample ticket'",
+         "post 'PIN-1: pin sample ticket'", "//PIN-1");
+clickAct("[done]", "//PIN-1/: done .", "done .", "//PIN-1");
 const navCell = cellOf("status //BR-2");
 ok(navCell, "no clickable cell resolves to `status //BR-2`");
 click(navCell);

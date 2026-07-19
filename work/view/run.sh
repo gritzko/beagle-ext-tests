@@ -2,11 +2,11 @@
 # test/work/view — WORK-001: bare `work` renders the worktree FOREST in three
 # tree hunks (main-tree-tracking / branch-tracking / remote-tracking; an empty
 # hunk is ABSENT), Unicode box-drawing rails, every wt hung under what it
-# TRACKS, ahead/behind counts vs the TRACKED ref.  Review 2026-07-18 row form:
-# `//KEY ┄┄┄  [get] [diff] [post]  <ahbeh8>  <time5> #<hashlet8> <subject≤30>
-# [done] [dont]` — the rails+name column dotted-pads to KEYW=32 and the button
-# slots are fixed, so every column aligns view-wide (r2); repo (root+mount)
-# rows embolden the NAME only and share the ahbeh column; plain chrome-free.
+# TRACKS, ahead/behind counts vs the TRACKED ref.  WORK-004 row form:
+# `//KEY ┄┄┄  [diff] [post]  [+N][-N]  <time5> #<hashlet8> <subject≤30>
+# [done] [dont]` — [get] retired; the ahbeh counts ARE buttons (`[+N]` mints
+# bare post, `[-N]` bare get); the rails+name column dotted-pads to KEYW=32 and
+# the slots are fixed, so every column aligns view-wide (r2); plain chrome-free.
 # [done]/[dont] move the wt into work/done/ (the r2 discard root, IGNORED by
 # the view; bump on collision) and flip a ticket-named wt's page header to
 # [DONE]/[DONT].  The FIXTURE forest: a
@@ -172,6 +172,20 @@ grep -q 'work: BOGUS: WORKNONE' "$WORK/miss.out" || _fail "miss lacks the unifor
 [ -s "$WORK/forest.tlv" ] || _fail "work --tlv emitted ZERO bytes"
 "$JABC" "$_CASE/check.js" "$WORK/forest.tlv" >"$WORK/check.out" 2>&1 \
     || { cat "$WORK/check.out" >&2; _fail "forest token assertions failed"; }
+
+# --- 3b. WORK-004 pty: the REAL pager renders + clicks the ahbeh buttons ------
+# A real pty.fork drives `jab work` from the TRK-5 wt: the frame must show the
+# `[+N]`/`[-N]` ahbeh buttons and NO retired `[get]`; a real SGR mouse press on
+# `[-N]` is accepted (pager exits clean) and leaves the LAUNCH tree's .be intact.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import pty,select" 2>/dev/null; then
+    python3 "$_CASE/clickpty.py" "$JABC" "$META/work/TRK-5" "$META/work/TRK-5/.be" \
+        > "$WORK/pty.out" 2>"$WORK/pty.err" \
+        || { cat "$WORK/pty.out" "$WORK/pty.err" >&2; _fail "pty button session failed"; }
+    grep -q "pty session done" "$WORK/pty.out" \
+        || { cat "$WORK/pty.out" >&2; _fail "pty driver did not finish"; }
+else
+    echo "work/view: SKIP pty (no python3/pty)" >&2
+fi
 
 # --- 4. the [done]/[dont] verbs: mv into work/done/ + ticket flip ------------
 # R2: the discard root is `work/done/` (same device, made on demand, IGNORED
