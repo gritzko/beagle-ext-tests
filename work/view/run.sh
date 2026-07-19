@@ -64,11 +64,19 @@ cat > "$META/todo/DET/DET-3.mkd" <<'EOF'
 EOF
 printf 'fixture, not a worktree\n' > "$META/work/README.mkd"
 
+# WORK-005: the age fade reads be.now - commit ts (real now at `work` time), so
+# PIN the seed COMMIT ts via SOURCE_DATE_EPOCH — never mock now.  ext one is
+# aged 8.5d (PIN-1 tracks SHA1 -> #888888), ext two 3.5d (TRK-5 -> #333333);
+# root/deep/foreign stay fresh (DET-3/FOR-4 -> #000000).
+NOWSEC=$(date +%s)
+AGE8=$((NOWSEC - 8*86400 - 43200)); AGE3=$((NOWSEC - 3*86400 - 43200))
 ( cd "$META" && printf 'root\n' > R.txt && "$BE" post 'root commit' ) \
     >/dev/null 2>&1 || _fail "seed root post"
-( cd "$META/vend/ext" && printf 'e1\n' > e.txt && "$BE" post 'ext one' ) \
+( cd "$META/vend/ext" && printf 'e1\n' > e.txt \
+  && SOURCE_DATE_EPOCH=$AGE8 "$BE" post 'ext one' ) \
     >/dev/null 2>&1 || _fail "seed ext one"
-( cd "$META/vend/ext" && printf 'e2\n' >> e.txt && "$BE" post 'ext two' ) \
+( cd "$META/vend/ext" && printf 'e2\n' >> e.txt \
+  && SOURCE_DATE_EPOCH=$AGE3 "$BE" post 'ext two' ) \
     >/dev/null 2>&1 || _fail "seed ext two"
 ( cd "$META/vend/ext/deep" && printf 'd1\n' > d.txt \
   && "$BE" post 'deep one with a very long subject line' ) \
@@ -119,8 +127,9 @@ h() { printf '%s' "$1" | cut -c1-8; }
 # --- 1. plain: the pinned forest (dates normalized, chrome-free) -------------
 ( cd "$META" && "$BE" work --plain ) > "$WORK/forest.out" 2>"$WORK/forest.err" \
     || _fail "jab work failed: $(cat "$WORK/forest.err")"
-# Normalize the 5-char date core (today `HH:MM`, older `DDMon`) to DDMMM.
-sed 's/[0-9][0-9]:[0-9][0-9]/DDMMM/g; s/[0-9][0-9][A-Z][a-z][a-z]/DDMMM/g' \
+# Normalize the 5-char date core (today `HH:MM`, this-week `Dow15`, older
+# `DDMon`) to DDMMM — WORK-005 ages ext two ~3.5d, so it renders the weekday form.
+sed 's/[0-9][0-9]:[0-9][0-9]/DDMMM/g; s/[0-9][0-9][A-Z][a-z][a-z]/DDMMM/g; s/[A-Z][a-z][a-z][0-9][0-9]/DDMMM/g' \
     "$WORK/forest.out" > "$WORK/forest.norm"
 # The plain edge prints each hunk's `work` banner + a trailing blank separator;
 # store paths render home-abbreviated (the sketch's `file:~/...` form).
@@ -170,6 +179,23 @@ grep -q 'work: BOGUS: WORKNONE' "$WORK/miss.out" || _fail "miss lacks the unifor
 ( cd "$META" && "$BE" work --tlv ) > "$WORK/forest.tlv" 2>/dev/null \
     || _fail "jab work --tlv failed"
 [ -s "$WORK/forest.tlv" ] || _fail "work --tlv emitted ZERO bytes"
+
+# --- 3a. WORK-005: the age fade END-TO-END through the real --color render ----
+# `jab work --color` paints each wt row's default-fg by its tip age: PIN-1 (ext
+# one, 8.5d) truecolor #888888, TRK-5 (ext two, 3.5d) #333333; the marker never
+# leaks as visible text.  The SGR core is `38;2;R;G;B` (view/bro.js paintWhyRow).
+# MUST run BEFORE the click legs (3b/check.js) — their real clicks bare-get/post
+# the fixture wts, refreshing the aged rows the fade assertions pin.
+ESC=$(printf '\033')
+( cd "$META" && "$BE" work --color ) > "$WORK/forest.color" 2>/dev/null \
+    || _fail "jab work --color failed"
+grep -q "$ESC\[38;2;136;136;136m" "$WORK/forest.color" \
+    || _fail "the 8+day PIN-1 row lacks the #888888 truecolor fade in --color"
+grep -q "$ESC\[38;2;51;51;51m" "$WORK/forest.color" \
+    || _fail "the 3-day TRK-5 row lacks the #333333 truecolor fade in --color"
+grep -q '#888888\|#333333\|#000000' "$WORK/forest.color" \
+    && _fail "an age-fade marker leaked as visible text in --color"
+
 "$JABC" "$_CASE/check.js" "$WORK/forest.tlv" >"$WORK/check.out" 2>&1 \
     || { cat "$WORK/check.out" >&2; _fail "forest token assertions failed"; }
 

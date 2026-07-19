@@ -13,6 +13,7 @@
 "use strict";
 
 const pager = require("views/bro/pager.js");
+const bro = require("view/bro.js");             // WORK-005: the real pager paint
 
 function fail(m) { io.log("FAIL " + m + "\n"); throw "FAIL " + m; }
 function ok(v, m) { if (!v) fail(m); }
@@ -191,6 +192,46 @@ function hasTagged(tag, text) {
 }
 ok(hasTagged("A", "[-1]"), "PIN-1's behind button lacks the salmon 'A' span");
 ok(hasTagged("G", "[+1]"), "BR-2's ahead button lacks the salad 'G' span");
+
+//  --- WORK-005: the age fade — each wt row carries a leading bare `#rrggbb` O
+//  (the row's default-fg), darkening by the day: fresh #000000, 3-day #333333,
+//  week+ #888888.  run.sh ages ext one 8.5d (PIN-1) and ext two 3.5d (TRK-5);
+//  DET-3/FOR-4 stay fresh.  The marker is the O right before the row's `//KEY`.
+function rowFade(key) {
+  let ki = -1;
+  for (let i = 0; i < toks.length; i++)
+    if (toks[i].tag === "S" && toks[i].text === "//" + key) { ki = i; break; }
+  for (let i = ki; i >= 0; i--)
+    if (toks[i].tag === "O")
+      return /^#[0-9a-f]{6}$/.test(toks[i].text) ? toks[i].text : null;
+  return null;
+}
+ok(rowFade("DET-3") === "#000000",
+   "fresh DET-3 row lacks the black #000000 fade, got " + rowFade("DET-3"));
+ok(rowFade("TRK-5") === "#333333",
+   "3-day TRK-5 row lacks the #333333 fade, got " + rowFade("TRK-5"));
+ok(rowFade("PIN-1") === "#888888",
+   "8+day PIN-1 row lacks the #888888 fade, got " + rowFade("PIN-1"));
+//  The fade is INVISIBLE in plain (an O token, hidden) — visible text unchanged.
+ok(visible.indexOf("#000000") < 0 && visible.indexOf("#888888") < 0,
+   "an age-fade marker leaked into visible text");
+
+//  Through the REAL pager colour paint (emitBody -> paintWhyRow): the PIN-1 row
+//  emits the truecolor grey SGR `38;2;136;136;136` (#888888) on its default cells.
+function paintFind(key) {
+  for (const h of hunks) {
+    const hk = { text: h.text, toks: h.toks || new Uint32Array(0) };
+    for (const r of bro.indexRows(hk, 500, false)) {
+      const s = pager.paintRow(hk, r.off, r.end, true, r.pass);
+      if (s.indexOf("//" + key) >= 0) return s;
+    }
+  }
+  return "";
+}
+ok(paintFind("PIN-1").indexOf("38;2;136;136;136") >= 0,
+   "the real pager did not paint PIN-1 with the #888888 truecolor fg");
+ok(paintFind("TRK-5").indexOf("38;2;51;51;51") >= 0,
+   "the real pager did not paint TRK-5 with the #333333 truecolor fg");
 
 //  --- the REAL click path (the rowclick model): a mouse press on a button ---
 //  Drives Pager._feed with a raw SGR mouse press so the BRO-025 dispatch runs
