@@ -66,7 +66,7 @@ cmp -s "$_CASE/topic.golden" "$WORK/topic.plain" || {
     _fail "topic --plain drifted from the pre-change golden (buttons must be pager-only)"
 }
 
-# --- 2. --tlv: every OPEN list row carries U nav THEN the Y/O button pair ------
+# --- 2. --tlv: every OPEN list row carries O nav THEN the Y/O button pair ------
 "$BE" todo --tlv > "$WORK/board.tlv" 2>/dev/null || _fail "jab todo --tlv failed"
 [ -s "$WORK/board.tlv" ] || _fail "todo --tlv emitted ZERO bytes"
 "$JABC" "$_CASE/check.js" "$WORK/board.tlv" FIX-001 FIX-002 PUT-001 -- FIX-003 \

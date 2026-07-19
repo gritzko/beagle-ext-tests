@@ -2,8 +2,9 @@
 //  `todo` list rows, over a captured `jab todo … --tlv` stream.
 //
 //  argv: <tlv-file> KEY… -- ABSENTKEY…   Each KEY (an OPEN listed ticket) must
-//  sit on ONE row shaped  F:KEY  U:"todo KEY"  …  Y:"[done]"  O:"done KEY"  …\n
-//  (the BE-041 house scheme: nav FIRST so a title click still navigates, the
+//  sit on ONE row shaped  F:KEY  O:"todo KEY"  …  Y:"[done]"  O:"done KEY"  …\n
+//  (BE-054: the nav is now a context-less O click spell, U reserved for real
+//  addresses; the BE-041 house scheme: nav FIRST so a title click still navigates, the
 //  hidden O spell RAW `done KEY`, nothing else).  Each ABSENTKEY (closed /
 //  other-topic) must have NO row and NO `done` spell anywhere.  The raw spell
 //  bytes must never leak into the VISIBLE text; the `[done]` label must.
@@ -54,8 +55,8 @@ for (const h of hunks) {
 function assertRow(key) {
   let i = toks.findIndex(function (t) { return t.tag === "F" && t.text === key; });
   ok(i >= 0, "no F token for OPEN row " + key);
-  ok(toks[i + 1] && toks[i + 1].tag === "U" && toks[i + 1].text === "todo " + key,
-     key + ": the hidden U `todo " + key + "` nav must directly follow the key");
+  ok(toks[i + 1] && toks[i + 1].tag === "O" && toks[i + 1].text === "todo " + key,
+     key + ": the hidden O `todo " + key + "` nav must directly follow the key");
   let sawY = -1;
   for (let j = i + 2; j < toks.length; j++) {
     const t = toks[j];
