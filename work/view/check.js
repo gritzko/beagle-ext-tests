@@ -229,6 +229,22 @@ for (const key of ["//FOR-4", "//TRK-5"]) {
   ok(seen >= 3, "expected [done] on several wt rows, saw " + seen);
 }
 
+//  --- WORK-016: the leader run is CONTINUOUS -------------------------------
+//  Between two cells: ONE uninterrupted ┄ run with exactly one space of
+//  breathing at each end — no blank seam splitting two fills, no double blank
+//  where a slot is absent, no ┄ abutting a button face.
+for (const s of visible.split("\n")) {
+  if (s.indexOf("┄") < 0) continue;
+  const g = s.replace(/^[│ ]*[├└]?[─┄]* ?/, "");   // past the tree rails
+  ok(!/┄ +┄/.test(g), "a blank seam splits the leader run: '" + s + "'");
+  ok(!/ {2}/.test(g), "a double blank in the leader grid: '" + s + "'");
+  ok(!/┄\[|\]┄/.test(g), "a button abuts the leader, no breathing space: '" + s + "'");
+}
+//  A repo row (`meta`, no buttons) ┄-FILLS its whole button region: one run
+//  from the name all the way to the ahbeh/date column, never blanked.
+ok(/^meta ┄{40,} /.test(wtLine("meta")),
+   "the meta repo row blanks its button region: '" + wtLine("meta") + "'");
+
 //  --- the ahbeh buttons: behind '[-N]' salmon 'A', ahead '[+N]' salad 'G' ----
 function hasTagged(tag, text) {
   for (const t of toks) if (t.tag === tag && t.text === text) return true;
