@@ -29,7 +29,36 @@ EOF
 HAS=$("$JABC" "$WORK/ttyprobe.js" 2>/dev/null || echo err)
 [ "$HAS" = "yes" ] || { echo "universal: SKIP — jab has no tty binding (got '$HAS')" >&2; pass; }
 
-python3 "$_CASE/pager.py" "$JABC" "$BROWT" >"$WORK/u.out" 2>"$WORK/u.err" || {
+# --- the fixture worktree -------------------------------------------------
+# The pty/pipe legs must render REAL hunks, so they need a REAL worktree.  The
+# be/ source tree is NOT one on a CI runner (a plain git checkout, no `.be`
+# anchor): there every view renders empty and exits 0, so the pty sees no pager
+# frame and the pipe sees no bytes — the six FAILs this fixture removes.  Seed
+# our own instead: a project root (`.be/` anchor + `work/`, [/wiki/URI] steps
+# 1-2) with the `jsrc` shard symlink so the bareword verb scan finds the JS
+# tree, and `//UNI` under it — a couple of text files with known content,
+# `jab post`ed so the wtlog/store are live.  BE_ROOT ceilings the climb at the
+# scratch so nothing escapes to a real store.
+. "$_ROOT/lib/repo-setup.sh"
+SRC="$WORK/src"
+WORKD=$(rs_work_root "$SRC")
+ln -sfn "$BROWT" "$SRC/jsrc"
+BE_ROOT="$WORK"; export BE_ROOT
+FIX="$WORKD/UNI"
+mkdir -p "$FIX/.be" "$FIX/sub"
+printf 'alpha one\nbeta #UNIVERSAL two\ngamma three\n' > "$FIX/hello.txt"
+printf 'delta #UNIVERSAL four\n' > "$FIX/sub/notes.txt"
+( cd "$FIX" && "$JABC" post '#seed' ) >"$WORK/seed.out" 2>"$WORK/seed.err" || {
+    echo "--- seed stderr ---"; cat "$WORK/seed.err"; _fail "fixture post failed"; }
+# Sanity: the fixture must actually render — otherwise the legs below would
+# assert against silence (exactly the CI failure mode) and we would rather see
+# THIS loud message than six confusing pty FAILs.
+_LSRC=0; ( cd "$FIX" && "$JABC" ls ) >"$WORK/probe.out" 2>"$WORK/probe.err" || _LSRC=$?
+{ [ "$_LSRC" = 0 ] && [ -s "$WORK/probe.out" ]; } || {
+    echo "--- probe stderr ---"; cat "$WORK/probe.err"
+    _fail "fixture worktree renders nothing (jab ls rc=$_LSRC)"; }
+
+python3 "$_CASE/pager.py" "$JABC" "$FIX" >"$WORK/u.out" 2>"$WORK/u.err" || {
     echo "--- stderr ---"; cat "$WORK/u.err"
     echo "--- out ---";    cat "$WORK/u.out"; _fail "universal pager checks failed"; }
 grep -q '^DONE' "$WORK/u.out" || { echo "--- out ---"; cat "$WORK/u.out"; _fail "universal did not finish"; }

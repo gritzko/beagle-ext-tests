@@ -5,7 +5,12 @@
 # the inverse-video status bar ESC[7m, quit on 'q', exit 0) and through a pipe
 # (no raw frame, same content, exit 0).  Covers a content view (cat/grep, the
 # hunk sink) AND a columnar view (ls, the emit sink wrapped as one hunk).
-#   argv[1] = jab binary   argv[2] = the worktree (CWD for the be/-scan)
+#   argv[1] = jab binary   argv[2] = the FIXTURE worktree (CWD for the jsrc-scan)
+# argv[2] is a seeded scratch worktree (run.sh builds it: a `.be` anchor, a
+# posted hello.txt + sub/notes.txt, a `jsrc` shard symlink above it), NOT the
+# be/ source tree — on a CI runner the source tree is a plain git checkout with
+# no `.be` anchor, so every view there renders EMPTY and exits 0 (no pager frame
+# on the pty, no bytes on the pipe).  The fixture makes the case self-sufficient.
 import os, pty, select, sys, time, subprocess
 
 JAB = sys.argv[1]
@@ -62,8 +67,11 @@ def check(name, cond):
     print(("ok   " if cond else "FAIL ") + name)
     if not cond: fails += 1
 
-VIEWS = [("cat", ["cat", "cat:core/loop.js"]),
-         ("grep", ["grep", "grep:#JSQUE"]),
+# Targets live in the seeded fixture (run.sh): hello.txt carries the #UNIVERSAL
+# tag, sub/notes.txt carries it too (grep spans two hunks), and `ls` sees the
+# file + the sub/ dir.
+VIEWS = [("cat", ["cat", "cat:hello.txt"]),
+         ("grep", ["grep", "grep:#UNIVERSAL"]),
          ("ls",  ["ls"])]
 
 for label, args in VIEWS:
