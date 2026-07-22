@@ -203,7 +203,10 @@ sc_jget() {
         *'#'*) ;;
         *) _path=${_remote#file://}; _path=${_path#file:}
            _path=${_path%%\?*}; _path=${_path%/.be}
-           _tip=$(sc_tip "$_path" 2>/dev/null)
+           #  `|| true`: a bad/empty source wt has NO tip and sc_tip exits
+           #  non-zero; under `set -e` dash kills the caller there (ash/bash
+           #  do not) — an absent tip is a normal case, not a failure.
+           _tip=$(sc_tip "$_path" 2>/dev/null || true)
            case "$_tip" in
                ????????????????????????????????????????) _remote="${_remote}#${_tip}" ;;
            esac ;;

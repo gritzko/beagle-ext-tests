@@ -70,9 +70,19 @@ seed_baseline() {
 # TEST-003 fork_pair — copy $BASE into the JS side ($JS).  A jab-seeded baseline
 # is a self-contained COLOCATED primary (`.be` dir, store==wt), so `cp -a` is
 # enough — no reanchor (that was for native's store-redirect row-0, now retired).
+# PUT: `cp -a` is NOT portable for timestamps — busybox cp truncates mtime to
+# whole seconds while GNU coreutils cp keeps nanoseconds.  jab's baseline
+# stamp-set compares the FULL mtime, so a truncating copy makes every baseline
+# file look DIRTY and the case's outcome would depend on the host libc.
+# `touch -r` preserves sub-second mtime under BOTH busybox and GNU, so re-apply
+# the source timestamps explicitly, deepest-first (touching a child bumps its
+# parent dir's mtime).
 fork_pair() {
     JS="$WORK/js"; rm -rf "$JS"
     cp -a "$BASE" "$JS"
+    ( cd "$BASE" && find . -depth -print ) | while read -r _p; do
+        touch -r "$BASE/$_p" "$JS/$_p" 2>/dev/null || true
+    done
 }
 
 # JAB-003 put_both ARGS… — run `jab put ARGS` in $JS, capturing stdout/stderr,

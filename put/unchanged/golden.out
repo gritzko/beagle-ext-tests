@@ -1,6 +1,5 @@
 === stdout ===
 ?
-        put unchanged.txt
         put to-modify.txt
 
 === wtlog put rows ===
