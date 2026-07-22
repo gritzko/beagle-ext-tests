@@ -6,7 +6,15 @@
 # checks out.  Needs git + ssh-to-localhost (same transport as get/git).
 . "$(dirname "$0")/../../lib/getcase.sh"
 
+# Reaches ssh://localhost once scratch is under $HOME (true on CI runners and dev
+# boxes), so gate on ssh up-front — BE_TEST_NO_SSH=1 force-skips (CI; see
+# wire/lib/wirecase.sh), and a passwordless-ssh probe skips cleanly when sshd is
+# down.  Otherwise a refused connect FAILs the guard assertion instead of SKIPing.
+[ -z "${BE_TEST_NO_SSH:-}" ] || { echo "SKIP [traversal] BE_TEST_NO_SSH set"; exit 0; }
 command -v git >/dev/null 2>&1 || { echo "SKIP [traversal] no git"; exit 0; }
+command -v ssh >/dev/null 2>&1 || { echo "SKIP [traversal] no ssh"; exit 0; }
+ssh -o BatchMode=yes -o ConnectTimeout=4 localhost true >/dev/null 2>&1 \
+  || { echo "SKIP [traversal] no passwordless ssh to localhost"; exit 0; }
 
 # --- build the malicious repo via git plumbing (a `..` tree entry can NOT be
 # created from a checked-out worktree; mktree takes the name verbatim) --------

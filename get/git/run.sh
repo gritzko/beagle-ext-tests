@@ -5,7 +5,15 @@
 # git mod/new/del update.  Needs git + ssh-to-localhost (gated WITH_SSH).
 . "$(dirname "$0")/../../lib/getcase.sh"
 
+# This case reaches ssh://localhost once scratch is under $HOME (which holds on
+# CI runners and dev boxes alike), so gate on ssh up-front — BE_TEST_NO_SSH=1
+# force-skips (CI; see wire/lib/wirecase.sh), and a passwordless-ssh probe skips
+# cleanly when sshd is simply down.  Otherwise a refused connect FAILs, not SKIPs.
+[ -z "${BE_TEST_NO_SSH:-}" ] || { echo "SKIP [git] BE_TEST_NO_SSH set"; exit 0; }
 command -v git >/dev/null 2>&1 || { echo "SKIP [git] no git"; exit 0; }
+command -v ssh >/dev/null 2>&1 || { echo "SKIP [git] no ssh"; exit 0; }
+ssh -o BatchMode=yes -o ConnectTimeout=4 localhost true >/dev/null 2>&1 \
+  || { echo "SKIP [git] no passwordless ssh to localhost"; exit 0; }
 
 REPO="$WORK/repo"
 mkdir -p "$REPO"; cd "$REPO"

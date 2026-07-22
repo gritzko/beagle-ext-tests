@@ -9,6 +9,7 @@
 #  hermetic.  Needs git + ssh-to-localhost; SKIPs cleanly if src/git absent.
 . "$(dirname "$0")/../lib/wirecase.sh"
 
+wire_need_ssh
 wire_big_mirror "${GIT_TREADMILL_SRC:-/home/gritzko/src/git}"
 
 mkdir "$WORK/jT"

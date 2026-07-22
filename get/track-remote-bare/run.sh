@@ -15,6 +15,8 @@
 
 # wire prerequisites (the wirecase.sh idiom): git + passwordless ssh localhost
 # + scratch under $HOME (the ssh peer resolves HOME-relative).  SKIP, not FAIL.
+# BE_TEST_NO_SSH=1 force-skips ssh cases (CI); see wire/lib/wirecase.sh.
+[ -z "${BE_TEST_NO_SSH:-}" ] || { echo "SKIP [$NAME] BE_TEST_NO_SSH set"; exit 0; }
 command -v git >/dev/null 2>&1 || { echo "SKIP [$NAME] no git"; exit 0; }
 command -v ssh >/dev/null 2>&1 || { echo "SKIP [$NAME] no ssh"; exit 0; }
 case "$WORK" in "$HOME"/*) ;; *) echo "SKIP [$NAME] scratch not under \$HOME"; exit 0 ;; esac

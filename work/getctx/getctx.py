@@ -86,7 +86,7 @@ def session(name, rowkey, btn, expect, rm=None):
         os._exit(127)
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 220, 0, 0))
     s = Sess(fd, pid)
-    painted = s.wait_for(lambda o: b"[get]" in o and rowkey.encode() in o, 15)
+    painted = s.wait_for(lambda o: btn.encode() in o and rowkey.encode() in o, 15)
     check(name + " frame painted", painted)
     if painted:
         time.sleep(0.3); os.write(fd, b"\x1b")      # nudge a repaint at 220 cols
@@ -115,14 +115,17 @@ def session(name, rowkey, btn, expect, rm=None):
     try: os.close(fd)
     except OSError: pass
 
-# R1: [diff] on //PIN-1 — no `err:` on the status line after the click.
-session("R1-diff", "//PIN-1", "[diff]", [("err:", False)])
-# R2: refusal — //PIN-2's wt vanishes between paint and click; the mutation
+# WORK-010 relabelled the wt-row buttons: [diff]→[±] (compact diff), and the
+# get/pull O-invite is the behind-count [-N] (here [-1]; PIN-1/2 track ext one,
+# one commit behind the ext-two tip).  The rows it writes are unchanged (`get`).
+# R1: [±] (diff) on //PIN-1 — no `err:` on the status line after the click.
+session("R1-diff", "//PIN-1", "[±]", [("err:", False)])
+# R2: refusal — //PIN-2's wt vanishes between paint and click; the [-1] get
 # must refuse in plain words, not fall back to the launch tree.
-session("R2-refuse", "//PIN-2", "[get]", [("no worktree", True)],
+session("R2-refuse", "//PIN-2", "[-1]", [("no worktree", True)],
         rm=os.path.join(WORKD, "PIN-2"))
-# R3: [get] on //PIN-1 — the row's wt takes the mutation (files asserted by run.sh).
-session("R3-get", "//PIN-1", "[get]", [])
+# R3: [-1] get on //PIN-1 — the row's wt takes the mutation (files asserted by run.sh).
+session("R3-get", "//PIN-1", "[-1]", [])
 
 print("getctx sessions done" if fails == 0 else "getctx FAILS: %d" % fails)
 sys.exit(1 if fails else 0)

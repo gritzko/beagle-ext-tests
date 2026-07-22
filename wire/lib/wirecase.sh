@@ -110,11 +110,22 @@ wire_http_down() { _rc=$?; kill "$HPID" 2>/dev/null || true
 #  Sets PBARE (bare path), PREL (HOME-relative), PWT (the be worktree), PA (the
 #  seed sha A).  ssh-to-localhost + scratch-under-$HOME are REQUIRED (the keeper
 #  wire resolves HOME-relative); SKIP cleanly otherwise — never a false FAIL.
-wire_push_seed() {
+# wire_need_ssh: the ssh-transport preflight shared by every ssh:// case.
+# BE_TEST_NO_SSH=1 force-skips (CI runners have no passwordless ssh-to-localhost,
+# and the scratch-under-$HOME probe is unreliable there — the workspace itself
+# lives under $HOME).  Also SKIP if ssh is absent, scratch is not under $HOME
+# (the peer resolves HOME-relative), or the localhost handshake fails.  Never a
+# FAIL.  ssh_seed-based cases (no push peer) call this before their ssh:// use.
+wire_need_ssh() {
+  [ -z "${BE_TEST_NO_SSH:-}" ] || { echo "SKIP [$NAME] BE_TEST_NO_SSH set"; exit 0; }
   command -v ssh >/dev/null 2>&1 || { echo "SKIP [$NAME] no ssh"; exit 0; }
   case "$WORK" in "$HOME"/*) ;; *) echo "SKIP [$NAME] scratch not under \$HOME"; exit 0;; esac
   ssh -o BatchMode=yes -o ConnectTimeout=4 localhost true >/dev/null 2>&1 \
     || { echo "SKIP [$NAME] no passwordless ssh to localhost"; exit 0; }
+}
+
+wire_push_seed() {
+  wire_need_ssh
   PBARE="$WORK/peer.git"; PREL="${PBARE#$HOME/}"
   git init -q --bare -b master "$PBARE"
   git config -f "$PBARE/config" receive.denyCurrentBranch ignore

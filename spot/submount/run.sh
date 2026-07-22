@@ -16,6 +16,8 @@
 
 command -v git >/dev/null 2>&1 || { echo "SKIP: git not found" >&2; exit 0; }
 # TEST-003: the git-wire ingest is HOME-relative over ssh-to-localhost.
+# BE_TEST_NO_SSH=1 force-skips ssh cases (CI); see wire/lib/wirecase.sh.
+[ -z "${BE_TEST_NO_SSH:-}" ] || { echo "SKIP: BE_TEST_NO_SSH (ssh-to-localhost disabled)" >&2; exit 0; }
 command -v ssh >/dev/null 2>&1 \
     && ssh -o BatchMode=yes -o ConnectTimeout=5 localhost true >/dev/null 2>&1 \
     || { echo "SKIP: no ssh-to-localhost for the git-wire ingest" >&2; exit 0; }

@@ -5,6 +5,8 @@
 #  recorded tip is v1's sha.  Needs git + ssh-to-localhost; SKIPs otherwise.
 . "$(dirname "$0")/../../wire/lib/wirecase.sh"
 
+# BE_TEST_NO_SSH=1 force-skips ssh cases (CI); see wire/lib/wirecase.sh.
+[ -z "${BE_TEST_NO_SSH:-}" ] || { echo "SKIP [$NAME] BE_TEST_NO_SSH set"; exit 0; }
 command -v ssh >/dev/null 2>&1 || { echo "SKIP [$NAME] no ssh"; exit 0; }
 ssh -o BatchMode=yes -o ConnectTimeout=4 localhost true >/dev/null 2>&1 \
   || { echo "SKIP [$NAME] no passwordless ssh to localhost"; exit 0; }

@@ -107,6 +107,8 @@ miss() { grep -qE "$1" "$WORK/j.plain" && { echo "--- jab --plain ---"; cat -A "
 #
 # git_ssh_ok — YES iff git + a passwordless ssh-to-localhost are available.
 git_ssh_ok() {
+    # BE_TEST_NO_SSH=1 force-disables ssh-to-localhost cases (CI); see wirecase.sh.
+    [ -z "${BE_TEST_NO_SSH:-}" ] || return 1
     command -v git >/dev/null 2>&1 || return 1
     command -v ssh >/dev/null 2>&1 || return 1
     ssh -o BatchMode=yes -o ConnectTimeout=5 localhost true >/dev/null 2>&1

@@ -8,6 +8,7 @@
 . "$(dirname "$0")/../lib/wirecase.sh"
 
 wire_seed
+wire_need_ssh
 mkdir "$WORK/jT"
 ( cd "$WORK/jT" && "$JABC" get "ssh://localhost/$REL?tags/v1.0" ) \
   >"$WORK/c1.out" 2>"$WORK/c1.err" || { cat "$WORK/c1.err"; _fail "clone @v1.0 failed"; }

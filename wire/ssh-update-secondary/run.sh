@@ -9,6 +9,7 @@
 . "$(dirname "$0")/../lib/wirecase.sh"
 
 wire_seed
+wire_need_ssh
 #  A: primary ssh clone (owns the store at jA/.be, shard `repo`).
 mkdir "$WORK/jA"
 ( cd "$WORK/jA" && "$JABC" get "ssh://localhost/$REL" ) >"$WORK/jA.out" 2>"$WORK/jA.err" \
