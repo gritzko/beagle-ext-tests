@@ -79,6 +79,26 @@ _abs() {
 # oracle retired — jab is asserted intrinsically).  `jab bro` runs from $BROWT
 # (be-scan finds views/bro/bro.js); every file arg is ABSOLUTIZED, then the
 # volatile scratch path is folded to `WORK` so the golden is reproducible.
+# _bro_sort_dirs — `bro` lists a directory in raw readdir order (deliberately:
+# no sort in the hot render path), so the entry order is filesystem-dependent
+# and NOT reproducible across boxes/CI.  Sort ONLY the entry run under each
+# directory hunk banner (`hunk .../` or `hunk .../.`) — file bodies pass through
+# untouched — so the golden is deterministic (LC_ALL=C byte order).
+_bro_sort_dirs() {
+    LC_ALL=C awk '
+        function flush(   i, v, k) {
+            for (i = 2; i <= n; i++) { v = a[i]; k = i - 1;
+                while (k >= 1 && a[k] > v) { a[k+1] = a[k]; k-- } a[k+1] = v }
+            for (i = 1; i <= n; i++) print a[i]; n = 0
+        }
+        /^hunk .*\/\.?$/          { flush(); print; d = 1; next }   # dir banner
+        /^hunk / || /^=== / || /^$/ { flush(); d = 0; print; next } # file/section/blank
+        d                          { a[++n] = $0; next }            # a dir entry
+                                   { print }
+        END { flush() }
+    '
+}
+
 bro_eq() {
     _desc=$1; shift
     _abs_args=""
@@ -86,7 +106,7 @@ bro_eq() {
     # eslint: $_abs_args is intentionally word-split into one arg per path.
     _jrc=0; ( cd "$BROWT" && "$JABC" bro --plain $_abs_args ) \
         >"$WORK/j.out" 2>"$WORK/j.err" || _jrc=$?
-    { echo "=== $_desc (exit $_jrc) ==="; sed "s|$WORK|WORK|g" "$WORK/j.out"; } \
+    { echo "=== $_desc (exit $_jrc) ==="; sed "s|$WORK|WORK|g" "$WORK/j.out" | _bro_sort_dirs; } \
         >>"$_GSTREAM"
     echo "ok   $_desc"
 }

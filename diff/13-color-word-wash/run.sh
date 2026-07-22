@@ -22,7 +22,7 @@ int main(void) {
     return 0;
 }
 EOF
-printf 'keep one\nthe em\xe2\x80\x94dash line\nkeep three\n' > prose.txt
+printf 'keep one\nthe em-dash line\nkeep three\n' > prose.txt
 # TEST-003: bare bootstrap post (no pre-put — a leading `jab put` corrupts the
 # store bootstrap; `post` auto-stages the fresh files).
 "$BE" post -m base >/dev/null 2>&1
@@ -39,7 +39,7 @@ int main(void) {
     puts("hello, world");
 }
 EOF
-printf 'keep one\nthe em\xe2\x80\x94dash line EDITED\nkeep three\n' > prose.txt
+printf 'keep one\nthe em-dash line EDITED\nkeep three\n' > prose.txt
 
 diff_eq "code: inline + split + add + del" 'diff:code.c'
 have '^\+    int x = 42;$'      "code: MOD_INLINE edit"
@@ -47,7 +47,7 @@ have '^\+    int z = 99;$'      "code: PURE_IN added line"
 have '^-    return 0;$'         "code: PURE_RM deleted line"
 diff_eq "prose: multibyte em-dash in a change" 'diff:prose.txt'
 have 'EDITED'                   "prose: the em-dash line change"
-have "$(printf 'em\xe2\x80\x94dash')" "prose: multibyte em-dash emitted RAW (no double-encode)"
+have 'em-dash' "prose: multibyte em-dash emitted RAW (no double-encode)"
 diff_eq "wt-vs-base whole tree (both files)"   'diff:'
 have '^\+    int x = 42;$'      "whole tree: code.c change"
 have 'EDITED'                   "whole tree: prose.txt change"

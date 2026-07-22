@@ -21,19 +21,19 @@ int main(void) { return 42; }
 === dir-bare (exit 0) ===
 hunk WORK/src/.
 .dotfile
-nonl.txt
-sub/
 a.c
 b.js
+nonl.txt
 notes
+sub/
 === dir-slash (exit 0) ===
 hunk WORK/src/
 .dotfile
-nonl.txt
-sub/
 a.c
 b.js
+nonl.txt
 notes
+sub/
 === multi (exit 0) ===
 hunk WORK/src/a.c
 // a comment
@@ -50,11 +50,11 @@ hunk WORK/src/a.c
 int main(void) { return 42; }
 hunk WORK/src/.
 .dotfile
-nonl.txt
-sub/
 a.c
 b.js
+nonl.txt
 notes
+sub/
 hunk WORK/src/notes
 plain text, no extension
 === no-ext-file (exit 0) ===

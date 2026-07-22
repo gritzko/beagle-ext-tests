@@ -119,7 +119,10 @@ printf 'a2\n' > "$WT2/fileA.txt"
 WT_SAVE=$WT; WT=$WT2; _rows > "$WORK/plain.rows"; WT=$WT_SAVE
 # same quad rows (paths + quads), ignoring the differing commit-row sha/subject.
 _norm() { sed -E 's/\?[0-9a-f]+#.*$/?COMMIT/'; }
-diff <(_norm < "$WORK/post.rows") <(_norm < "$WORK/plain.rows") >/dev/null || {
+# POSIX: no process substitution (dash has none) — normalise to temp files.
+_norm < "$WORK/post.rows"  > "$WORK/post.rows.norm"
+_norm < "$WORK/plain.rows" > "$WORK/plain.rows.norm"
+diff "$WORK/post.rows.norm" "$WORK/plain.rows.norm" >/dev/null || {
     echo "--- patched ---"; cat "$WORK/post.rows"; echo "--- never-patched ---"; cat "$WORK/plain.rows"
     _fail "POST-post: patched wt not byte-par with a never-patched wt"
 }
