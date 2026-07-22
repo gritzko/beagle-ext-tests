@@ -64,7 +64,7 @@ rm -f "$S1"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
         echo "NO tail-append (logs $(ls "$B"/.be/*.keeper | wc -l)/$NLOGS)"
     fi
     echo "=== patch row ==="
-    grep -a $'\tpatch\t' "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
+    grep -a "$(printf '\tpatch\t')" "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
     echo "=== status ==="; _jstatus "$B"
     echo "=== file bytes ==="; _fbytes "$B" f.txt
 } | golden_assert "$NAME" "$GOLDEN"

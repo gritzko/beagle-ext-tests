@@ -72,7 +72,7 @@ rm -f "$ORG"/.be/*.keeper.idx
     echo "=== refuse dead wire (be://) ==="
     if grep -q "PATCHFETCH" "$WORK/e2"; then echo "refused loudly"; else
         echo "NO loud refusal: $(head -1 "$WORK/e2")"; fi
-    echo "rows=$(grep -ac $'\tpatch\t' "$W1/.be" || true)"
+    echo "rows=$(grep -ac "$(printf '\tpatch\t')" "$W1/.be" || true)"
     _fbytes "$W1" f.txt
     echo "=== refuse file:+query ===";   sed -n 1p "$WORK/e3"
 } | golden_assert "$NAME" "$GOLDEN"

@@ -97,7 +97,7 @@ _tip() { _orgtip .; }
 
 # the last `patch` wtlog row, ts-normalised (store-backed wt: .be IS the wtlog).
 _patch_row() {  # _patch_row WTDIR
-    grep -a $'\tpatch\t' "$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
+    grep -a "$(printf '\tpatch\t')" "$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
 }
 
 # JAB-003 merged worktree bytes for the case FILES: label + content per file

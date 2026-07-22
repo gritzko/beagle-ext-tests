@@ -88,7 +88,7 @@ EOF
 }
 
 _wtlog_post_row() {   # last post row of a side's wtlog (the `.be` redirect FILE)
-    grep -a $'\tpost\t' "$WORK/$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
+    grep -a "$(printf '\tpost\t')" "$WORK/$1/.be" 2>/dev/null | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
 }
 
 # JAB-003 fold the VOLATILE commit sha (`?#<40hex>` in a row, `?<8hex>#` in the

@@ -65,7 +65,7 @@ _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
 #  ps_patch_rows WT — ALL rows; ps_patch_row WT — the last.
 ps_patch_rows() {
     _w="$1/.be"; [ -d "$_w" ] && _w="$_w/wtlog"
-    grep -a $'\tpatch\t' "$_w" 2>/dev/null | sed -E 's/^[^\t]*\t/T\t/'
+    grep -a "$(printf '\tpatch\t')" "$_w" 2>/dev/null | sed -E 's/^[^\t]*\t/T\t/'
 }
 ps_patch_row() { ps_patch_rows "$1" | tail -1; }
 

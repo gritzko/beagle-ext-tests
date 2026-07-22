@@ -75,7 +75,7 @@ grep -q '<<<<' "$WT/f.txt" || _fail "no conflict markers written by the get-merg
 
 # a durable `con f.txt` row must be in the wtlog, append-only like `put`.  A
 # primary repo's wtlog is `.be/wtlog`; a store-backed secondary wt's is `.be`.
-grep -a $'\tcon\t' "$WT/.be/wtlog" "$WT/.be" 2>/dev/null | grep -q 'f\.txt' \
+grep -a "$(printf '\tcon\t')" "$WT/.be/wtlog" "$WT/.be" 2>/dev/null | grep -q 'f\.txt' \
     || _fail "no durable 'con f.txt' row in the wtlog"
 
 # status must show the conflict as `con`, NOT `mod`.

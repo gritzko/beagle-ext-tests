@@ -52,7 +52,7 @@ if ( cd "$B" && "$JABC" patch "file:$WORK/void/.be" ) \
 fi
 
 #  b is a PRIMARY wt (`.be/wtlog`); count/normalise its patch rows directly.
-_rows() { grep -ac $'\tpatch\t' "$B/.be/wtlog" 2>/dev/null || true; }
+_rows() { grep -ac "$(printf '\tpatch\t')" "$B/.be/wtlog" 2>/dev/null || true; }
 {
     echo "=== stdout ==="; cat "$WORK/js.out"
     echo "=== fetched ==="
@@ -65,7 +65,7 @@ _rows() { grep -ac $'\tpatch\t' "$B/.be/wtlog" 2>/dev/null || true; }
         echo "NO tail-append (logs $(ls "$B"/.be/*.keeper | wc -l)/$NLOGS)"
     fi
     echo "=== patch row ==="
-    grep -a $'\tpatch\t' "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
+    grep -a "$(printf '\tpatch\t')" "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'
     echo "rows=$(_rows)"
     echo "=== status ==="; _jstatus "$B"
     echo "=== file bytes ==="; _fbytes "$B" f.txt
