@@ -1,0 +1,55 @@
+#   test/mill — the manual treadmills ([TEST-004])
+
+Kernel-scale probes for the clone path, run BY HAND and never by `ctest`: `test/CMakeLists.txt` globs `*/*/run.sh` and this dir carries none, so `ninja test` never sees them. They take a repo as a URI ARGUMENT (a local mirror or github, the caller's choice) and cost tens of GB and tens of minutes at kernel scale. The JS port of `beagle/beagle/test/mill*.sh`, minus that family's hardcoded `$HOME/src/git`. Filed for [JAB-020]: the one-call `git.pack(fd, buf, shard, opts)` binding needs an end-to-end probe at the scale where a per-object JS boundary dies.
+
+Run them from the be/ worktree ROOT — `jab <script>` resolves the path against the `jsrc` shard, not `$PWD`:
+
+    jab test/mill/pack.js  $HOME/src/linux
+    jab test/mill/clone.js be:/srv/mirror/linux/.be
+    jab test/mill/tags.js  $HOME/src/linux --last 5
+
+`--help` on any of them prints the full option list. Scratch goes to `$MILL_TMP` or `$HOME/tmp` (ext4 — the store mmaps need it) and is deleted on exit unless `--keep`. Needs `git`, `rsync`, `timeout`, `du`, `rm`, `diff`.
+
+##  pack.js — the `git.pack` treadmill
+
+Fetches the repo with git, then repacks its pack THROUGH THE BINDING and checks what a repack must satisfy. The one script that exercises [JAB-020]'s binding directly, so it works before the clone path is converted to call it.
+
+ -  `git clone --bare <uri>` (a local source hardlinks its pack: free), `git repack -adq` only if that leaves more than one pack.
+ -  `git.pack(fd, buf, shard, {index, cap, every, onStep})` with `buf`/`index` from `io.ram`/`io._ram` — MAP_NORESERVE, never grown by the binding.
+ -  Asserts: `objects` == `git verify-pack`'s count, `raw+ofs+ref` == `objects`, `inBytes` == the pack minus its 20-byte trailer, every log under the cap, and REF deltas present whenever the run rotated.
+ -  `--mode both` (default) runs it twice — once off a FILE fd, once off a PIPE — and requires byte-identical logs, making [KEEP-006]'s "streaming changes nothing" a standing check rather than a one-off measurement.
+ -  `--cap 256M` forces rotation on a small repo, which is how the crossing-delta OFS→REF re-anchoring gets covered without a kernel.
+
+##  clone.js — one measured `jab get`
+
+Clones `<uri>` into a scratch worktree and reports wall clock, the ingesting jab's peak RSS (VmHWM off `/proc`), store bytes and worktree file count, then checks the tip against `git ls-remote HEAD` (or, with `--ref-clone`, rsync-compares the whole worktree against a real `git clone`).
+
+ -  A FAILED clone still prints its measurements: a baseline run against a repo the current path cannot ingest is a result, not a reason to discard the numbers.
+ -  This drives the CLI, so until [JAB-020] routes `get` through `git.pack` it measures the per-object JS loop — the baseline the conversion has to beat.
+
+##  tags.js — the tag treadmill
+
+Clones at the first tag, then walks the worktree tag by tag with `jab get <uri>?tags/<TAG>`, and after every hop `git checkout`s the same tag in a parallel `--no-checkout` clone and compares the two worktrees with `rsync -rlcni --delete`. Identical trees or the hop fails; a failed hop does not stop the walk, and the summary tallies every tag.
+
+ -  `--last N` (default 10) or `--tags v6.1,v6.2` — the kernel has ~900 tags and nobody walks them all.
+ -  be-then-git per hop, serialized: the shell original hit keeper SIGPIPEs when a reference checkout ran alongside the fetch.
+
+##  Transports, and which ones reach the kernel today
+
+`<uri>` goes to `jab get` untouched, so the treadmill reaches exactly as far as the clone path does. Worth knowing before blaming a script:
+
+ -  `https://…` rides a spawned curl whose whole response is buffered in the JS heap ([KEEP-006] §Blockers) — a >4 GiB body dies on `new Uint8Array`, so github cannot serve a kernel clone yet.
+ -  `be:/abs/store` and `file:/abs/store` are LOCAL beagle stores served by `jab upload-pack`; a vanilla git repo is not one.
+ -  `ssh://host/rel` serves a vanilla git repo through `git-upload-pack`, which is the transport the shell `mill-tags.sh` used — it needs an sshd.
+ -  A bare local git repo path is NOT a remote: `jab get <path>` reads it as a file to restore. That is why pack.js takes the pack out of git's hands instead of asking the wire for it.
+
+##  What the kernel is expected to do
+
+[KEEP-006] measured the libdog prototype over `linux.git` — the numbers pack.js should reproduce, and the reason the kernel and not a toy repo is the target:
+
+ -  6.33 GB pack, 11,690,992 objects, 3 logs at the 2 GiB cap, 2,198,136 raw / 7,886,869 OFS / 1,605,989 REF, ~12m20s per pass.
+ -  Piping the same pack instead of mapping it cost ~1.2% and produced byte-identical logs.
+
+[TEST-004]: ../../../todo/TEST/TEST-004.mkd "this ticket"
+[JAB-020]: ../../../todo/JAB/JAB-020.mkd "narrow the pack bindings to one repack call"
+[KEEP-006]: ../../../todo/KEEP/KEEP-006.mkd "cap a keeper log at 2 GiB; stream-ingest, never stored"
