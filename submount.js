@@ -132,5 +132,25 @@ eq(tu.path, "/vendor/sub", "trackUri path is the mount subpath");
 eq(tu.fragment, PIN, "trackUri fragment is the gitlink pin");
 ok(TRK.indexOf("/.") < 0, "trackUri never mints a dot-branch segment");
 
+//  --- (C) URI-015 gap: an scp `.gitmodules` url reaches intake as ssh:// ----
+//  Repro (gritzko, 2026-07-28): `jab get ssh://git@github.com/gritzko/beagle?main`
+//  died `SUBMOUNT cannot mount sub test — ulog._append: malformed uri` — the RAW
+//  scp url went on to ingest.clone, whose `refs` origin row the JS-103 native
+//  write gate refuses, so the child shard landed pack-only, with NO refs.
+const ulog = _req("shared/ulog.js");
+const scpwt = TMP + "/js-submount-scp-" + Date.now() + "-" + (Math.random() * 1e9 | 0);
+io.mkdir(scpwt);
+writeFile(scpwt + "/.gitmodules",
+  '[submodule "test"]\n\tpath = test\n\turl = git@github.com:gritzko/beagle-ext-tests.git\n');
+const SCP = submount.declaredUrl(scpwt, "test");
+eq(SCP, "ssh://git@github.com/gritzko/beagle-ext-tests.git",
+   "declaredUrl rewrites an scp .gitmodules url at intake (URI-015)");
+eq(submount.titleFromUrl(SCP), "beagle-ext-tests",
+   "the rewritten url still names the [Title]");
+//  The crash site itself: ingest's origin row must pass the ULOG write gate.
+ulog.write(scpwt + "/refs", [{ verb: "get", uri: SCP.replace(/\?.*/, "?") + "#" + PIN }]);
+let scprows = 0; ulog.each(scpwt + "/refs", function () { scprows++; });
+eq(scprows, 1, "the scp-derived origin row lands in the refs ULOG");
+
 function w(s){const u=utf8.Encode(s+"\n");const b=io.buf(u.length+8);b.feed(u);io.write(1,b);}
 w("PASS submount.js");
