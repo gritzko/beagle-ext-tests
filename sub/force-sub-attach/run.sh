@@ -4,8 +4,8 @@
 # one attached DIFFERENTLY (here DETACHED via `get ?<sha>` inside it) — and
 # checks each out at the parent's pinned hash.  Observed re-attach shape,
 # asserted below: the sub's `.be` anchor is REWRITTEN to redirect + the
-# parent-owned track row `//…/vendor/sub#<pin>` (DIS-072 pin-URI) — the old
-# detach record does not survive.
+# parent-owned track row `//…/vendor/sub#<pin>` (DIS-072 pin-URI) — the detach
+# row stays as history (append-only, SUBS-056), but no longer as the last get.
 . "$(dirname "$0")/../lib/subcase.sh"
 
 sc_build_parent
@@ -82,8 +82,11 @@ _got=$(cat "$T1/vendor/sub/lib.c")
 ROW=$(_lastget "$T1/vendor/sub")
 [ "$ROW" = "A=// P=/vendor/sub F=$SUBTIP1" ] \
     || _fail "get!: sub not re-attached to the parent pin row (got: $ROW)"
-grep -q "	get	#" "$T1/vendor/sub/.be" \
-    && _fail "get!: the old detach record survived the re-attach"
+# SUBS-056: wtlogs are append-only, so the old detach row survives as HISTORY;
+# narrowed to the LAST get row, which must not be a bare `#<sha>` detach record.
+case "$(grep "	get	" "$T1/vendor/sub/.be" | tail -n 1)" in
+    *"	get	#"*) _fail "get!: the last get row is still a detach record" ;;
+esac
 echo "ok   get! forced the detached sub onto the pin + re-attached ($ROW)"
 
 pass
