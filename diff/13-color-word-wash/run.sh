@@ -23,6 +23,9 @@ int main(void) {
 }
 EOF
 printf 'keep one\nthe em-dash line\nkeep three\n' > prose.txt
+# BRO-041: a symmetric one-byte token swap (`-[ ]` -> `-[x]`, rm_b 4 / in_b 4,
+# eq_b 16) must stay MOD_INLINE — ONE row, not an rm-row + in-row pair.
+printf -- '-[ ] uniform headers\n' > todo.mkd
 # TEST-003: bare bootstrap post (no pre-put — a leading `jab put` corrupts the
 # store bootstrap; `post` auto-stages the fresh files).
 "$BE" post -m base >/dev/null 2>&1
@@ -40,6 +43,7 @@ int main(void) {
 }
 EOF
 printf 'keep one\nthe em-dash line EDITED\nkeep three\n' > prose.txt
+printf -- '-[x] uniform headers\n' > todo.mkd
 
 diff_eq "code: inline + split + add + del" 'diff:code.c'
 have '^\+    int x = 42;$'      "code: MOD_INLINE edit"
@@ -48,6 +52,13 @@ have '^-    return 0;$'         "code: PURE_RM deleted line"
 diff_eq "prose: multibyte em-dash in a change" 'diff:prose.txt'
 have 'EDITED'                   "prose: the em-dash line change"
 have 'em-dash' "prose: multibyte em-dash emitted RAW (no double-encode)"
+diff_eq "todo: symmetric token swap stays inline" 'diff:todo.mkd'
+have '^\+-\[x\] uniform headers$' "todo: the marker swap"
+# BRO-041: the --color render must carry the swapped line on ONE row (rm+in
+# merged); the pre-fix in_b+rm_b metric split it into two.
+_rows=$(grep -c 'uniform' "$WORK/j.color" || true)   # SGR runs split the words
+[ "$_rows" = 1 ] || { cat -v "$WORK/j.color"; _fail "todo: MOD_INLINE expected ONE color row, got $_rows"; }
+
 diff_eq "wt-vs-base whole tree (both files)"   'diff:'
 have '^\+    int x = 42;$'      "whole tree: code.c change"
 have 'EDITED'                   "whole tree: prose.txt change"
