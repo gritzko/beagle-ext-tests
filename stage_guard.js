@@ -33,7 +33,8 @@ put(base + "/sentinel", "OUTSIDE\n");
 //  Minimal engine: no baseline tree, empty wtlog — classifyNamed reads only the
 //  wt scan + its raw arg, which is all this guard concerns.
 const beStub = { wt: wt };
-const wtlogStub = { baselineTip: function () { return null; }, rows: [],
+//  PATCH-024: prep() reads curTip (the base = last get/post), not baselineTip.
+const wtlogStub = { curTip: function () { return null; }, rows: [],
                     has: function () { return false; } };
 const storeStub = { commitTree: function () { return null; },
                     readTreeRecursive: function () {} };
