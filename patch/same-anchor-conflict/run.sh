@@ -2,23 +2,23 @@
 #  test/js/patch/same-anchor-conflict — `bin/patch.js` CONCURRENT edits at the
 #  SAME anchor on both branches, each over MULTIPLE commits (JS-052,
 #  history-sensitive parity gate).  Both sides insert/rewrite at the line after
-#  `b`; the weave's RGA tie-break (commit-id DESC) decides the in-frame order,
-#  so the fence ordering is a pure function of the real commit ids — the exact
-#  thing dog's WEAVEMerge must reproduce identically to native to pass.
+#  `b`; the weave's RGA tie-break (commit-id DESC) decides the token order, so
+#  the merged reading is a pure function of the real commit ids — the exact
+#  thing dog's WEAVEMerge must reproduce deterministically to pass.
 #
 #       T0 ── T1 ── T2           ← cur (trunk): two commits both editing line 2
 #         \
 #          F1 ── F2              ← ?feat: two commits both editing line 2
 #
 #  Both sides end with a DIFFERENT line-2 value at the same anchor → a true
-#  conflict.  The merged f.txt carries `<<<<`/`||||`/`>>>>` fences.  The clock
-#  is pinned (patchcase.sh: SOURCE_DATE_EPOCH) so the commit shas — and thus
-#  dog's RGA hash-order side ordering — are reproducible.
+#  conflict.  PATCH-025/DIS-080: f.txt carries both sides' tokens in RGA order,
+#  NO fences.  The clock is pinned (patchcase.sh: SOURCE_DATE_EPOCH) so the
+#  commit shas — and thus dog's RGA hash-order — are reproducible.
 #
 #  DOG-005 residual: native `be patch` runs graf's GRAFMergeWtFileTunable,
 #  which builds the OURS weave then lays theirs on as one edit → ours always
-#  framed first.  dog's symmetric WEAVEMerge orders sides by the commit-id
-#  RGA tie-break (hash-order, ruled CORRECT) → here theirs (X2) frames first.
+#  read first.  dog's symmetric WEAVEMerge orders sides by the commit-id
+#  RGA tie-break (hash-order, ruled CORRECT).
 #  So native and JS legitimately differ on side ORDER until graf retires;
 #  this case gates JS against the fixed dog golden, not native (patch_js_golden
 #  still asserts row + conf banner match native).  Converges with DOG-005.
@@ -42,8 +42,8 @@ build() {
     _ci 't2 line2=O2' f.txt
 }
 
-# JAB-003 golden snapshot: dog frames theirs (X2) before ours (O2) at this
-# anchor; the committed golden captures jab's verified fence order + banner.
+# JAB-003 golden snapshot: the committed golden captures jab's verified RGA
+# token order + banner (PATCH-025: markerless).
 # PATCH spec 2026-07-17: bang-less ?ref = whole missing line (URI bangs retired);
 # RED until the conflict non-zero exit lands
 PATCH_EXPECT=conflict

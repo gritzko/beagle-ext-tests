@@ -1,15 +1,15 @@
 #!/bin/sh
 #  test/patch/dirty-overlap — BE-010: a dirty wt edit that OVERLAPS theirs must
-#  report a CONTENT CONFLICT (`cnf`, fence markers), never a silent clobber.
-#  Mirrors native's overlap case: committed ours == base (clean), the wt carries
-#  an uncommitted line-3 edit, and theirs rewrites the SAME line-3 differently —
-#  a true overlap the 3-way weave fences with `<<<<`/`||||`/`>>>>`.
+#  report a CONTENT CONFLICT (`con` row + non-zero exit), never a silent clobber.
+#  Committed ours == base (clean), the wt carries an uncommitted line-3 edit and
+#  theirs rewrites the SAME line-3 differently.  PATCH-025/DIS-080: the overlap
+#  reads out as both sides' tokens in RGA order, with NO fence markers.
 #
 #       T0 ── (trunk, ours) : committed keep.txt = base  1/2/3/4
 #         \                    wt on disk (uncommitted) : 1/2/OURS/4  ← dirty
 #          F1  (?feat, theirs): committed keep.txt = 1/2/THEIRS/4     ← same line
 #
-#  Assert keep.txt fences the collision (`cnf`), the dirty bytes are NOT lost.
+#  Assert keep.txt carries BOTH sides (`con`) — the dirty bytes are NOT lost.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
 build() {

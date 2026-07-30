@@ -1,16 +1,16 @@
 #!/bin/sh
-# test/status/conflict — STATUS-005: a get-merge that leaves conflict markers in
-# a tracked file must land a durable `con` row in the wtlog (.be) AND be statused
-# `con` (red, the mis/del severity), NOT a plain yellow `mod` (indistinguishable
-# from an ordinary edit — the 2026-07-10 work/JS-117 incident).  Resolving the
-# markers (editing them away) degrades the file to ordinary `mod`.
+# test/status/conflict — STATUS-005: a get-merge that hits a conflict must land
+# a durable `con` row in the wtlog (.be) AND be statused `con` (red, the mis/del
+# severity), NOT a plain yellow `mod` (indistinguishable from an ordinary edit —
+# the 2026-07-10 work/JS-117 incident).
 #
 #       T0 ── (feat: F1 sets line2=X)      cur switches trunk->feat->trunk
 #  wt on trunk T0, dirty edit line2=Y, then `get ?#F1` weave-merges feat in:
-#  ours(Y) vs theirs(X) over base(b) diverge -> `<<<<`/`||||`/`>>>>` in f.txt.
+#  ours(Y) vs theirs(X) over base(b) diverge on the same anchor.
 #
-#  RED before the fix: `jab status` shows `mod f.txt` (yellow), no con row.
-#  GREEN after: `con f.txt` while the markers live; `mod f.txt` once resolved.
+#  PATCH-025/DIS-080: the merge writes the RGA LIVE reading (both sides' tokens
+#  in weave order) — NO `<<<<`/`||||`/`>>>>`.  A later hand edit re-stamps the
+#  file out of the get band, so it degrades to an ordinary `...v`.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/status/conflict
@@ -70,8 +70,10 @@ _jab get "?#$BOOT" >/dev/null 2>&1 || _fail "switch back to trunk"
 printf 'a\nY\nc\n' > "$WT/f.txt"
 _jab get "?#$F1" >/dev/null 2>&1 || true          # CONFMARK -> non-zero exit, ignore
 
-# the merge must have left a real conflict triple in the wt.
-grep -q '<<<<' "$WT/f.txt" || _fail "no conflict markers written by the get-merge"
+# PATCH-025: markerless — the merge leaves BOTH sides' tokens, no fences.
+if grep -q '<<<<' "$WT/f.txt"; then _fail "conflict fences written by the get-merge"; fi
+grep -q 'X' "$WT/f.txt" || _fail "theirs token missing from the merged f.txt"
+grep -q 'Y' "$WT/f.txt" || _fail "ours token missing from the merged f.txt"
 
 # a durable `con f.txt` row must be in the wtlog, append-only like `put`.  A
 # primary repo's wtlog is `.be/wtlog`; a store-backed secondary wt's is `.be`.
@@ -81,12 +83,12 @@ grep -a "$(printf '\tcon\t')" "$WT/.be/wtlog" "$WT/.be" 2>/dev/null | grep -q 'f
 # status must show the conflict as `con`, NOT `mod`.
 b=$(_bucket)
 [ "$b" = "!" ] || _fail "status shows f.txt wt char '$b', expected '!' (red conflict)"
-echo "ok: get-merge conflict statuses '...!' + durable wtlog row"
+echo "ok: markerless get-merge conflict statuses '...!' + durable wtlog row"
 
-# resolve the markers (edit them away) -> degrades to an ordinary edit `...v`.
+# a hand edit re-stamps out of the get band -> ordinary edit `...v`.
 printf 'a\nZ\nc\n' > "$WT/f.txt"
 b=$(_bucket)
-[ "$b" = "v" ] || _fail "resolved f.txt wt char '$b', expected 'v' (markers gone)"
-echo "ok: resolving the markers degrades '...!' -> '...v'"
+[ "$b" = "v" ] || _fail "hand-edited f.txt wt char '$b', expected 'v'"
+echo "ok: a hand edit degrades '...!' -> '...v'"
 
 echo "PASS [status/$NAME]"

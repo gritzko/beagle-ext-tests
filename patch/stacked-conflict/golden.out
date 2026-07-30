@@ -1,14 +1,16 @@
-=== stdout ===
+=== run 1 ===
 #56cfcde00bb3376e3f28d2bdf0d7be4d569df364
 01Jul16 ..v! f.txt
 
-=== patch row ===
-T	patch	#56cfcde00bb3376e3f28d2bdf0d7be4d569df364
+=== run 2 ===
+#2ad9d85f7496041b2564aa0cdc4496532ca0b172
+01Jul16 ..v! f.txt
+
 === status ===
 ..v! f.txt
 === file bytes ===
 --- f.txt ---
 -rw-------
 a
-YX
+YXZ
 c

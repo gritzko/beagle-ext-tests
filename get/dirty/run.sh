@@ -3,7 +3,7 @@
 # upstream ALSO changed must be 3-WAY MERGED (re-apply the user's uncommitted
 # edit onto the new tree), NOT clean-overwritten (silent loss).  GET.mkd intro:
 # GET resets the wt "maybe re-applying uncommitted changes".  POST-032: a
-# genuine conflict marks+records (exit 0, fences, plain-words state line).
+# genuine conflict marks+records (exit 0, both sides' bytes, plain-words line).
 # `be get!` discards (clean reset).
 . "$(dirname "$0")/../../lib/getrepro.sh"
 
@@ -52,9 +52,11 @@ rc=$(gr_jget "$WORK/A2" "?#$C2")               # theirs also edits l5 -> conflic
     _fail "D5/POST-032: a conflict must not hard-err (exit=$rc)"; }
 grep -q 'merged with conflicts' "$WORK/last.err" || { cat "$WORK/last.err"; \
     _fail "D5/POST-032: missing plain-words conflict state line"; }
-grep -q '<<<<' "$WORK/A2/f.txt" || { cat "$WORK/A2/f.txt"; \
-    _fail "D5: a conflict must leave merge markers in the wt"; }
+# PATCH-025/DIS-080: markerless — BOTH sides' tokens in RGA order, no fences.
+if grep -q '<<<<' "$WORK/A2/f.txt"; then cat "$WORK/A2/f.txt"; \
+    _fail "D5: a conflict must NOT leave merge fences in the wt"; fi
 grep -q 'MINE5' "$WORK/A2/f.txt" || _fail "D5: ours' side missing from conflict"
+grep -q 'L5' "$WORK/A2/f.txt" || _fail "D5: theirs' side missing from conflict"
 
 # ===== case B: be get! force-discards (clean reset) =====
 gr_jclone "$SRC" "$WORK/B"          # at c2 (f.txt l1..l4,L5)

@@ -1,10 +1,11 @@
 #!/bin/sh
 # test/get/conf-state — POST-032: a weave conflict on a pending edit is a
 # NORMAL merge outcome (ruling 2026-07-18), not a hard error: the get
-# completes, fences stay, ONE durable `con` row lands, exit is 0 and the
-# report says "merged with conflicts" in plain words (no GETCONF code).
-# A re-get over the unresolved fences adds NO second row and never
-# re-weaves fences into fences.  Self-contained on jab (confdrop shape).
+# completes, ONE durable `con` row lands, exit is 0 and the report says
+# "merged with conflicts" in plain words (no GETCONF code).  PATCH-025/DIS-080:
+# the merged bytes are the RGA live reading (both sides' tokens, NO fences), so
+# a re-get over the unresolved conflict adds NO second row and is a NO-OP on
+# the bytes (nothing to nest).  Self-contained on jab (confdrop shape).
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/get/conf-state
@@ -58,18 +59,23 @@ rc=0
 grep -q 'GETCONF' "$WORK/get.err" && fail "bare GETCONF code leaked to the user"
 grep -q 'merged with conflicts' "$WORK/get.err" || \
     { cat "$WORK/get.err"; fail "missing plain-words conflict state line"; }
-grep -q '<<<<' "$WT/conf.txt" || fail "conf.txt lacks conflict markers"
+# PATCH-025/DIS-080: markerless — BOTH sides' tokens, never a fence.
+if grep -q '<<<<' "$WT/conf.txt"; then cat "$WT/conf.txt"; fail "conf.txt carries conflict fences"; fi
 grep -q 'MINE' "$WT/conf.txt" || fail "ours' side missing from the conflict"
+grep -q 'THEIRS' "$WT/conf.txt" || fail "theirs' side missing from the conflict"
 grep -q '^NEW clean content$' "$WT/clean.txt" || fail "clean leaf dropped"
 [ "$(_conrows "$WT")" = 1 ] || fail "want ONE con row, got $(_conrows "$WT")"
 
-# ===== re-get over the UNRESOLVED fences: no dup row, no nested fences =====
+# ===== re-get over the UNRESOLVED conflict: no dup row, bytes untouched =====
+cp "$WT/conf.txt" "$WORK/conf.after1"
 rc=0
 ( cd "$WT" && "$JAB" get "?#$C2" ) >"$WORK/get2.out" 2>"$WORK/get2.err" || rc=$?
-[ "$rc" = 0 ] || { cat "$WORK/get2.err"; fail "re-get over fences hard-erred (exit=$rc)"; }
+[ "$rc" = 0 ] || { cat "$WORK/get2.err"; fail "re-get over the conflict hard-erred (exit=$rc)"; }
 [ "$(_conrows "$WT")" = 1 ] || fail "re-get stacked a duplicate con row ($(_conrows "$WT"))"
-[ "$(grep -c '<<<<' "$WT/conf.txt")" = 1 ] || \
-    { cat "$WT/conf.txt"; fail "re-get wove fences into fences"; }
+# PATCH-025: the markerless bytes re-weave to THEMSELVES — the old "no fences
+# in fences" assert; a duplicated/renested side would move them.
+cmp -s "$WORK/conf.after1" "$WT/conf.txt" || \
+    { cat "$WT/conf.txt"; fail "re-get re-wove the conflicted bytes"; }
 
 # ===== convergence: hand-resolve, re-get -> clean, resolution kept =====
 printf 'l1\nl2\nl3\nl4\nRESOLVED\n' > "$WT/conf.txt"

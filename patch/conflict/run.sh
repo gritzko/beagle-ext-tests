@@ -1,19 +1,17 @@
 #!/bin/sh
 #  test/js/patch/conflict — `bin/patch.js` cherry-pick with a TRUE content
 #  conflict (JS-052).  Both ours (T1) and theirs (F1) rewrite the SAME line
-#  differently, so the 3-way merge frames it with `<<<<`/`||||`/`>>>>`
-#  markers (left in the wt, like native — POST's POSTCFLCT is the net).
+#  differently.  PATCH-025/DIS-080: the merge writes the RGA LIVE reading of
+#  the merged weave — both sides' tokens in weave order, NO fence markers.
 #
 #       T0 ── T1          ← cur (trunk): T1 sets line 2 = Y
 #         \
 #          F1             ← ?feat: F1 sets line 2 = X
 #
-#  Asserts the fenced f.txt bytes, the `patch #<F1>` row, the `conf f.txt`
-#  status row, and the restamp all match native byte-for-byte.  The clock is
-#  pinned (patchcase.sh: SOURCE_DATE_EPOCH) so the commit shas — and the RGA
-#  fence side order they drive — are reproducible; at this single anchor dog's
-#  hash-order coincides with native's ours-first, so the native==JS differential
-#  holds (cf. same-anchor-conflict, where they diverge — DOG-005).
+#  Asserts the markerless f.txt bytes, the `patch #<F1>` row, the `con f.txt`
+#  status row and the restamp.  The clock is pinned (patchcase.sh:
+#  SOURCE_DATE_EPOCH) so the commit shas — and the RGA token order they drive —
+#  are reproducible run-to-run.
 . "$(dirname "$0")/../../lib/patchcase.sh"
 
 # TEST-003 jab-only DAG via patchcase.sh helpers (bootstrap post-alone, absolute
@@ -32,7 +30,7 @@ build() {
 }
 
 # JAB-003 golden snapshot (native oracle retired): a true content conflict
-# spells `cnf` in the banner AND stamps `cnf` in status — see golden.out.
+# spells `con` in the banner AND stamps `cnf` in status — see golden.out.
 # PATCH spec 2026-07-17: RED until the conflict non-zero exit lands
 PATCH_EXPECT=conflict
 patch_parity build '#@F1' f.txt

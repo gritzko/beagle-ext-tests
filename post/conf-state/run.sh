@@ -1,7 +1,7 @@
 #!/bin/sh
 # test/post/conf-state — POST-032: `post //B` onto a target whose pending
 # edit CONFLICTS completes per the bare-track ruling (2026-07-18): the weave
-# runs, fences stay in B with B's side inside, ONE durable `con` row lands
+# runs, B keeps BOTH sides' bytes (PATCH-025 markerless), ONE `con` row lands
 # in B's wtlog, and B's base ADVANCES (FF) — conflict is a reported STATE,
 # never a hard error, never a bare GETCONF code.  Overturns the POST-027
 # cell-4 refusal that test/post/wt-target-conflict still encodes.
@@ -71,8 +71,10 @@ rc=0
 grep -q 'GETCONF' "$WORK/post.err" && fail "bare GETCONF code leaked to the user"
 grep -q 'merged with conflicts' "$WORK/post.err" || \
     { cat "$WORK/post.err"; fail "missing plain-words conflict state line"; }
-grep -q '<<<<' "$WORKD/B/conf.txt" || fail "B/conf.txt lacks conflict markers"
+# PATCH-025/DIS-080: markerless — BOTH sides' tokens, never a fence.
+if grep -q '<<<<' "$WORKD/B/conf.txt"; then cat "$WORKD/B/conf.txt"; fail "B/conf.txt carries conflict fences"; fi
 grep -q 'MINE' "$WORKD/B/conf.txt" || fail "B's side missing from the conflict"
+grep -q 'THEIRS' "$WORKD/B/conf.txt" || fail "A's side missing from the conflict"
 B_BASE=$(_base "$WORKD/B")
 [ "$B_BASE" = "$A_TIP" ] || fail "B's base did not FF-advance (got $B_BASE want $A_TIP)"
 [ "$(_conrows "$WORKD/B")" = 1 ] || fail "want ONE con row in B, got $(_conrows "$WORKD/B")"

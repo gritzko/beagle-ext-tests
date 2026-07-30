@@ -63,8 +63,10 @@ rc=0
 grep -q 'merged with conflicts' "$WORK/get.err" || \
     { cat "$WORK/get.err"; fail "POST-032: missing plain-words conflict state line"; }
 [ "$(_conrows "$WT")" = 1 ] || fail "POST-032: want ONE con row, got $(_conrows "$WT")"
-grep -q '<<<<' "$WT/conf.txt" || fail "conf.txt lacks conflict markers"
+# PATCH-025/DIS-080: markerless — BOTH sides' tokens, never a fence.
+if grep -q '<<<<' "$WT/conf.txt"; then cat "$WT/conf.txt"; fail "conf.txt carries conflict fences"; fi
 grep -q 'MINE' "$WT/conf.txt" || fail "ours' side missing from the conflict"
+grep -q 'THEIRS' "$WT/conf.txt" || fail "theirs' side missing from the conflict"
 # THE GET-043 assert: the clean remote-changed leaf must be materialised.
 grep -q '^NEW clean content$' "$WT/later/clean.txt" || { \
     echo "--- later/clean.txt ---"; cat "$WT/later/clean.txt"; \

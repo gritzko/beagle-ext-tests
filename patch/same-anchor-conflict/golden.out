@@ -8,5 +8,5 @@ T	patch	?66abe1b6ee441a9876531d819651eff6e053b4d5
 --- f.txt ---
 -rw-------
 a
-<<<<O2||||X2>>>>
+O2X2
 c
