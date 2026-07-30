@@ -49,15 +49,11 @@ for (const p of ["own.txt", "keep.txt"])
   for (const s of [pat, mrg, cnf])
     ok(mtime(p) !== s, "unaffected " + p + " must not carry a band stamp");
 
-//  (b) an immediate classify reads the outcome BACK from the stamps, with
-//  ZERO content reads (io.open) on the clean-apply (pat) files.
+//  (b) an immediate classify reads the outcome BACK from the stamps.
+//  STATUS-017: the read-free guarantee is retired — the EXPECTED consult
+//  reads bytes by construction; the buckets are the contract now.
 const reader = store.open(info.storePath, info.project);
-const realOpen = io.open;
-const opened = [];
-io.open = function (p) { opened.push(String(p)); return realOpen.apply(io, arguments); };
-let res;
-try { res = classify.classify({ wt: info.wt }, wtl, reader); }
-finally { io.open = realOpen; }
+const res = classify.classify({ wt: info.wt }, wtl, reader);
 
 const buckets = {};
 for (const r of res.rows) buckets[r.path] = r.bucket;
@@ -66,9 +62,5 @@ eq(buckets["f-merge.txt"], "mrg", "status bucket for f-merge.txt");
 eq(buckets["f-conf.txt"], "con", "status bucket for f-conf.txt");
 eq(res.counts.mod, 0, "no band file degrades to mod");
 ok(res.counts.ok >= 2, "own.txt + keep.txt stay clean (count-only ok)");
-for (const p of PAT)
-  for (const o of opened)
-    ok(o.indexOf("/" + p) < 0 && o !== p,
-       "clean apply must be read-free: io.open(" + o + ") touched " + p);
 
 /* clean exit = GREEN */

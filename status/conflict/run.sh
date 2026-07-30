@@ -9,8 +9,8 @@
 #  ours(Y) vs theirs(X) over base(b) diverge on the same anchor.
 #
 #  PATCH-025/DIS-080: the merge writes the RGA LIVE reading (both sides' tokens
-#  in weave order) — NO `<<<<`/`||||`/`>>>>`.  A later hand edit re-stamps the
-#  file out of the get band, so it degrades to an ordinary `...v`.
+#  in weave order) — NO `<<<<`/`||||`/`>>>>`.  STATUS-017: the `con` row alone
+#  keeps it `...!`; a later hand edit no longer degrades it to `...v`.
 set -eu
 
 _CASE=$(cd "$(dirname "$0")" && pwd)             # test/status/conflict
@@ -85,10 +85,11 @@ b=$(_bucket)
 [ "$b" = "!" ] || _fail "status shows f.txt wt char '$b', expected '!' (red conflict)"
 echo "ok: markerless get-merge conflict statuses '...!' + durable wtlog row"
 
-# a hand edit re-stamps out of the get band -> ordinary edit `...v`.
+# STATUS-017 (DIS-080 §4): liveness is the `con` ROW, not the bytes — a hand
+# edit re-stamps out of the get band but does NOT resolve; only a post/get does.
 printf 'a\nZ\nc\n' > "$WT/f.txt"
 b=$(_bucket)
-[ "$b" = "v" ] || _fail "hand-edited f.txt wt char '$b', expected 'v'"
-echo "ok: a hand edit degrades '...!' -> '...v'"
+[ "$b" = "!" ] || _fail "hand-edited f.txt wt char '$b', expected '!' (con is row-scoped)"
+echo "ok: a hand edit keeps '...!' (resolution == posted)"
 
 echo "PASS [status/$NAME]"

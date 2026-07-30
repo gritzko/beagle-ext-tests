@@ -125,9 +125,9 @@ function counted(fn) {
   eq(buckets["gone.txt"], "mis", "B: mis row for gone.txt");
 }
 
-//  --- C. DIS-057 patch-band precedence over the fast path ------------------
-//  The `cnf` band slot IS the patch row ts — a wtlog stamp-set member.  The
-//  pStamp axis must route con/mrg BEFORE the stamp fast path, never ok.
+//  --- C. patch-band precedence over the fast path --------------------------
+//  STATUS-017: the cnf slot is RETIRED — a patch-ceiling mtime is a stamp
+//  MISS (content-read → mod); con needs a wtlog row.  mrg slot still routes.
 {
   const C = mkwt("C", [{ verb: "get", uri: "?master#" + COMMIT },
                        { verb: "patch", uri: "#" + THEIRS }]);
@@ -135,16 +135,18 @@ function counted(fn) {
   const leaves = [leaf("conf.txt", "base\n"), leaf("merged.txt", "base\n")];
   writeF(C.wt + "/conf.txt", "THEIRS<<<\n");     // modified vs ours-base
   writeF(C.wt + "/merged.txt", "woven\n");
-  io.setMtime(C.wt + "/conf.txt", P);                       // cnf slot (∈ stamp-set)
+  io.setMtime(C.wt + "/conf.txt", P);                       // retired cnf slot = stamp MISS
   io.setMtime(C.wt + "/merged.txt", ulog.ronStepMs(P, -1)); // mrg slot
   const res = counted(function () {
     return classify.classify({ wt: C.wt }, C.wtl, storeStub(leaves));
   });
   const buckets = {};
   for (const r of res.rows) buckets[r.path] = r.bucket;
-  eq(buckets["conf.txt"], "con", "C: cnf band stamp routes con, never fast-path ok");
+  //  STATUS-017: t is just a wtlog stamp-set member now (no flow stamps t);
+  //  the fast path claims it — clean-marker semantics, no row, counts ok.
+  eq(buckets["conf.txt"], undefined, "C: retired cnf slot joins the stamp fast path (no row)");
   eq(buckets["merged.txt"], "mrg", "C: mrg band stamp routes mrg");
-  eq(res.counts.ok, 0, "C: no band-stamped file collapses to ok");
+  eq(res.counts.ok, 1, "C: the t-stamped file counts ok (fast path), mrg does not");
 }
 
 //  clean exit = ctest GREEN; scrub the scratch.

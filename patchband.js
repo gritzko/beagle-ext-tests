@@ -1,6 +1,6 @@
 //  DIS-057 (REOPENED 2026-06-29): the patch stamp band must survive the
 //  filesystem mtime round-trip.  The patch verb stamps each merged file's
-//  mtime to a ron60 in a 3-stamp band (pat/mrg/cnf) and classify reads the
+//  mtime to a ron60 in a stamp band (pat/mrg; cnf retired, STATUS-017) and classify reads the
 //  band back; if a band stamp is not a VALID ron60 it stamps as epoch-0 and
 //  the read misses → the file falls through to `mod` (the headline `pat`
 //  regression).  ron60 is NOT a linear count: its low 12 bits are a PACKED
@@ -91,7 +91,8 @@ for (const bm of [0, 100, 998, 999]) {
     const base = craft(bm, ss, 59);
     eq(bandHit(base, "pat"), "pat", "pat band miss at bm=" + bm + " ss=" + ss);
     eq(bandHit(base, "mrg"), "mrg", "mrg band miss at bm=" + bm + " ss=" + ss);
-    eq(bandHit(base, "cnf"), "cnf", "cnf band miss at bm=" + bm + " ss=" + ss);
+    //  STATUS-017: cnf slot retired — conflict liveness is the con ROW.
+    eq(bandHit(base, "cnf"), undefined, "cnf slot must be unregistered at bm=" + bm + " ss=" + ss);
   }
 }
 
