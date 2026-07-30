@@ -4,6 +4,8 @@
 //  Legs: con only, con+post, con+get, multi-patch dups, con after a barrier,
 //  non-barriers (patch/put/delete/a wt-relative scoped get row) and a
 //  sub re-attach address row (`//wt/sub#sha`) which IS a barrier.
+//  DIS-080 §4 (amended): a put/delete row LATER than a con row for the SAME
+//  path acks it; an older put does not, and a later con re-registers.
 "use strict";
 
 const { eq, ok } = require("./lib/assert.js");
@@ -120,6 +122,53 @@ const CON = (p) => ({ verb: "con", uri: p });
   const r = fixture([{ verb: "get", uri: "?main#" + A }]);
   const c = r.conflicts();
   ok(Array.isArray(c) && c.length === 0, "I: empty array");
+})();
+
+//  --- leg J: DIS-080 §4 — a `put` LATER than the con row resolves it -----
+(function () {
+  const r = fixture([{ verb: "get", uri: "?main#" + A },
+                     CON("src/a.c"), CON("src/b.c"),
+                     { verb: "put", uri: "src/a.c" }]);
+  const c = r.conflicts();
+  eq(c.length, 1, "J: the put acked src/a.c");
+  eq(c[0], "src/b.c", "J: the un-acked path stays live");
+})();
+
+//  --- leg K: a `delete` LATER than the con row resolves it too ----------
+(function () {
+  const r = fixture([{ verb: "get", uri: "?main#" + A },
+                     CON("src/a.c"),
+                     { verb: "delete", uri: "src/a.c" }]);
+  eq(r.conflicts().length, 0, "K: a delete acks the conflict");
+})();
+
+//  --- leg L: a `put` BEFORE the con row acks nothing (row order) --------
+(function () {
+  const r = fixture([{ verb: "get", uri: "?main#" + A },
+                     { verb: "put", uri: "src/a.c" },
+                     CON("src/a.c")]);
+  const c = r.conflicts();
+  eq(c.length, 1, "L: an older put is no ack");
+  eq(c[0], "src/a.c", "L: still live");
+})();
+
+//  --- leg M: con → put → con — the NEW conflict re-registers ------------
+(function () {
+  const r = fixture([{ verb: "get", uri: "?main#" + A },
+                     CON("src/a.c"),
+                     { verb: "put", uri: "src/a.c" },
+                     { verb: "patch", uri: "?" + B }, CON("src/a.c")]);
+  const c = r.conflicts();
+  eq(c.length, 1, "M: live again after the second con");
+  eq(c[0], "src/a.c", "M: the re-registered path");
+})();
+
+//  --- leg N: a path-less `put ?br` (branch fork) acks nothing -----------
+(function () {
+  const r = fixture([{ verb: "get", uri: "?main#" + A },
+                     CON("src/a.c"),
+                     { verb: "put", uri: "?feat" }]);
+  eq(r.conflicts().length, 1, "N: a label-only put is no ack");
 })();
 
 //  cleanup

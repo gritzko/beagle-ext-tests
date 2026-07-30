@@ -136,10 +136,10 @@ if ( cd "$JS" && "$JABC" post 'absorb feat (conf)' ) >"$WORK/c.out" 2>"$WORK/c.e
     _fail "post of a conflicted absorb should REFUSE (conflict marker):
 $(cat "$WORK/c.out")"
 fi
-grep -q "conflict marker in tracked file f.txt" "$WORK/c.err" \
-    || _fail "expected the conflict-marker refusal naming f.txt, got:
+grep -q "conflict in tracked file f.txt" "$WORK/c.err" \
+    || _fail "expected the conflict refusal naming f.txt, got:
 $(cat "$WORK/c.err")"
-echo "ok: post REFUSES a conflict-marked (con) absorb (conflict-marker refusal)"
+echo "ok: post REFUSES a conflicted (con) absorb (row-based refusal)"
 ( cd "$JS" && "$JABC" post --force 'absorb feat (forced)' ) >"$WORK/cf.out" 2>"$WORK/cf.err" \
     || _fail "post --force of a conflict FAILED: $(cat "$WORK/cf.err")"
 # BRO-030: the PRE-post state of a forced conflict absorb is `..v!` (the wt char
