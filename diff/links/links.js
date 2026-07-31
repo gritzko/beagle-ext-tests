@@ -19,22 +19,24 @@ const diff = require("views/diff/diff.js");
 //  `diff:` uri re-baked to the word spell `diff <uri>`) BEFORE withUTarget runs.
 const navlib = require("shared/nav.js");
 
-//  --- build ONE real diff hunk via the weave bindings (the diffFile path) ----
+//  --- build ONE real diff hunk via the CFOLD bindings (the diffFile path) ----
 //  base `f.c` -> edited `f.c`: a single changed middle line, so emitDiff yields
 //  one windowed hunk with the `diff:f.c?<navver>#L1` uri the view navigates to.
+//  DIS-082: two layers folded in a chain — the second names the first in its
+//  ANCESTOR closure — and the emit takes the two commit HASHLETS (visibility is
+//  stored per commit now, so the old scope bitmaps are gone).
 const FROM = utf8.Encode("alpha\nbeta\ngamma\n");
 const TO   = utf8.Encode("alpha\nBETA\ngamma\n");
 const NAVVER = "0000aaaa..0000bbbb";
+const REV_A = "0000000000000001", REV_B = "0000000000000002";
 
-const wA = abc.ram("WEAVE", 1 << 18);
-const wB = abc.ram("WEAVE", 1 << 18);
-wA.fold(null, FROM, "c", "0000000000000001");
-wB.fold(wA, TO, "c", "0000000000000002");
-const fromScope = wB.scope(["0000000000000001"]);
-const toScope = wB.scope(["0000000000000001", "0000000000000002"]);
+const wA = abc.ram("CFOLD", 1 << 18);
+const wB = abc.ram("CFOLD", 1 << 18);
+wA.fold(null, FROM, "c", REV_A, []);
+wB.fold(wA, TO, "c", REV_B, [REV_A]);
 
 const hd = abc.ram("HUNK", 1 << 18);
-wB.emitDiff(fromScope, toScope, "f.c", NAVVER, hd);
+wB.emitDiff(REV_A, REV_B, "f.c", NAVVER, hd);
 
 //  Grab the (single) hunk record's uri / text / toks + its baseline plain.
 hd.rewind();
