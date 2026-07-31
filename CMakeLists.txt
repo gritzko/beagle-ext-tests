@@ -81,6 +81,12 @@ foreach(_sm wire-ssh-clone wire-ssh-update wire-ssh-incremental
     endif()
 endforeach()
 
+#  CFOLD-001: the EXPECTED-cost repro builds a 16-commit trunk + two clones +
+#  two absorbs (≈50 jab spawns) — spawn-bound, so it needs more than the 10 s.
+if (TEST be-js-status-cfold)
+    set_tests_properties(be-js-status-cfold PROPERTIES TIMEOUT 60)
+endif()
+
 #  WORK-002 pty click sessions (three pty.fork pagers + settle sleeps): 60 s.
 if (TEST be-js-work-getctx)
     set_tests_properties(be-js-work-getctx PROPERTIES TIMEOUT 60)

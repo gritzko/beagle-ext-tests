@@ -1,0 +1,12 @@
+..vv both.txt
+..v. deep/dir/noise.txt
+..vv f1.txt
+..vv f2.txt
+..vv f3.txt
+..vv f4.txt
+=== buckets ===
+mrg both.txt
+pat f1.txt
+pat f2.txt
+pat f3.txt
+pat f4.txt
