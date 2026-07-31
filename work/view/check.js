@@ -198,8 +198,9 @@ ok(visible.indexOf("//PIN-1 ┄") >= 0, "the //PIN-1 row lacks its dotted leader
 }
 
 //  --- WORK-006: the grid closes up with ┄ leaders --------------------------
-//  Absent button slots ┄-fill (not blanks) and short subjects ┄-pad to 30, so
-//  [done]/[dont] land at ONE column on every wt row.
+//  Absent button slots ┄-fill (not blanks).  BRO-036 (bad-trim verdict): the
+//  subject is UNTRIMMED and UNPADDED producer bytes — the elastic `B` span the
+//  pager alone …-cuts / space-pads, so [done] alignment is the pager's job now.
 function wtLine(key) {
   for (const s of visible.split("\n")) if (s.indexOf(key + " ") >= 0) return s;
   return "";
@@ -215,16 +216,14 @@ for (const key of ["//FOR-4", "//TRK-5"]) {
   ok(ki >= 0 && hi > ki && s.slice(ki + key.length, hi).indexOf("┄") >= 0,
      key + " (non-ticket) lacks a ┄-padded absent [?] slot before [±]");
 }
-//  [done] lands at ONE visible column on EVERY wt row (short subjects ┄-pad).
+//  BRO-036: [done] rides every wt row, one space after the full subject (its
+//  producer COLUMN varies by subject length; the pager flush-rights it).
 {
-  let doneCol = -1, seen = 0;
+  let seen = 0;
   for (const s of visible.split("\n")) {
     const d = s.indexOf("[done]");
     if (d < 0) continue;
     seen++;
-    const col = Array.from(s.slice(0, d)).length;
-    if (doneCol < 0) doneCol = col;
-    else if (col !== doneCol) fail("[done] column drifts: " + col + " vs " + doneCol);
   }
   ok(seen >= 3, "expected [done] on several wt rows, saw " + seen);
 }

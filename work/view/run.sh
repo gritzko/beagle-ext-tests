@@ -3,8 +3,9 @@
 # tree hunks (main-tree-tracking / branch-tracking / remote-tracking; an empty
 # hunk is ABSENT), Unicode box-drawing rails, every wt hung under what it
 # TRACKS, ahead/behind counts vs the TRACKED ref.  WORK-004 row form:
-# `//KEY ┄┄┄  [diff] [post]  [+N][-N]  <time5> #<hashlet8> <subject≤30>
-# [done] [dont]` — [get] retired; the ahbeh counts ARE buttons (`[+N]` mints
+# `//KEY ┄┄┄  [diff] [post]  [+N][-N]  <time5> #<hashlet8> <subject>
+# [done] [dont]` — BRO-036: the subject is the UNTRIMMED elastic `B` span (the
+# pager sizes it; no producer pad); [get] retired; the ahbeh counts ARE buttons (`[+N]` mints
 # bare post, `[-N]` bare get); the rails+name column dotted-pads to KEYW=32 and
 # the slots are fixed, so every column aligns view-wide (r2); plain chrome-free.
 # [done]/[dont] move the wt into work/done/ (the r2 discard root, IGNORED by
@@ -216,7 +217,7 @@ file:$MTIL/vend/ext/.be
 └── feature
     └┄┄ //BR-2 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄      +1 DDMMM #$(h "$SHA2") ext two
 file:$MTIL/vend/ext/deep/.be
-└┄┄ //DET-3 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$DSHA") deep one with a very long subj
+└┄┄ //DET-3 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄         DDMMM #$(h "$DSHA") deep one with a very long subject line
 
 work
 file:$WTIL/foreign/.be  remote
