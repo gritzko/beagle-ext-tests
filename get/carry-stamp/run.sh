@@ -7,7 +7,9 @@
 # fast path reads the file CLEAN vs the NEW base — status + bare `diff` HIDE the
 # dirt while a targeted `diff <file>` shows it, and a post would silently drop it.
 # RULING 2026-07-19: get restamps carried/woven outputs into the DIS-057 band
-# under its row ceiling (mrg = ceil-1ms → `...v`); classify buckets by offset.
+# under its row ceiling (mrg = ceil-1ms); classify buckets by offset.  RULING
+# GET-053 (gritzko 2026-08-01): the STAGED list also survives any bare get, so
+# the carried f.txt reads STAGED-dirty `...V` — only `get!` demotes it.
 # RED before the fix: post-get `status` + bare `diff` are EMPTY for f.txt.
 . "$(dirname "$0")/../../lib/getrepro.sh"
 
@@ -40,11 +42,12 @@ rc=$(gr_jget "$WORK/wt" "?#$C2")
 [ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "advancing get exit=$rc"; }
 gr_file_is "$WORK/wt/f.txt" "FFF-EDIT"
 
-# 1. status: the carried f.txt reads the wt-advanced quad `...v` (real dirt vs
-#    the new base) — RED today (empty: the stale put stamp false-cleans it).
+# 1. status: the carried f.txt reads the STAGED wt-advanced quad `...V` (real
+#    dirt vs the new base, staging intact across the FF get — GET-053) — RED
+#    at GET-050 filing (empty: the stale put stamp false-cleans it).
 ( cd "$WORK/wt" && "$JABC" status ) > "$WORK/st.out" 2>&1 || true
-grep -qE '\.\.\.v f\.txt' "$WORK/st.out" || { echo "--- status ---"; \
-    cat "$WORK/st.out"; _fail "carried f.txt not dirty after get (hidden by stale put stamp)"; }
+grep -qE '\.\.\.V f\.txt' "$WORK/st.out" || { echo "--- status ---"; \
+    cat "$WORK/st.out"; _fail "carried f.txt not STAGED-dirty after get (\`...V\`)"; }
 
 # 2. bare diff LISTS f.txt (the classifier must bucket it, not skip it clean).
 ( cd "$WORK/wt" && "$JABC" diff ) > "$WORK/df.out" 2>&1 || true

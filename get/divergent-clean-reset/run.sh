@@ -1,15 +1,12 @@
 #!/bin/sh
-# test/get/divergent-clean-reset — GET-048 × GET.mkd intro+§4 (edited
-# 2026-07-17): get "never changes history — only resets the worktree to a
-# chosen version"; ONLY uncommitted changes are carried by weave.  So a
-# DIVERGENT get over a CLEAN tree is a PLAIN RESET to the target: the locally
-# COMMITTED delta must NOT be replayed as pending mods (no mrg rows, status
-# clean after), tracking re-points to the target, and the abandoned local
-# head stays resolvable by hash (`jab commit '?<sha>'` — the explicit
-# `patch '#<sha>'` route recovers it).
-# RED at GET-048 filing: leaf() judges dirty against the MERGE-BASE blob
-# (basePaths), so the committed a.txt delta reads dirty → `mrg a.txt`, the wt
-# keeps A2, and status reports `mod a.txt` on what should be a clean reset.
+# test/get/divergent-clean-reset — GET-053 (gritzko 2026-08-01): a DIVERGENT
+# target is off cur's line, so the switch takes the bang — and `get!` is a
+# PLAIN RESET to the target: the locally COMMITTED delta must NOT be replayed
+# as pending mods (no mrg rows, status clean after), tracking re-points to the
+# target, and the abandoned local head stays resolvable by hash
+# (`jab commit '?<sha>'` — the explicit `patch '#<sha>'` route recovers it).
+# The bare form of this get is refused (test/get/line-diverged); everything
+# below is what the forceful door must deliver once you walk through it.
 . "$(dirname "$0")/../../lib/getrepro.sh"
 
 # Common base c1 in a shared local store (a local jclone REDIRECTS to the
@@ -39,9 +36,10 @@ printf 'B2\n' > b.txt
 CU=$(gr_tip_sha "$WORK/jU")
 [ -n "$CL" ] && [ -n "$CU" ] && [ "$CL" != "$CU" ] || _fail "L/U fork setup"
 
-# The divergent get: wt CLEAN at CL, target ?U.  Spec: plain reset.
-rc=$(gr_jget "$WORK/jL" '?U')
-[ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get ?U exit=$rc"; }
+# The divergent get: wt CLEAN at CL, target ?U.  Spec: `get!` = plain reset.
+rc=0
+( cd "$WORK/jL" && "$JABC" get! '?U' ) >"$WORK/last.out" 2>"$WORK/last.err" || rc=$?
+[ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get! ?U exit=$rc"; }
 
 # 1. the checkout IS the target tree: the committed A2 delta is GONE from the
 #    wt (it lives on in the CL commit), the target's B2 landed.

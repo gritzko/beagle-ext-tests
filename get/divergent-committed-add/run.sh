@@ -1,7 +1,7 @@
 #!/bin/sh
-# test/get/divergent-committed-add — GET-048 (the work/ABC-016 `del
-# test/EXIT.c` incident) × GET.mkd intro (edited 2026-07-17): the local
-# commit ADDS z.txt, the target branch NEVER had it, then a divergent get.
+# test/get/divergent-committed-add — GET-053 (the work/ABC-016 `del
+# test/EXIT.c` incident): the local commit ADDS z.txt, the target branch
+# NEVER had it, then a divergent `get!` (bare is refused, GET-053).
 # The checkout resets to the target (z.txt leaves the wt — it lives on in
 # the CL commit), but the file must NEVER be reported as an upstream `del`:
 # the target never knew it, so a `del z.txt` row is a lie under any reading
@@ -37,9 +37,11 @@ printf 'A2\n' > a.txt
 CU=$(gr_tip_sha "$WORK/jU")
 [ -n "$CL" ] && [ -n "$CU" ] && [ "$CL" != "$CU" ] || _fail "L/U fork setup"
 
-# The divergent get over a CLEAN tree holding the committed add.
-rc=$(gr_jget "$WORK/jL" '?U')
-[ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get ?U exit=$rc"; }
+# The divergent get over a CLEAN tree holding the committed add — GET-053:
+# off cur's line, so the bang is the door (bare is refused, line-diverged).
+rc=0
+( cd "$WORK/jL" && "$JABC" get! '?U' ) >"$WORK/last.out" 2>"$WORK/last.err" || rc=$?
+[ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get! ?U exit=$rc"; }
 
 # 1. the checkout IS the target tree: z.txt left the wt, a.txt is A2.
 [ ! -e "$WORK/jL/z.txt" ] || _fail "reset left z.txt (target never had it)"

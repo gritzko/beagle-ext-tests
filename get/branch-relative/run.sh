@@ -12,7 +12,20 @@
 #   get '?./child' -> rc=1 "JS exception: be get: cannot resolve ?./child"
 #   get '?../sib'  -> rc=1 "JS exception: be get: cannot resolve ?../sib"
 #   get '?feat/child' / '?feat/sib' -> rc=0 (absolute forms fine).
+#
+# GET-053 (gritzko 2026-08-01): `?feat/child` and `?feat/sib` are SIBLINGS, so
+# a hop between them is a DIVERGED switch — off cur's line, hence forceful.
+# The subject here is dot-path RESOLUTION, not history shape: the sibling hops
+# take the bang, every `?./` / `?../` assertion stays exactly as it was.
 . "$(dirname "$0")/../../lib/getrepro.sh"
+
+# gr_jget's forceful twin (`get!`) — the sibling hops only.
+jgetf() {
+    _d=$1; shift
+    _rc=0
+    ( cd "$_d" && "$JABC" get! "$@" ) >"$WORK/last.out" 2>"$WORK/last.err" || _rc=$?
+    printf '%s\n' "$_rc"
+}
 
 SRC=$(gr_src src)
 C1=$(gr_tip_sha "$SRC")
@@ -45,7 +58,7 @@ SBTIP=$(gr_tip_sha "$WORK/jT")
 
 # fixture sanity: the ABSOLUTE spellings resolve (so a relative failure below
 # is the dot-path gap, not a missing ref).
-rc=$(gr_jget "$WORK/jT" '?feat/child')
+rc=$(jgetf "$WORK/jT" '?feat/child')      # GET-053: sibling hop -> forceful
 [ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "absolute ?feat/child exit=$rc"; }
 rc=$(gr_jget "$WORK/jT" '?feat')
 [ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get ?feat exit=$rc"; }
@@ -57,7 +70,7 @@ gr_file_is "$WORK/jT/ch.txt" "CH"
 gr_wtlog_has "$WORK/jT" "child#$CHTIP"
 
 # --- 2. `?../sib` from ?feat/child enters the sibling feat/sib ---------------
-rc=$(gr_jget "$WORK/jT" '?../sib')
+rc=$(jgetf "$WORK/jT" '?../sib')          # GET-053: sibling hop -> forceful
 [ "$rc" = 0 ] || { cat "$WORK/last.err"; _fail "get ?../sib exit=$rc"; }
 gr_file_is "$WORK/jT/sb.txt" "SB"
 [ ! -e "$WORK/jT/ch.txt" ] || _fail "?../sib left ch.txt (a feat/child-only file)"
