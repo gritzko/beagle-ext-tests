@@ -1,0 +1,16 @@
+=== stdout ===
+?
+        put sub/deep.txt
+        put unt.txt
+
+?
+        put +
+
+=== wtlog put rows ===
+=== refs rows ===
+=== file set ===
+./+
+./a.txt
+./sub/deep.txt
+./sub/s.txt
+./unt.txt

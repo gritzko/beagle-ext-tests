@@ -92,19 +92,25 @@ try {
 
 const longRow = rows.filter(function (r) { return r.indexOf("ELS-1") >= 0; })[0] || "";
 const shortRow = rows.filter(function (r) { return r.indexOf("ELS-2") >= 0; })[0] || "";
-//  RED pre-fix: the long row hard-clips at 40 — no `…`, `[done]` eaten.
+//  RED pre-fix: the long row hard-clips at 40 — no `…`, the panel eaten.
+//  TODO-005: the trailing `[done]` label is now the two-button panel `[ ✔  ✗]`;
+//  it is still the flush-right tail the elastic title sizes itself against.
+const PANEL = "[ ✔  ✗]";
 check("long-row-ellipsis", longRow.indexOf("…") >= 0);
-check("long-row-keeps-done", longRow.indexOf("[done]") >= 0);
+check("long-row-keeps-done", longRow.indexOf(PANEL) >= 0);
 check("long-row-width-cols", width(longRow) === COLS);
-check("long-row-done-flush", longRow.slice(-6) === "[done]");
-//  RED pre-fix: the short row ends short of cols — `[done]` not flush right.
+check("long-row-done-flush", longRow.slice(-PANEL.length) === PANEL);
+//  RED pre-fix: the short row ends short of cols — the panel not flush right.
 check("short-row-width-cols", width(shortRow) === COLS);
-check("short-row-done-flush", shortRow.slice(-6) === "[done]");
+check("short-row-done-flush", shortRow.slice(-PANEL.length) === PANEL);
 check("short-row-no-ellipsis", shortRow.indexOf("…") < 0);
 //  BRO-036 r2 (gritzko): the pad renders as the work-view DOTTED leader —
-//  `title ┄┄┄ [done]`: one breathing space each side, never a space run.
-check("short-row-dot-pad", /tiny ┄+ \[done\]$/.test(shortRow));
-check("short-row-no-space-run", !/ {2}/.test(shortRow));
+//  `title ┄┄┄ [ ✔  ✗]`: one breathing space each side, never a space run.
+//  The panel's OWN gap (between its two faces) is chrome, not pad, so the
+//  no-space-run rule is read over the row UP TO the panel.
+check("short-row-dot-pad", /tiny ┄+ \[ ✔  ✗\]$/.test(shortRow));
+check("short-row-no-space-run",
+      !/ {2}/.test(shortRow.slice(0, shortRow.length - PANEL.length)));
 
 //  Soft-wrap: no elastic chrome; the whole title survives verbatim across the
 //  wrapped rows (join without the row breaks to see it contiguously).
@@ -114,13 +120,22 @@ check("softwrap-title-verbatim",
       softFrame.split("\r\n").join("").indexOf(
         "a very long elastic ticket title that runs far past forty columns") >= 0);
 
-//  --- 4. the REAL click path on the flush-right [done] ----------------------
+//  --- 4. the REAL click path on the flush-right panel -----------------------
 //  Screen rows are 1-based; the frame rows array mirrors the display order.
+//  TODO-005: the trailing `[done]` label became a two-button PANEL `[ ✔  ✗]`
+//  ending flush right — `]` at COLS, ` ✗` at COLS-2..COLS-1, the dim gap at
+//  COLS-3, ` ✓` at COLS-5..COLS-4.  Each face is its OWN click zone, and the
+//  spell arrives with the button's `#<pale><tone> ` colour prefix (the pager's
+//  own _uriAt sheds it before driving — this probe reads the RAW token).
 const shortScreenRow = rows.indexOf(shortRow) + 1;
-const hit = p._screenToByte(shortScreenRow, COLS - 2);   // inside "[done]"
+const hit = p._screenToByte(shortScreenRow, COLS - 4);   // inside the ✓ face
 check("click-maps-flush-done", hit !== null);
 const uri = hit ? p._uriAt(hit.hunk, hit.off) : null;
 check("click-done-spell", uri === "done ELS-2");
+const hitX = p._screenToByte(shortScreenRow, COLS - 1);  // inside the ✗ face
+check("click-maps-flush-dont", hitX !== null);
+const uriX = hitX ? p._uriAt(hitX.hunk, hitX.off) : null;
+check("click-dont-spell", uriX === "dont ELS-2");
 //  BRO-036 r2: a click on the ┄ pad itself maps to NO byte (dead cell).
 const padCol = Array.from(shortRow.slice(0, shortRow.indexOf("┄"))).length + 1;
 check("click-pad-dead", shortRow.indexOf("┄") > 0 &&

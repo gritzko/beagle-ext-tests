@@ -5,7 +5,9 @@
 # `KEY: title` insert), delists the key's bullet (`^\s*-\s+\[?KEY\b`) from BOTH
 # the topic README and the board README, and emits ONE confirmation hunk row
 # per key (key + title).  Footer refdefs and mid-bullet mentions stay; an
-# already-[DONE]/[WONTFIX] page gets one "already closed" row and ZERO edits;
+# page already carrying BOTH the mark and the `Now:` pair gets one "already
+# closed" row and ZERO edits (TODO-005: a legacy-mark-only page still gains its
+# pair first — closing sets the pair, which is the state the board reads);
 # an unknown key is ONE uniform `done: KEY: TODONONE` line (BE-003 spirit);
 # an odd header is reported and skipped, no edit.  File edits ONLY — the verb
 # never commits/posts.  The ticket tree is a FIXTURE under $TMP (never the live
@@ -119,9 +121,12 @@ printf 'seed\n' > a.txt
 [ "$(head -n 1 "$META/todo/FIX/FIX-001.mkd")" = \
   '#   FIX-001 [DONE]: thin sample — closing goes sideways' ] \
     || _fail "form-1 header not flipped: $(head -n 1 "$META/todo/FIX/FIX-001.mkd")"
-# the page BODY (all but line 1) survives byte-for-byte
+# the page BODY survives byte-for-byte APART from the `Now:` pair TODO-005 adds
+# directly under the header (the ruled state pair — inserted when the head
+# carries none, changed in place when it does).
 tail -n +2 "$META/todo/FIX/FIX-001.mkd" > "$WORK/body.got"
 cat > "$WORK/body.want" <<'EOF'
+Now: DONE
 
 Body line mentioning FIX-001 must survive the header flip untouched.
 
@@ -166,12 +171,18 @@ grep -q 'done FIX-004' "$WORK/multi.out" || _fail "no confirmation row for FIX-0
 [ "$(grep -c '^........done FIX-' "$WORK/multi.out")" = 2 ] \
     || _fail "multi-key must emit exactly one row per key: $(cat "$WORK/multi.out")"
 
-# --- 3. already closed: one row, ZERO edits -----------------------------------
+# --- 3. a LEGACY-marked page still gains its pair, then is a no-op ------------
+# TODO-005 (ruling 2026-08-03): closing ADDS or CHANGES the head's `Now:` pair,
+# so a page carrying only the legacy [DONE] mark is NOT yet fully closed — the
+# first run adds `Now: DONE`, and only the run after that is the no-op.
+"$BE" done FIX-003 --plain > "$WORK/closed.out" 2>&1 || _fail "jab done FIX-003 (closed) failed"
+[ "$(sed -n 2p "$META/todo/FIX/FIX-003.mkd")" = 'Now: DONE' ] \
+    || _fail "legacy-marked page did not gain its Now: pair: $(sed -n 2p "$META/todo/FIX/FIX-003.mkd")"
 cp "$META/todo/FIX/FIX-003.mkd" "$WORK/fix3.before"
 cp "$META/todo/README.mkd" "$WORK/board.before"
 cp "$META/todo/FIX/README.mkd" "$WORK/topic.before"
-"$BE" done FIX-003 --plain > "$WORK/closed.out" 2>&1 || _fail "jab done FIX-003 (closed) failed"
-grep -q 'already closed' "$WORK/closed.out" || _fail "no 'already closed' row for FIX-003"
+"$BE" done FIX-003 --plain > "$WORK/closed2.out" 2>&1 || _fail "jab done FIX-003 (2nd) failed"
+grep -q 'already closed' "$WORK/closed2.out" || _fail "no 'already closed' row for FIX-003"
 cmp -s "$WORK/fix3.before" "$META/todo/FIX/FIX-003.mkd" || _fail "already-closed page edited"
 cmp -s "$WORK/board.before" "$META/todo/README.mkd" || _fail "board README edited on already-closed"
 cmp -s "$WORK/topic.before" "$META/todo/FIX/README.mkd" || _fail "topic README edited on already-closed"

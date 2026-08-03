@@ -17,6 +17,17 @@
 #   `todo CLK Now:* Sev:*` click HIGH -> `todo CLK Now:* Sev:HIGH`
 #   ticket page CLK-001    click Now: -> `todo CLK Now:*`
 #   ticket page CLK-001    click OPEN -> `todo CLK Now:OPEN`
+#
+# TODO-005 adds the BUTTON leg.  `work/CLK-001` is a real worktree with one
+# modified tracked file AND a mounted sub carrying another, so its file frame
+# paints `[ i ~2 ...]` — the counts are the WHOLE tree's, because bare put and
+# bare delete both descend every mount (SUBS-044).  A click on that count drives
+# the MUTATION spell `//CLK-001/: put`; the row repaints with the class greyed
+# (staged) and the files are staged in the wt's AND the sub's own wtlogs.
+# `work/CLK-002` is genuinely DIVERGED from what it tracks (its own commit vs a
+# commit in CLK-001), so its commit frame paints the `A⇄B` patch button and a
+# click there runs `patch` for real.  Every button is asserted at the SGR level:
+# its exact truecolor fg across the face, and no background anywhere.
 # Registered by the be/test glob as be-js-todo-click — no CMakeLists edit.
 set -eu
 
@@ -81,13 +92,80 @@ cat > "$WT/todo/CLK/CLK-003.mkd" <<'EOF'
 #   CLK-003: gamma
 Now: DONE
 EOF
+# TODO-005 [go]: a wt-LESS ticket carrying `Rep:` (the repo it relates to) gets
+# the mint button; CLK-002 carries none, so it keeps the plain dotted leader.
+cat > "$WT/todo/CLK/CLK-004.mkd" <<'EOF'
+#   CLK-004: delta
+Now: OPEN
+Rep: ///be
+EOF
 
 cd "$WT"
 printf 'seed\n' > a.txt
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"
+
+# TODO-005: a ticket-named WORKTREE under work/ makes CLK-001's board row grow
+# the two BUTTON FRAMES, and one modified tracked file inside it lights the
+# `~1` stage button — the cell scenario 4 clicks.
+# the clone resolves the store's TRUNK ref ([/wiki/Store]: branches are ref
+# rows), which a bare `post` does not write — plant it at the seed commit.
+SEED=$(grep -o '[0-9a-f]\{40\}' "$WT/.be/wtlog" | sed -n 1p)
+[ -n "$SEED" ] || _fail "seed sha capture"
+printf '26718JF48j\tpost\t?#%s\n' "$SEED" > "$WT/.be/refs"
+mkdir -p "$WT/work/CLK-001"
+( cd "$WT/work/CLK-001" && "$BE" get "file:$WT/.be?" ) >/dev/null 2>&1 \
+    || _fail "CLK-001 worktree clone"
+C0=$SEED
+
+# CLK-001 commits c1 (so CLK-002 can be BEHIND it), then goes dirty: one
+# modified tracked file at the top and one inside a MOUNTED sub, so the frame's
+# changed count can only read 2 if the sub folded in.
+( cd "$WT/work/CLK-001" && printf 'c1\n' >> a.txt && "$BE" post 'c1' ) \
+    >/dev/null 2>&1 || _fail "CLK-001 c1"
+mkdir -p "$WT/work/CLK-001/lib"
+cat > "$WT/work/CLK-001/.gitmodules" <<'EOF'
+[submodule "lib"]
+	path = lib
+	url = git@example.invalid:nowhere/lib.git
+EOF
+( cd "$WT/work/CLK-001/lib" && mkdir -p .be && printf 'L\n' > b.txt \
+  && "$BE" post 'lib base' ) >/dev/null 2>&1 || _fail "CLK-001 lib seed"
+printf 'edited in the wt\n' >> "$WT/work/CLK-001/a.txt"
+
+# CLK-002: cloned at c0, re-pointed at the CLK-001 WORKTREE (a uriTrack, the
+# common `work/` shape), then given its OWN commit — cur and track have both
+# moved, which is real divergence.  attachedBranch reads the recentmost GET row,
+# so the hand-written track row survives the post.
+mkdir -p "$WT/work/CLK-002"
+( cd "$WT/work/CLK-002" && "$BE" get "file:$WT/.be?" ) >/dev/null 2>&1 \
+    || _fail "CLK-002 worktree clone"
+printf '26718JG001\tget\tfile:%s/.be/?\n26718JG002\tget\t//CLK-001/#%s\n' \
+    "$WT" "$C0" > "$WT/work/CLK-002/.be"
+( cd "$WT/work/CLK-002" && printf 'c2\n' >> a.txt && "$BE" post 'c2' ) \
+    >/dev/null 2>&1 || _fail "CLK-002 c2"
+
+"$BE" todo CLK --plain >/dev/null 2>&1 || _fail "the topic list does not render"
+
+# --- the SUB-FOLD witness (a render diff, no click) -------------------------
+# The changed count with the sub CLEAN, then with one sub file dirtied: the only
+# thing that moved is inside the mount, so the count must move with it.
+_chg() { ( cd "$WT" && "$BE" todo CLK --color ) 2>/dev/null \
+         | sed -n "/$1/p" | sed 's/\x1b\[[0-9;]*m//g' \
+         | sed -n 's/.*\[ i \(..\).*/\1/p'; }
+BEFORE=$(_chg CLK-001)
+printf 'dirtied in the sub\n' >> "$WT/work/CLK-001/lib/b.txt"
+AFTER=$(_chg CLK-001)
+[ "$BEFORE" = "~1" ] || _fail "sub-fold: changed count without the sub reads '$BEFORE', want '~1'"
+[ "$AFTER" = "~2" ] || _fail "sub-fold: a dirty MOUNT must fold in — reads '$AFTER', want '~2'"
+echo "     ok   sub-fold-counts   ($BEFORE -> $AFTER when a mounted sub goes dirty)"
 # the store must answer before the pty leg (a first sweep inside the pager
 # would still work, but a failure there would read as a click failure).
 "$BE" todo --plain >/dev/null 2>&1 || _fail "the board does not render at all"
+
+# the `~1` click stages inside the wt, so the wt's own status must answer first
+# (a failure there would read as a click failure).
+( cd "$WT/work/CLK-001" && "$BE" status --plain ) >/dev/null 2>&1 \
+    || _fail "the wt does not classify at all"
 
 python3 "$_CASE/click.py" "$JABC" "$WT" >"$WORK/out" 2>"$WORK/err" || {
     echo "--- stderr ---"; cat "$WORK/err"

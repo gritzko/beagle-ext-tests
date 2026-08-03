@@ -57,27 +57,36 @@ function assertRow(key) {
   ok(i >= 0, "no F token for OPEN row " + key);
   ok(toks[i + 1] && toks[i + 1].tag === "O" && toks[i + 1].text === "todo " + key,
      key + ": the hidden O `todo " + key + "` nav must directly follow the key");
-  let sawY = -1;
-  for (let j = i + 2; j < toks.length; j++) {
-    const t = toks[j];
-    if (t.tag === "Y" && t.text === "[done]") { sawY = j; break; }
-    if (t.tag !== "U" && t.tag !== "O" && t.text.indexOf("\n") >= 0)
-      fail(key + ": row ended before a Y `[done]` label");
+  //  TODO-005: the single `[done]` Y label became a two-button PANEL — the ` ✔`
+  //  (heavy check) and ` ✗` faces, each on its own class tag with its own hidden O.  A button
+  //  face is followed DIRECTLY by its spell, and the spell now opens with the
+  //  button's `#<pale><tone> ` colour prefix (the pager sheds it before driving).
+  function panelFace(face, verb) {
+    let saw = -1;
+    for (let j = i + 2; j < toks.length; j++) {
+      const t = toks[j];
+      if (t.tag !== "U" && t.tag !== "O" && t.text === face) { saw = j; break; }
+      if (t.tag !== "U" && t.tag !== "O" && t.text.indexOf("\n") >= 0)
+        fail(key + ": row ended before the `" + face + "` panel face");
+    }
+    ok(saw >= 0, key + ": no visible `" + face + "` panel face on the row");
+    const o = toks[saw + 1];
+    const want = verb + " " + key;
+    ok(o && o.tag === "O" && o.text.slice(-want.length) === want,
+       key + ": `" + face + "` must be followed by the hidden O `" + want
+         + "` (got " + (o ? o.tag + ":" + JSON.stringify(o.text) : "nothing") + ")");
   }
-  ok(sawY >= 0, key + ": no visible Y `[done]` label on the row");
-  const o = toks[sawY + 1];
-  ok(o && o.tag === "O" && o.text === "done " + key,
-     key + ": the `[done]` label must be followed by the hidden O `done " + key
-       + "` (got " + (o ? o.tag + ":" + JSON.stringify(o.text) : "nothing") + ")");
+  panelFace(" ✔", "done");
+  panelFace(" ✗", "dont");
 }
 
 for (const k of want) assertRow(k);
 for (const k of absent) {
-  ok(!toks.some(function (t) { return t.tag === "O" && t.text === "done " + k; }),
+  ok(!toks.some(function (t) { return t.tag === "O" && t.text.slice(-("done " + k).length) === "done " + k; }),
      k + ": a `done " + k + "` O spell exists for a row that must not list");
   ok(visible.indexOf(k) < 0, k + ": a closed/foreign key leaked into the list");
 }
 ok(visible.indexOf("done " + (want[0] || "")) < 0, "the raw O spell leaked into visible text");
-ok(want.length === 0 || visible.indexOf("[done]") >= 0, "no visible [done] label at all");
+ok(want.length === 0 || visible.indexOf("[ ✔  ✗]") >= 0, "no visible done/dont panel at all");
 
 io.log("test/done/buttons OK (" + want.length + " buttoned, " + absent.length + " absent)\n");
