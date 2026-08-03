@@ -44,6 +44,9 @@ _jab() { rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "
 # Conflict spells the wt char `!`, an ordinary edit `v` (track/base/patch same).
 _bucket() { ( cd "$WT" && "$JABC" status --plain 2>/dev/null ) \
     | sed -nE 's/^.{8}\.\.\.(.) f\.txt$/\1/p' | head -1; }
+# STATUS-018: the per-column tally line (`N wt, N staged, N con`) — the only
+# place a row can spell BOTH the staged fact and the conflict at once.
+_summary() { ( cd "$WT" && "$JABC" status --plain 2>/dev/null ) | tail -1; }
 
 WT="$WORK/wt"; mkdir -p "$WT/.be"
 
@@ -91,5 +94,32 @@ printf 'a\nZ\nc\n' > "$WT/f.txt"
 b=$(_bucket)
 [ "$b" = "!" ] || _fail "hand-edited f.txt wt char '$b', expected '!' (con is row-scoped)"
 echo "ok: a hand edit keeps '...!' (resolution == posted)"
+
+# STATUS-018: the SAME conflict, but the path was STAGED before the merge-get.
+# The get RE-STAGES what it conflicts on (`put f.txt` THEN `con f.txt`), so the
+# staged-intent arm used to preempt the con test: `...V`, con tally 0 — while
+# `post`, reading conflicts() off the same ulog, refused that very path.
+# First ack leg 2's conflict (a put LATER than the con row) and post it away.
+_jab put f.txt       >/dev/null 2>&1 || _fail "ack the leg-2 conflict"
+_jab post 'resolved' >/dev/null 2>&1 || _fail "post the leg-2 resolution"
+_jab get "?#$BOOT"   >/dev/null 2>&1 || _fail "back to trunk for the staged leg"
+printf 'a\nY\nc\n' > "$WT/f.txt"
+_jab put f.txt       >/dev/null 2>&1 || _fail "stage ours before the merge"
+_jab get "?#$F1"     >/dev/null 2>&1 || true       # CONFMARK -> non-zero, ignore
+
+b=$(_bucket)
+[ "$b" = "!" ] || _fail "staged+conflicted f.txt wt char '$b', expected '!'"
+s=$(_summary)
+case "$s" in *"con"*) ;; *) _fail "summary '$s' does not tally the conflict";; esac
+case "$s" in *"staged"*) ;; *) _fail "summary '$s' lost the staged fact";; esac
+echo "ok: a con row outranks staged intent — '...!', tallied con AND staged"
+
+# the two readers of one ulog must agree: post refuses exactly what status paints.
+if pout=$(_jab post 'still conflicted' 2>&1); then
+    _fail "post accepted the staged+conflicted f.txt"
+fi
+case "$pout" in *"conflict in tracked file f.txt"*) ;;
+    *) _fail "post refused with '$pout', expected the f.txt conflict";; esac
+echo "ok: status and post agree on the staged conflict"
 
 echo "PASS [status/$NAME]"
