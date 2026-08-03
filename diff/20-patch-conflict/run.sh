@@ -1,20 +1,22 @@
 #!/bin/sh
 #  DIFF-016 (DIS-080): an OVERLAP — a run where both the patch-in and the local
-#  edit touched the same anchor — renders YELLOW, not the two families side by
-#  side.  With fences retired (PATCH-025) the diff view is where a conflict is
-#  seen, so this is the load-bearing case.
+#  edit touched the same anchor.  DIFF-020 (ruling gritzko 2026-08-03) retired
+#  yellow: ONE patch/conflict mode, 4 provenance washes, so the overlap renders
+#  as the two families MEETING.  With fences retired (PATCH-025) the diff view
+#  is where a conflict is seen, so this is the load-bearing case.
 #
 #       T0 ── (trunk, ours) : committed f.txt = a/b/c   ← the base
 #         \                   wt on disk (uncommitted) : a/Y/c   ← dirty line 2
 #          F1  (?feat, theirs): committed f.txt = a/X/c          ← SAME line
 #
 #  `patch ?feat` conflicts: the wt gets the RGA live reading (`a`,`XY`,`c`, NO
-#  markers) and a durable `con f.txt` row.  The diff then shows ONE run holding
-#  X (theirs) and Y (ours), so the whole run washes yellow — no salad, no blue.
+#  markers) and a durable `con f.txt` row.  Both sides rewrote the SAME line, so
+#  the merged bytes RE-TOKENISE as one glued word `XY` (ours): the theirs axis
+#  survives as the pale-orange removal of the base line `b`.  The interleaved
+#  blue/green shape is in `23-get-conflict` (distinct tokens, one anchor).
 #
-#  The yellow is derived from the WEAVE (a run carrying both provenances, the
-#  same membership test `weave.mergedLive` uses), and CROSS-CHECKED here against
-#  the row-based [/todo/ULOG/ULOG-004] accessor via `status`'s `con` tally.
+#  Provenance is derived from the WEAVE, and CROSS-CHECKED here against the
+#  row-based [/todo/ULOG/ULOG-004] accessor via `status`'s `con` tally.
 . "$(dirname "$0")/../lib/diffcase.sh"
 
 W=$(new_wt p)
@@ -55,9 +57,9 @@ grep -Eq '\.\.[vV]! +f\.txt' "$WORK/st.out" \
 diff_eq "conflicted overlap" 'diff:f.txt'
 have '^\+XY$'   "conflict: plain fallback shows the merged run as ONE addition"
 have '^-b$'     "conflict: the base line is a removal"
-cq  227 "conflict: the overlapping run washes yellow"
-cqn 157 "conflict: the run is NOT local salad"
-cqn 117 "conflict: the run is NOT patched-in blue"
-cqn 215 "conflict: the run is NOT patched-in orange"
+cq  215 "conflict: the base line THEIRS removed washes pale orange"
+cq  157 "conflict: the glued both-sides run washes ours salad"
+cqn 227 "conflict: yellow is RETIRED (DIFF-020: one mode, 4 washes)"
+cqn 229 "conflict: yellow is RETIRED (the pale twin too)"
 
 pass

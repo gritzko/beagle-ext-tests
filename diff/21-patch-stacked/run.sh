@@ -51,7 +51,7 @@ grep -q '^SEVEN$' s.txt || _fail "fixture: run 2 did not land SEVEN"
 diff_eq "two stacked patch runs" 'diff:s.txt'
 have '^\+TWO$'    "stacked: run 1's line"
 have '^\+SEVEN$'  "stacked: run 2's line"
-cq  117 "stacked: patched-in blue present"
+cq  155 "stacked: patched-in lime present"
 cq  215 "stacked: patched-in orange present"
 cqn 157 "stacked: NO local salad (the wt was never hand-edited)"
 cqn 217 "stacked: NO local salmon"
@@ -61,7 +61,7 @@ cqn 227 "stacked: the two runs touch different anchors — no conflict"
 sed 's/^4$/FOUR/' s.txt > s.t && mv s.t s.txt
 diff_eq "stacked + a local edit" 'diff:s.txt'
 have '^\+FOUR$'   "stacked+local: the hand edit"
-cq  117 "stacked+local: patched-in blue still present"
+cq  155 "stacked+local: patched-in lime still present"
 cq  157 "stacked+local: local salad present"
 cqn 227 "stacked+local: distinct anchors — no conflict"
 
