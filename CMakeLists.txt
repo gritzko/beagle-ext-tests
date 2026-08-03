@@ -92,6 +92,11 @@ if (TEST be-js-work-getctx)
     set_tests_properties(be-js-work-getctx PROPERTIES TIMEOUT 60)
 endif()
 
+#  BRO-043 pty pager session (three `:status` re-fires + settle sleeps): 60 s.
+if (TEST be-js-bro-cache)
+    set_tests_properties(be-js-bro-cache PROPERTIES TIMEOUT 60)
+endif()
+
 # Top-level jab unit tests (run the script directly; be-relative requires
 # resolve via the script's own upward be/-scan).  Only the landed, general
 # ones are registered.  barrier/loop/resolve/emit are dev repro tests pinned to
@@ -99,7 +104,7 @@ endif()
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
 foreach(_unit store ulog ingest packlog packsalvage patchband wire wire_stream wirepush
         submount submountstamp branch uri checkout_guard submount_guard stage_guard resolve_confine
-        statusfast wtlog_track wtlog_con registry metaidx mtimeidx)
+        statusfast wtlog_track wtlog_con registry metaidx mtimeidx cache)
     add_test(NAME be-js-unit-${_unit}
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
