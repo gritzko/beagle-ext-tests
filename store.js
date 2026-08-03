@@ -16,6 +16,7 @@ const { eq, ok } = require("./lib/assert.js");
 //  (`<be>/test/store.js` → `<be>`); fall back to the be-relative form.
 const store = _req("shared/store.js");   // JSQUE-016: lib/ -> shared/
 const ulog = _req("shared/ulog.js");
+const ingest = _req("shared/ingest.js");   // DOG-027: the keeper.idx family
 function _req(mod) {
   const self = (typeof process !== "undefined" && process.argv && process.argv[1]) || "";
   if (self) {
@@ -127,14 +128,22 @@ for (const f of io.readdir(shard)) { try { io.unlink(shard + "/" + f); } catch (
 
   //  Write the keeper.idx run with the ON-DISK val layout via abc.index:
   //  key = hashlet60<<4 | type(blob=3), val = off<<24 | file_id<<4 | flags.
-  const run = abc.index("wh128", { dir: tshard, ext: "keeper.idx" });
+  //  DOG-027: the run must carry the family MARKER — its 0xF PACK bookmark —
+  //  or store.open's audit drops it as incomplete and rebuilds from the pack.
+  const run = abc.index("wh128", { dir: tshard, ext: ingest.IDX_EXT });
   for (const b of blobs) {
     const h = sha.hashlet60FromBytes(hex.decode(b.sha));
     const key = (h << 4n) | 3n;              // T_BLOB = 3
     const val = (BigInt(b.off) << 24n) | (BigInt(FILE_ID) << 4n) | BigInt(KEEP_FLAGS);
     run.put(key, val);
   }
-  run.flush();                               // persists `<seq>.keeper.idx`
+  const logBytes = BigInt(io.stat(packPath).size);
+  run.put((((12n << 20n) | BigInt(FILE_ID)) << 4n) | 0xfn,
+          (BigInt(N) << 32n) | (logBytes - 12n));
+  run.commit();                              // persists `<ron64>.keeper.idx`
+  ok(run.count === 1, "DOG-027: commit sealed exactly one run");
+  ok(ingest.hasMarker(run.run(0)), "DOG-027: the sealed run carries its marker");
+  run.close();
   ok(io.readdir(tshard).some((f) => f.endsWith("keeper.idx")),
      "JS-056: keeper.idx run persisted to the shard");
 
@@ -177,6 +186,126 @@ for (const f of io.readdir(shard)) { try { io.unlink(shard + "/" + f); } catch (
   //  cleanup
   for (const d of [tshard, fshard])
     for (const f of io.readdir(d)) { try { io.unlink(d + "/" + f); } catch (e) {} }
+}
+
+//  --- DOG-027 marker audit + re-derive ------------------------------------
+//  The keeper family's marker IS its 0xF PACK bookmark row.  A run without one
+//  is incomplete: openIndex drops it and rebuilds the index from the pack-logs,
+//  so the objects stay locatable either way.
+{
+  const sha = _req("shared/util/sha.js");
+  function mkshard(tag) {
+    const d = TMP + "/dog027-" + tag + "-" + Date.now() + "-" + (Math.random() * 1e9 | 0);
+    const sh = d + "/.be/p";
+    io.mkdir(d); io.mkdir(d + "/.be"); io.mkdir(sh);
+    const pk = git.pack.mmap(sh + "/0000000001.keeper", "c", 1 << 16);
+    pk.header();
+    const bs = [];
+    for (let i = 0; i < 12; i++) {
+      const body = utf8.Encode("dog027 " + tag + " object " + i);
+      pk.feed("blob", body);
+      bs.push({ body: body, sha: sha.frameSha("blob", body) });
+    }
+    pk.finish();
+    return { dir: d, shard: sh, blobs: bs };
+  }
+  //  a markerless run: rows committed with no PACK bookmark beside them.
+  function plantBogus(shard) {
+    const bad = abc.index("wh128", { dir: shard, ext: ingest.IDX_EXT });
+    bad.put(0xdeadbeefn << 4n, 7n);
+    bad.commit();
+    bad.close();
+  }
+
+  //  (a) a marked run + a markerless one: only the markerless one goes.
+  {
+    const f = mkshard("audit");
+    ingest.buildIndex(f.shard, "0000000001.keeper", 1);
+    plantBogus(f.shard);
+    {
+      const raw = abc.index("wh128", { dir: f.shard, ext: ingest.IDX_EXT });
+      eq(raw.count, 2, "DOG-027: two runs before the audit");
+      raw.close();
+    }
+    const ix = ingest.openIndex(f.shard);
+    ok(ix, "DOG-027: the shard still has a usable index after the audit");
+    for (let i = 0; i < ix.count; i++)
+      ok(ingest.hasMarker(ix.run(i)), "DOG-027: every surviving run is marked");
+    eq(ix.get(0xdeadbeefn << 4n), undefined, "DOG-027: the markerless rows are gone");
+    ix.close();
+    const r = store.open(f.dir, "p");
+    for (const b of f.blobs) {
+      const o = r.getObject(b.sha);
+      ok(o && o.type === "blob", "DOG-027: " + b.sha.slice(0, 8) + " still resolves");
+    }
+  }
+
+  //  (b) EVERY run markerless: the stack comes up empty and the family
+  //      re-derives it from the pack-log.
+  {
+    const f = mkshard("rederive");
+    plantBogus(f.shard);
+    const ix = ingest.openIndex(f.shard);
+    ok(ix, "DOG-027: a fully markerless stack is re-derived, not left empty");
+    ok(ix.count >= 1, "DOG-027: the re-derived run is committed");
+    for (let i = 0; i < ix.count; i++)
+      ok(ingest.hasMarker(ix.run(i)), "DOG-027: the re-derived run carries its marker");
+    eq(ix.get(0xdeadbeefn << 4n), undefined, "DOG-027: the dropped rows did not survive");
+    ix.close();
+    const r = store.open(f.dir, "p");
+    ok(r._diskIndex() != null, "DOG-027: the re-derived index serves the reader");
+    for (const b of f.blobs)
+      ok(r.getObject(b.sha), "DOG-027: re-derived " + b.sha.slice(0, 8) + " resolves");
+  }
+}
+
+//  --- DOG-027: fan-out handle lifecycle (the 32-slot pup table) ------------
+//  jab's abc.index binding holds PUP_MAX_OPEN(=32) static slots; `work` opens
+//  a store per shard, so a reader must RELEASE its keeper.idx slot or shard
+//  #33 silently degrades to the in-RAM scan.  40 sequential open+use+close
+//  cycles must ALL still get the mmap'd on-disk index.
+{
+  const sha = _req("shared/util/sha.js");
+  const d = TMP + "/dog027-slots-" + Date.now() + "-" + (Math.random() * 1e9 | 0);
+  const sh = d + "/.be/p";
+  io.mkdir(d); io.mkdir(d + "/.be"); io.mkdir(sh);
+  const pk = git.pack.mmap(sh + "/0000000001.keeper", "c", 1 << 16);
+  pk.header();
+  const body = utf8.Encode("dog027 slots blob");
+  pk.feed("blob", body);
+  pk.finish();
+  const bsha = sha.frameSha("blob", body);
+  ingest.buildIndex(sh, "0000000001.keeper", 1);
+  for (let i = 0; i < 40; i++) {
+    const r = store.open(d, "p");
+    ok(r._diskIndex() != null, "DOG-027 cycle " + i + ": got the on-disk index");
+    ok(r.getObject(bsha), "DOG-027 cycle " + i + ": the blob resolves");
+    r.close();
+  }
+
+  //  ...and the DISPATCH shape: a resident session's verbs open readers they
+  //  never close themselves; the loop's per-dispatch store.closeAll() sweep
+  //  must release every held slot, so the table never fills across verbs.
+  for (let i = 0; i < 40; i++) {
+    const a = store.open(d, "p"), b = store.open(d, "p");
+    ok(a._diskIndex() != null && b._diskIndex() != null,
+       "DOG-027 dispatch " + i + ": both readers got the on-disk index");
+    ok(a.getObject(bsha) && b.getObject(bsha), "DOG-027 dispatch " + i + ": resolves");
+    store.closeAll();
+  }
+
+  //  a closed reader SELF-HEALS (re-probes on the next use) and RE-REGISTERS,
+  //  so a close is always safe and the sweep keeps covering reused readers.
+  {
+    const r = store.open(d, "p");
+    ok(r._diskIndex() != null, "DOG-027 heal: index open");
+    store.closeAll();
+    ok(r._diskIndex() != null, "DOG-027 heal: reader re-probes after the sweep");
+    for (let i = 0; i < 40; i++) {
+      ok(r._diskIndex() != null, "DOG-027 heal " + i + ": reuse stays covered");
+      store.closeAll();
+    }
+  }
 }
 
 io.log("store.js OK\n");

@@ -45,7 +45,7 @@ function keepers(shard) {
 }
 //  Count the 0xF PACK bookmark rows across every idx run in the shard.
 function bookmarks(shard) {
-  const ix = abc.index("wh128", { dir: shard, ext: "keeper.idx" });
+  const ix = abc.index("wh128", { dir: shard, ext: ingest.IDX_EXT });
   let n = 0;
   //  bookmark keys are ((first_off<<20|fid)<<4)|0xF — well under 2^52; object
   //  keys (hashlet60<<4) sit far above, and 1<<64 would overflow u64 to 0.
@@ -53,6 +53,7 @@ function bookmarks(shard) {
     if ((kv[0] & 0xfn) === 0xfn) n++;
     return true;
   });
+  ix.close();
   return n;
 }
 function reads(r, m) {

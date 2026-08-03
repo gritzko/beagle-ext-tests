@@ -7,6 +7,7 @@ const { eq, ok } = require("../../lib/assert.js");
 const relate = require("../../../shared/relate.js");
 const store  = require("../../../shared/store.js");
 const sha    = require("../../../shared/util/sha.js");
+const memidx = require("../../../shared/memidx.js");   // DOG-027
 
 const TMP = io.getenv("TMP") || "/tmp";
 const dir = TMP + "/git016-verdict-" + Date.now() + "-" + (Math.random() * 1e9 | 0);
@@ -49,10 +50,9 @@ const T_COMMIT = 1;
 function h60(s) { return sha.hashlet60FromBytes(hex.decode(s)); }
 function keyFor(h) { return (h << 4n) | BigInt(T_COMMIT); }
 function mkIx(edges) {
-  const ix = abc.index("wh128", { mem: 1 << 16 });
+  const ix = memidx.open(1 << 16);   // DOG-027: the retired `{mem}` lane
   for (const e of edges) ix.put(keyFor(h60(e[0])), h60(e[1]));
-  ix.flush();
-  return ix;
+    return ix;
 }
 const divIx  = mkIx([[R2, R1], [R1, C0]]);   // R2<-R1<-C0 (shared base C0)
 const unrIx  = mkIx([[U1, U0]]);             // U1<-U0 (no shared base)

@@ -6,6 +6,7 @@
 const { eq, ok } = require("../../lib/assert.js");
 const dag = require("../../../shared/dag.js");
 const sha = require("../../../shared/util/sha.js");
+const memidx = require("../../../shared/memidx.js");   // DOG-027
 
 const TMP = io.getenv("TMP") || "/tmp";
 const dir = TMP + "/git016-remoteindex-" + Date.now() + "-" + (Math.random() * 1e9 | 0);
@@ -58,10 +59,9 @@ ok(k.getObject(R2) === undefined, "fixture: R2 is NOT in the local keeper store"
 const T_COMMIT = 1;
 function h60(s) { return sha.hashlet60FromBytes(hex.decode(s)); }
 function keyFor(h) { return (h << 4n) | BigInt(T_COMMIT); }
-const ix = abc.index("wh128", { mem: 1 << 16 });
+const ix = memidx.open(1 << 16);   // DOG-027: the retired `{mem}` lane
 ix.put(keyFor(h60(R2)), h60(R1));   // R2 -> R1
 ix.put(keyFor(h60(R1)), h60(C0));   // R1 -> C0 (into the shared base)
-ix.flush();
 
 //  --- WITHOUT the index: R2's remote ancestry is invisible ----------------
 eq(dag.isAncestor(k, C0, R2), false, "no-index: C0 not seen as ancestor of R2");

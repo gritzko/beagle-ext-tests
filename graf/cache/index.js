@@ -136,6 +136,30 @@ eq(r.ahead, 1, "reopen mirror: ahead");
 eq(r.behind, 3, "reopen mirror: behind");
 eq(s4.calls, 0, "reopen mirror: zero keeper calls");
 
+//  --- DOG-027 marker audit: an UNMARKED run is dropped on open -----------
+//  Every run graf commits carries its marker row; a run without one is
+//  incomplete (or a foreign writer's page), so the family drops it.  This
+//  index IS a cache, so the drop simply costs the next ask a walk.
+{
+  const before = io.readdir(shard).filter((n) => n.endsWith(".graf.idx"));
+  ok(before.length >= 1, "marker: a committed run is there to audit");
+  //  plant one markerless run beside it (a pair row and no marker).
+  const bad = abc.index("wh128", { dir: shard, ext: ".graf.idx" });
+  bad.put(0xdeadbeefn << 24n, 0xfeedn << 24n);
+  bad.commit();
+  bad.close();
+  const planted = io.readdir(shard).filter((n) => n.endsWith(".graf.idx"));
+  eq(planted.length, before.length + 1, "marker: the markerless run landed");
+  const g4 = graf.open(shard);
+  const s5 = spy();
+  //  the FIRST ask opens the stack, audits it and drops the unmarked run.
+  r = g4.aheadBehind(s5.store, C2, D1);
+  eq(r.ahead, 2, "marker: the marked run still answers after the audit");
+  eq(r.behind, 1, "marker: behind after the audit");
+  const left = io.readdir(shard).filter((n) => n.endsWith(".graf.idx"));
+  eq(left.length, before.length, "marker: the markerless run was dropped");
+}
+
 //  cleanup
 for (const f of io.readdir(shard)) { try { io.unlink(shard + "/" + f); } catch (e) {} }
 

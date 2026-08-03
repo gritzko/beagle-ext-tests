@@ -1,10 +1,10 @@
 //  PACK-003: ingest.buildIndex vs keeper logs the native header-count-driven
 //  pk.scan cannot walk.  The live incident (`jab status` warning
-//  `idxmaint: Error: pack.scan: scan (out full? corrupt?)` on EVERY run):
+//  `keeper.idx: Error: pack.scan: scan (out full? corrupt?)` on EVERY run):
 //  a log whose PACK header count exceeds its parseable records — a torn
 //  append left a zero tail (the JAB-008 crash window: io.resize survived,
 //  the record bytes + msync were lost) — made buildIndex throw forever, so
-//  the log stayed unindexed and idxmaint re-warned on every open.
+//  the log stayed unindexed and the open path re-warned every time.
 //  (A) torn zero tail, header overcounts  -> buildIndex salvages the
 //      parseable records, bookmarks the full extent (no re-attempt churn);
 //  (B) verbatim embedded pack (GET-046 keeper-served log: a whole store log
@@ -18,7 +18,6 @@ const { eq, ok } = require("./lib/assert.js");
 //  DIS-054: derive the be/ code dir from THIS script's own path (an isolated
 //  ticket clone's shard is code-less); fall back to be-relative.
 const ingest = _req("shared/ingest.js");
-const idxmaint = _req("shared/idxmaint.js");
 const shalib = _req("shared/util/sha.js");
 function _req(mod) {
   const self = (typeof process !== "undefined" && process.argv && process.argv[1]) || "";
@@ -58,35 +57,30 @@ function blobKey(text) {
   return (h << 4n) | 3n;
 }
 
-//  Every non-bookmark key across the shard's runs, as a lookup object.
+//  DOG-027: every non-bookmark key across the shard's runs, through the family
+//  index handle (the run files are C's business now).
 function runKeys(shard) {
   const keys = {};
-  for (const nm of idxmaint.listRuns(shard)) {
-    const r = abc.mmap("HEAPwh128", shard + "/" + nm, "r");
-    const wm = (r.byteLength / 16) | 0;
-    r.buffer.watermark = wm;
-    for (let i = 0; i < wm; i++) {
-      const k = r[i * 2];
-      if ((k & 0xfn) !== 0xfn) keys[k.toString(16)] = true;
-    }
-    r.buffer._map = null;
-  }
+  const ix = abc.index("wh128", { dir: shard, ext: ingest.IDX_EXT });
+  try {
+    ix.range(0n, (1n << 64n) - 1n, function (kv) {
+      if ((kv[0] & 0xfn) !== 0xfn) keys[kv[0].toString(16)] = true;
+      return true;
+    });
+  } finally { ix.close(); }
   return keys;
 }
 
-//  idxmaint's own coverage verdict for fid 1 (the re-attempt predicate).
+//  DOG-027: the family's own coverage verdict for fid 1 (the re-attempt
+//  predicate), plus the marker audit every run must survive.
 function coveredBytes(shard) {
-  const names = idxmaint.listRuns(shard);
-  const views = names.map(function (nm) {
-    const r = abc.mmap("HEAPwh128", shard + "/" + nm, "r");
-    r.buffer.watermark = (r.byteLength / 16) | 0;
-    r._path = shard + "/" + nm;
-    return r;
-  });
-  let cov;
-  try { cov = idxmaint.coverage(views); }
-  finally { for (const v of views) v.buffer._map = null; }
-  return cov ? cov[1] : undefined;
+  const ix = abc.index("wh128", { dir: shard, ext: ingest.IDX_EXT });
+  try {
+    for (let i = 0; i < ix.count; i++)
+      ok(ingest.hasMarker(ix.run(i)), "every committed run carries its bookmark");
+    const cov = ingest.coverage(ix);
+    return cov[1];
+  } finally { ix.close(); }
 }
 
 function writeLog(shard, u8) {
@@ -112,7 +106,7 @@ function writeLog(shard, u8) {
     ok(keys[blobKey(t).toString(16)], "torn: salvaged record indexed (" + t + ")");
   const sz = io.stat(shard + "/0000000001.keeper").size;
   ok(coveredBytes(shard) >= sz - 12,
-     "torn: run bookmarks the full extent (idxmaint stops re-attempting)");
+     "torn: run bookmarks the full extent (no re-attempt churn)");
 }
 
 //  --- (B) verbatim embedded pack: mid-log PACK header, honest count ------
