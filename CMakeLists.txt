@@ -97,6 +97,14 @@ if (TEST be-js-bro-cache)
     set_tests_properties(be-js-bro-cache PROPERTIES TIMEOUT 60)
 endif()
 
+#  TODO-006: the board's per-block ROW CACHE — a seeded project + three
+#  store-backed worktree clones, a resident driver, then a live pty pager board
+#  (the click/BACKSPACE gesture, a post, settle waits).  Same 60 s as the other
+#  pty sessions.
+if (TEST be-js-todo-rowcache)
+    set_tests_properties(be-js-todo-rowcache PROPERTIES TIMEOUT 60)
+endif()
+
 # Top-level jab unit tests (run the script directly; be-relative requires
 # resolve via the script's own upward be/-scan).  Only the landed, general
 # ones are registered.  barrier/loop/resolve/emit are dev repro tests pinned to
