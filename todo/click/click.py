@@ -162,7 +162,7 @@ for label, col, want in (("key", 2, "todo CLK Now:*"), ("value", 7, "todo CLK No
 
 #  --- 4.  TODO-005: a BUTTON click MUTATES the worktree -----------------------
 #  `work/CLK-001` is a real wt with ONE modified tracked file at the top and ONE
-#  inside a MOUNTED sub, so its file frame reads `[ i ~2    +2   ]` — the count
+#  inside a MOUNTED sub, so its file frame reads `[ i ~2    +2  ∞]` — the count
 #  is 2 only because the sub folded in (bare `put`/`delete` descend mounts).
 #  At 100 columns the row reads `●` 1, ` ` 2, `CLK-001` 3-9, the KEYW dotted
 #  leader 10-18, ` ` 19, `[` 20, the ` i` button 21-22, a gap 23, the changed
@@ -190,9 +190,9 @@ FG_CI   = "38;2;0;169;92"        # BTN.ci     #00a95c
 BG_CI   = "48;2;224;245;235"     # pale       #e0f5eb
 pid, fd = start(["todo", "CLK"])
 board = sip(fd)
-check("frame-painted", "[ i ~2    +2   ]" in board, repr(board[:300]))
+check("frame-painted", "[ i ~2    +2  ∞]" in board, repr(board[:300]))
 check("frame-painted-subfold", "[ i ~2" in board, repr(board[:300]))
-check("frame-painted-commit", "[ ≡ +1   ]" in board, repr(board[:300]))
+check("frame-painted-commit", "[ ≡ +1      ]" in board, repr(board[:300]))
 #  the three named brand buttons, at the SGR level: the exact truecolor fg, and
 #  NO background anywhere on a button (the inversion was reverted).
 st = sgr_before(RAW["last"], " i".encode())
@@ -256,7 +256,7 @@ check("stage-click-staged-the-SUB-file",
 #  CLK-002 is row 4 (prio-then-number puts the Sev-less CLK-004 above it).
 pid, fd = start(["todo", "CLK"])
 two = sip(fd)
-check("diverged-painted", "[ ≡   1⇄1]" in two, repr(two[:400]))
+check("diverged-painted", "[ ≡   1⇄1   ]" in two, repr(two[:400]))
 #  the pair face is 5 cells (`  1⇄1`), so the button's SGR opens before its
 #  leading pad — the whole face is one unbroken coloured run.
 pat = sgr_before(RAW["last"], "  1⇄1".encode())

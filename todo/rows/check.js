@@ -5,19 +5,22 @@
 //  brackets, the KEYW dotted leader and — on a row whose ticket owns a
 //  `work/<KEY>*` worktree — the two FIXED-width button frames, then the title:
 //
-//    ● TIC-002 ┄┄┄ [ i 14  1  2  ✓] [ ≡  2   ] <title> [done]
+//    ● TIC-002 ┄┄┄ [ i 14  1  2  ∞] [ ≡  2    ✓] <title> [done]
 //
 //  Every button is 2 CELLS of COLOURED FOREGROUND on the default background —
 //  over a very pale wash of that tone — with a face of 2 cells; the
 //  count face is 2 cells — sigil+digit under ten, bare 2 digits above.  FILE frame (16
 //  cols): the ` i` status button, the three staging counts (changed → `put`,
-//  gone → `delete`, untracked → `put +`) and the ` ✓` commit.  Each count slot
+//  gone → `delete`, untracked → `put +`) and — CI-004's ruling 2026-08-04 — the
+//  ` ∞` RUN button, always lit: the staging surface ends in "test it".  Each
+//  count slot
 //  is THREE-STATE — unstaged rows light the button, a wholly-staged class keeps
 //  its CLASS COLOUR but sheds wash+spell (info, no grey — 2026-08-03 ruling),
 //  an empty class blanks.  COMMIT frame
-//  (10 cols): the ` ≡` log button plus TWO FIXED sub-slots — POST position then
+//  (13 cols): the ` ≡` log button plus TWO FIXED sub-slots — POST position then
 //  GET position, so a behind count never drifts into the post column — with a
-//  DIVERGED `A⇄B` as ONE patch button across both.
+//  DIVERGED `A⇄B` as ONE patch button across both, and the ` ✓` commit at its
+//  END (the history surface ends in "commit it" — CI-004 moved it here).
 //  Rulings pinned here: a frame DELIMITS its own columns, so nothing inside the
 //  brackets is ┄-filled (empty slots are plain SPACES) and the dotted leader
 //  runs straight THROUGH the frames region on a wt-LESS row, so every title in
@@ -60,6 +63,9 @@ const theme = _req("view/theme.js");
 function paint(name) { return theme.pale(theme.BTN[name]) + theme.BTN[name]; }
 //  the same pair as `slot()` reports it (the O prefix, tagged).
 function btnOf(name) { return "btn:" + paint(name); }
+//  CI-004 (TODO 11): the run button wears the REMEMBERED verdict, not a slot
+//  colour — these fixture wts never ran, so it is the never-ran grey.
+const RUNTONE = theme.pale(theme.BTN_RUN.none) + theme.BTN_RUN.none;
 
 //  --- the fixture tree --------------------------------------------------------
 const TMP = io.getenv("TMP") || "/tmp";
@@ -232,7 +238,11 @@ const sp = rowCells(pg, "TIC-002").filter(function (c) { return c.tag === "O"; }
 eq(sp[0], "todo TIC-002", "4c: the key mints the context-less todo nav");
 eq(sp[1], paint("status") + " status //TIC-002",
    "4c: ` i` mints the wt status behind its pale+tone pair, empty context");
-eq(sp[2], paint("log") + " log //TIC-002", "4c: ` ≡` mints the wt log");
+//  CI-004: the ` ∞` run button closes the FILE frame, so the log button is the
+//  spell after it.  `ci` is the VIEW (views/ci/ci.js) — the wt as the ARG, the
+//  same form the ` i`/` ≡` view buttons mint.
+eq(sp[2], RUNTONE + " ci //TIC-002", "4c: ` ∞` mints the ci view on the wt");
+eq(sp[3], paint("log") + " log //TIC-002", "4c: ` ≡` mints the wt log");
 //  the trailing panel is the LAST pair of spells on every row.
 eq(sp[sp.length - 2], paint("done") + " done TIC-002", "4c: the panel's ✓ mints `done KEY`");
 eq(sp[sp.length - 1], paint("dont") + " dont TIC-002", "4c: … and its ✗ mints `dont KEY`");
@@ -263,8 +273,8 @@ ok(/┄{20}/.test(lineOf(pg, "TIC-003")), "5b: the wt-less row's leader is ONE �
 //  fixture has no store, so each read fails and the slots ┄-fill — no error row.
 eq(treeAts.length, 3, "6: one tree open per wt-HAVING ticket, none for the rest");
 eq(pg.lines.length, tics.tickets.length + 1, "6: an unreadable wt adds no row");
-ok(lineOf(pg, "TIC-002").indexOf("[ i            ] [ ≡      ]") > 0,
-   "6: an UNREADABLE wt lights the two nav buttons and BLANKS every action slot");
+ok(lineOf(pg, "TIC-002").indexOf("[ i           ∞] [ ≡         ]") > 0,
+   "6: an UNREADABLE wt lights the nav + run buttons and BLANKS every action slot");
 //  6b. a board with NO matching wt opens NOTHING.
 const fams = todo.listTopics(BOARD).filter(function (g) { return g.topic === "FAM"; })[0];
 const fpg = render([fams], false, true);
@@ -311,65 +321,83 @@ function stat(un, st, counts, patch) {
            patch: patch === undefined ? "?main" : patch };
 }
 const fNull = frameOf("fileFrame", null);
-eq(fNull.text, "[ i            ]", "6c: no stat ⇒ the ` i` button and four BLANK slots");
+eq(fNull.text, "[ i           ∞]", "6c: no stat ⇒ the ` i` + ` ∞` buttons, three BLANK slots");
 eq(fNull.w, todo.FRAMEW.file, "6c: … 16 columns");
-eq(fNull.spells.length, 1, "6c: … and ONLY the status button clicks");
+//  CI-004: the run button never depends on a count — every wt can be asked to
+//  run its default stuff, so it is lit even here.
+eq(fNull.spells.length, 2, "6c: … and ONLY the status + run buttons click");
 ok(fNull.text.indexOf("┄") < 0, "6c: NOTHING inside the brackets is ┄-filled");
 eq(frameOf("fileFrame", stat()).text, fNull.text, "6c: a fully CLEAN wt reads the same");
-//  UNSTAGED rows light every slot they fill; the ✓ is BLANK (nothing staged
-//  yet — no grey ✓, the 2026-08-03 no-grey ruling).
+//  UNSTAGED rows light every slot they fill; the commit ✓ they feed now lives
+//  in the COMMIT frame (6d), where its blank/lit rule is asserted.
 const fUn = frameOf("fileFrame", stat({ chg: 14, add: 2, del: 1 }));
-eq(fUn.text, "[ i 14 -1 +2   ]", "6c: 2-cell faces — bare `14`, sigil+digit `-1`/`+2`");
+eq(fUn.text, "[ i 14 -1 +2  ∞]", "6c: 2-cell faces — bare `14`, sigil+digit `-1`/`+2`");
 eq(fUn.w, todo.FRAMEW.file, "6c: … still 16 columns");
 eq(slot(fUn, "14"), btnOf("chg"), "6c: changed rides the file trio's blue and clicks");
 eq(slot(fUn, "-1"), btnOf("del"), "6c: deleted rides its red rotation and clicks");
 eq(slot(fUn, "+2"), btnOf("add"), "6c: new rides its green rotation and clicks");
-eq(slot(fUn, " ✓"), "?", "6c: NO ✓ face at all while nothing is staged");
+eq(slot(fUn, " ✓"), "?", "6c: the commit ✓ is NOT in the file frame any more");
+eq(slot(fUn, " ∞"), "btn:" + RUNTONE, "6c: the run button closes the frame, always lit");
 eq(fUn.spells.join("|"),
    [paint("status") + " status //TIC-002", paint("chg") + " //TIC-002/: put",
-    paint("del") + " //TIC-002/: delete", paint("add") + " //TIC-002/: put +"].join("|"),
-   "6c: the three staging spells, each behind its fg colour, in the wt's ctx");
+    paint("del") + " //TIC-002/: delete", paint("add") + " //TIC-002/: put +",
+    RUNTONE + " ci //TIC-002"].join("|"),
+   "6c: the three staging spells then the run, each behind its fg colour, in ctx");
 //  STAGED-only: the class KEEPS its colour but sheds the wash and the spell
-//  (INFO, not a button — the 2026-08-03 no-grey ruling); ✓ lights.
+//  (INFO, not a button — the 2026-08-03 no-grey ruling).
 const fSt = frameOf("fileFrame", stat(null, { chg: 2 }));
-eq(fSt.text, "[ i ~2        ✓]", "6c: a wholly-staged class shows its STAGED count");
+eq(fSt.text, "[ i ~2        ∞]", "6c: a wholly-staged class shows its STAGED count");
 eq(slot(fSt, "~2"), "info:#" + theme.BTN.chg + " ",
    "6c: … class-coloured INFO — fg-only O, no wash, nothing left to stage");
-eq(slot(fSt, " ✓"), btnOf("ci"), "6c: … and the ✓ lights green");
-eq(fSt.spells[fSt.spells.length - 1],
-   paint("ci") + " //TIC-002/: post 'TIC-002: crit'",
-   "6c: … minting the WORK-008 `KEY: <bare title>` commit message");
+eq(fSt.spells[fSt.spells.length - 1], RUNTONE + " ci //TIC-002",
+   "6c: … and the frame still closes on the run button");
 //  A class dirty on BOTH axes still lights (the unstaged count wins).
 const fBoth = frameOf("fileFrame", stat({ chg: 3 }, { chg: 9 }));
-eq(fBoth.text, "[ i ~3        ✓]", "6c: unstaged>0 wins — the UNSTAGED count shows");
+eq(fBoth.text, "[ i ~3        ∞]", "6c: unstaged>0 wins — the UNSTAGED count shows");
 eq(slot(fBoth, "~3"), btnOf("chg"), "6c: … lit and clickable");
 eq(frameOf("fileFrame", stat({ chg: 900, add: 900, del: 900 })).text,
-   "[ i 99 99 99   ]", "6c: two-digit clamp — at 99 the sigil gives way to the digits");
+   "[ i 99 99 99  ∞]", "6c: two-digit clamp — at 99 the sigil gives way to the digits");
 
 //  --- 6d. the COMMIT frame: fixed post/get positions ---------------------------
 function mode(counts, patch) { return frameOf("commitFrame", stat(null, null, counts, patch)); }
 const mNone = frameOf("commitFrame", null);
-eq(mNone.text, "[ ≡      ]", "6d: no counts ⇒ both sub-slots blank");
-eq(mNone.w, todo.FRAMEW.commit, "6d: … 10 columns");
+eq(mNone.text, "[ ≡         ]", "6d: no counts ⇒ both sub-slots blank");
+eq(mNone.w, todo.FRAMEW.commit, "6d: … 13 columns");
+//  CI-004: nothing staged ⇒ the ✓ slot is BLANK (no grey ✓ — 2026-08-03).
 eq(mNone.spells.length, 1, "6d: … only the ` ≡` log button clicks");
-eq(mode({ ahead: 0, behind: 0 }).text, "[ ≡      ]", "6d: in step ⇒ the same");
+eq(slot(mNone, " ✓"), "?", "6d: … NO ✓ face at all while nothing is staged");
+eq(mode({ ahead: 0, behind: 0 }).text, "[ ≡         ]", "6d: in step ⇒ the same");
 const mA = mode({ ahead: 2, behind: 0 });
-eq(mA.text, "[ ≡ +2   ]", "6d: ahead-only fills the POST position, blanks the GET one");
-eq(mA.w, todo.FRAMEW.commit, "6d: … 10 columns");
+eq(mA.text, "[ ≡ +2      ]", "6d: ahead-only fills the POST position, blanks the GET one");
+eq(mA.w, todo.FRAMEW.commit, "6d: … 13 columns");
 eq(slot(mA, "+2"), btnOf("post"), "6d: … the commit trio's green, and it clicks");
 eq(mA.spells[1], paint("post") + " //TIC-002/: post", "6d: … minting bare post");
 const mB = mode({ ahead: 0, behind: 13 });
-eq(mB.text, "[ ≡    13]", "6d: behind-only fills the GET position — it never drifts left");
+eq(mB.text, "[ ≡    13   ]", "6d: behind-only fills the GET position — it never drifts left");
 eq(slot(mB, "13"), btnOf("get"), "6d: … the commit trio's red, and it clicks");
 eq(mB.spells[1], paint("get") + " //TIC-002/: get", "6d: … minting bare get");
 const mD = mode({ ahead: 2, behind: 13 });
-eq(mD.text, "[ ≡  2⇄13]", "6d: DIVERGED is ONE `A⇄B` button over both sub-slots");
-eq(mD.w, todo.FRAMEW.commit, "6d: … still 10 columns");
-eq(mode({ ahead: 12, behind: 34 }).text, "[ ≡ 12⇄34]", "6d: `12⇄34` fills the 5 cells exactly");
+eq(mD.text, "[ ≡  2⇄13   ]", "6d: DIVERGED is ONE `A⇄B` button over both sub-slots");
+eq(mD.w, todo.FRAMEW.commit, "6d: … still 13 columns");
+eq(mode({ ahead: 12, behind: 34 }).text, "[ ≡ 12⇄34   ]",
+   "6d: `12⇄34` fills the 5 cells exactly");
 eq(slot(mD, " 2⇄13"), btnOf("patch"), "6d: … Pantone Diode Blue, the commit trio's own");
 eq(mD.spells[1], paint("patch") + " //TIC-002/: patch '?main'",
    "6d: … minting patch against the wt's OWN attached branch");
-eq(mode({ ahead: 900, behind: 900 }).text, "[ ≡ 99⇄99]", "6d: each side clamps at 2 digits");
+eq(mode({ ahead: 900, behind: 900 }).text, "[ ≡ 99⇄99   ]",
+   "6d: each side clamps at 2 digits");
+//  CI-004 (ruling 2026-08-04): the commit ✓ MOVED here, to the frame's end —
+//  the history surface ends in "commit it".  Its rule is unchanged: lit and
+//  spelled while ANY row is staged, blank otherwise.
+const mCi = frameOf("commitFrame", stat(null, { chg: 2 }, { ahead: 2, behind: 0 }));
+eq(mCi.text, "[ ≡ +2     ✓]", "6d: a staged wt lights the ✓ at the COMMIT frame's end");
+eq(mCi.w, todo.FRAMEW.commit, "6d: … still 13 columns");
+eq(slot(mCi, " ✓"), btnOf("ci"), "6d: … the ✓ lights green");
+eq(mCi.spells[mCi.spells.length - 1],
+   paint("ci") + " //TIC-002/: post 'TIC-002: crit'",
+   "6d: … minting the WORK-008 `KEY: <bare title>` commit message");
+eq(frameOf("commitFrame", stat(null, { chg: 2 }, { ahead: 2, behind: 13 })).text,
+   "[ ≡  2⇄13  ✓]", "6d: … and it rides beside a DIVERGED pair too");
 //  RULING: the patch must reach a uriTrack / trunk wt too.  `#<hashlet>` is NOT
 //  the form — patchscope reads a fragment as the NAMED scope (a CHERRY-PICK,
 //  fork = parent), not the LINE absorb `?branch` does.  The LINE forms are the
@@ -382,7 +410,7 @@ const mBare = mode({ ahead: 2, behind: 13 }, "");
 eq(mBare.spells[1], paint("patch") + " //TIC-002/: patch",
    "6d: a trunk wt patches BARE — the whole missing line of the tracked ref");
 const mDb = mode({ ahead: 2, behind: 13 }, null);
-eq(mDb.text, "[ ≡  2⇄13]", "6d: a wt no patch form reaches still SHOWS the pair");
+eq(mDb.text, "[ ≡  2⇄13   ]", "6d: a wt no patch form reaches still SHOWS the pair");
 eq(slot(mDb, " 2⇄13"), "grey", "6d: … grey and dead");
 eq(mDb.spells.length, 1, "6d: … so only the log button clicks");
 

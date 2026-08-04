@@ -105,6 +105,18 @@ if (TEST be-js-todo-rowcache)
     set_tests_properties(be-js-todo-rowcache PROPERTIES TIMEOUT 60)
 endif()
 
+#  CI-004 `v` button: a pty pager session that WAITS for a real background
+#  build+test child (a 3 s fixture) to finish before the verdict shows.
+if (TEST be-js-bro-ci)
+    set_tests_properties(be-js-bro-ci PROPERTIES TIMEOUT 60)
+endif()
+
+#  CI-004 the board ` ∞` + the `ci` VIEW: a pty session that watches a real
+#  background job's log tail grow, settle and stop ticking.
+if (TEST be-js-todo-ci)
+    set_tests_properties(be-js-todo-ci PROPERTIES TIMEOUT 90)
+endif()
+
 # Top-level jab unit tests (run the script directly; be-relative requires
 # resolve via the script's own upward be/-scan).  Only the landed, general
 # ones are registered.  barrier/loop/resolve/emit are dev repro tests pinned to
@@ -112,7 +124,7 @@ endif()
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
 foreach(_unit store ulog ingest packlog packsalvage patchband wire wire_stream wirepush
         submount submountstamp branch uri checkout_guard submount_guard stage_guard resolve_confine
-        statusfast wtlog_track wtlog_con registry metaidx mtimeidx cache)
+        statusfast wtlog_track wtlog_con registry metaidx mtimeidx cache ci)
     add_test(NAME be-js-unit-${_unit}
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
