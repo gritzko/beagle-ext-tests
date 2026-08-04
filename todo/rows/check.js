@@ -235,7 +235,8 @@ eq(tags(pg, "TIC-002", 9), "MSFOSSDVO",
 //  no counts to act on and mint nothing.
 const sp = rowCells(pg, "TIC-002").filter(function (c) { return c.tag === "O"; })
                                   .map(function (c) { return c.text; });
-eq(sp[0], "todo TIC-002", "4c: the key mints the context-less todo nav");
+//  TODO-011: a KEY row lands on the PAGE view, which is `ticket` now.
+eq(sp[0], "ticket TIC-002", "4c: the key mints the context-less ticket nav");
 eq(sp[1], paint("status") + " status //TIC-002",
    "4c: ` i` mints the wt status behind its pale+tone pair, empty context");
 //  CI-004: the ` ∞` run button closes the FILE frame, so the log button is the

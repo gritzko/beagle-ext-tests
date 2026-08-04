@@ -107,18 +107,20 @@ function rowHelp(key) {
   }
   return "";
 }
-ok(rowHelp("PIN-1") === "//: todo PIN-1",
-   "ticket-named PIN-1 [?] must mint `//: todo PIN-1`, got '" + rowHelp("PIN-1") + "'");
-ok(rowHelp("DET-3") === "//: todo DET-3",
-   "ticket-named DET-3 [?] must mint `//: todo DET-3`, got '" + rowHelp("DET-3") + "'");
+//  TODO-011: a KEY names a PAGE and the page view is `ticket` now; a TOPIC
+//  names a LISTING and stays `todo`.
+ok(rowHelp("PIN-1") === "//: ticket PIN-1",
+   "ticket-named PIN-1 [?] must mint `//: ticket PIN-1`, got '" + rowHelp("PIN-1") + "'");
+ok(rowHelp("DET-3") === "//: ticket DET-3",
+   "ticket-named DET-3 [?] must mint `//: ticket DET-3`, got '" + rowHelp("DET-3") + "'");
 ok(rowHelp("PIN") === "//: todo PIN",
    "topic-named PIN [?] must mint `//: todo PIN`, got '" + rowHelp("PIN") + "'");
 //  WORK-010 (ruling 2): SUFFIXED ticket names (letter PIN-1b, `-word` PIN-1-retry)
-//  are ticket-named too; the [?] mints the BASE ticket link `//: todo PIN-1`.
-ok(rowHelp("PIN-1b") === "//: todo PIN-1",
-   "suffixed PIN-1b [?] must mint the base `//: todo PIN-1`, got '" + rowHelp("PIN-1b") + "'");
-ok(rowHelp("PIN-1-retry") === "//: todo PIN-1",
-   "suffixed PIN-1-retry [?] must mint base `//: todo PIN-1`, got '" + rowHelp("PIN-1-retry") + "'");
+//  are ticket-named too; the [?] mints the BASE ticket link `//: ticket PIN-1`.
+ok(rowHelp("PIN-1b") === "//: ticket PIN-1",
+   "suffixed PIN-1b [?] must mint the base `//: ticket PIN-1`, got '" + rowHelp("PIN-1b") + "'");
+ok(rowHelp("PIN-1-retry") === "//: ticket PIN-1",
+   "suffixed PIN-1-retry [?] must mint base `//: ticket PIN-1`, got '" + rowHelp("PIN-1-retry") + "'");
 //  A non-ticket-named wt (TRK/FOR/WT — no board topic, no page) grows NO [?].
 for (const key of ["TRK-5", "FOR-4", "WT-A", "WT-B", "PINP-6"])
   ok(rowHelp(key) === "", key + " (non-ticket) must have NO [?], got '" + rowHelp(key) + "'");
@@ -154,7 +156,7 @@ for (const t of toks) {
 //  WORK-010 RULING: [?] and [±] are the FIRST TWO buttons (that order), ahead
 //  of the run; then [post], the ahbeh, [done]/[dont].
 const iKey  = idxOf("//PIN-1", "U", "status //PIN-1");
-const iHelp = idxOf("[?]", "O", "//: todo PIN-1");
+const iHelp = idxOf("[?]", "O", "//: ticket PIN-1");
 const iDiff = idxOf("[±]", "U", "diff //PIN-1");
 const iPost = idxOf("[post]", "O", "//PIN-1/: post 'PIN-1: pin sample ticket'");
 const iBeh  = idxOf("[-1]", "O", "//PIN-1/: get");
@@ -357,7 +359,7 @@ function clickRun(label, cellTok, wantSpell) {
      JSON.stringify(r));
 }
 clickRun("[±] diff", "diff //PIN-1", "diff //PIN-1");
-clickRun("[?] ticket", "//: todo PIN-1", "todo PIN-1");
+clickRun("[?] ticket", "//: ticket PIN-1", "ticket PIN-1");
 clickRun("[?] topic", "//: todo PIN", "todo PIN");
 tty.size = realSize;
 

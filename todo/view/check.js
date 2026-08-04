@@ -1,14 +1,16 @@
 //  test/todo/view/check.js — BE-038 assert: the `todo` view's click targets.
 //
-//  argv[2] = captured `jab todo … --tlv` bytes (a file); argv[3] = mode:
+//  argv[2] = captured `jab todo|ticket … --tlv` bytes (a file); argv[3] = mode:
 //    board — every list row whose line starts with a ticket key must carry a
 //            hidden `O` token right after the key whose bytes are the CONTEXT-
-//            LESS click spell `todo <KEY>` (BE-054: verb clicks are O spells,
-//            U is reserved for real addresses); topic header rows link
-//            `todo <TOPIC>`.
-//    page  — a rendered ticket page: every RESOLVABLE ticket key (fixture:
-//            GET-002 inside GET-001's body) is followed by an `O` → `todo
-//            GET-002`.  Visible text must not leak the hidden O bytes.
+//            LESS click spell `ticket <KEY>` (BE-054: verb clicks are O spells,
+//            U is reserved for real addresses).  TODO-011: a KEY lands on the
+//            PAGE view; a topic header row is a LISTING and keeps `todo
+//            <TOPIC>`.
+//    page  — a rendered ticket page (`ticket GET-001`): every RESOLVABLE
+//            ticket key (fixture: GET-002 inside GET-001's body) is followed
+//            by an `O` → `ticket GET-002`.  Visible text must not leak the
+//            hidden O bytes.
 "use strict";
 
 const pager = require("views/bro/pager.js");
@@ -67,7 +69,8 @@ for (const h of hunks) {
   pairs = pairs.concat(uPairs(h.text, toks));
   visible += visibleText(h.text, toks);
 }
-ok(visible.indexOf("todo GET-") < 0, "hidden `todo <KEY>` spell leaked into visible text");
+ok(visible.indexOf("ticket GET-") < 0, "hidden `ticket <KEY>` spell leaked into visible text");
+ok(visible.indexOf("todo GET ") < 0, "hidden `todo <TOPIC>` spell leaked into visible text");
 
 function hasPair(key, spell) {
   //  In a rendered page a reflink key shows as `[KEY]` (one G token); a list
@@ -78,13 +81,15 @@ function hasPair(key, spell) {
 }
 
 if (mode === "board") {
-  ok(hasPair("GET-001", "todo GET-001"), "board row GET-001 lacks O `todo GET-001`");
-  ok(hasPair("GET-002", "todo GET-002"), "board row GET-002 lacks O `todo GET-002`");
-  ok(hasPair("PUT-001", "todo PUT-001"), "board row PUT-001 lacks O `todo PUT-001`");
+  ok(hasPair("GET-001", "ticket GET-001"), "board row GET-001 lacks O `ticket GET-001`");
+  ok(hasPair("GET-002", "ticket GET-002"), "board row GET-002 lacks O `ticket GET-002`");
+  ok(hasPair("PUT-001", "ticket PUT-001"), "board row PUT-001 lacks O `ticket PUT-001`");
+  //  TODO-011: the TOPIC header is a listing — its spell stays a `todo` one.
   ok(hasPair("GET", "todo GET") || hasPair("PUT", "todo PUT"),
      "board topic header lacks O `todo <TOPIC>`");
+  ok(!hasPair("GET-001", "todo GET-001"), "board row GET-001 still spells `todo GET-001`");
 } else {
-  ok(hasPair("GET-002", "todo GET-002"), "page key GET-002 lacks O `todo GET-002`");
+  ok(hasPair("GET-002", "ticket GET-002"), "page key GET-002 lacks O `ticket GET-002`");
   //  BE-038 r2 / BE-054: a wiki reflink `[W]` → its refdef target as a meta-
   //  root-relative context-less `cat` O spell (context tree = the meta root).
   ok(hasPair("W", "cat wiki/Sample.mkd"), "page reflink [W] lacks O `cat wiki/Sample.mkd`");

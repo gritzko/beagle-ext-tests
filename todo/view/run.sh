@@ -1,13 +1,16 @@
 #!/bin/sh
 # test/todo/view — BE-038: the `todo` view verb browses the ticket board.
 # Shape-routed: bare `todo` = the board (topics + one-liner titles), `todo GET`
-# = one topic's list, `todo GET-001` = the ticket page (thin .mkd or fat
-# KEY/README.mkd), a miss = ONE uniform `todo: <arg>: TODONONE` line.
+# = one topic's list, a topic miss = ONE uniform `todo: <arg>: TODONONE` line.
+# TODO-011: the one-ticket PAGE is its OWN view — `ticket GET-001` (thin .mkd
+# or fat KEY/README.mkd).  `todo GET-001` refuses in plain words pointing at
+# it, and every ticket-KEY click spell is `ticket <KEY>` (topic headers keep
+# `todo <TOPIC>`).  test/ticket/page pins the page itself.
 # HEADER-GREP (ruling 2026-07-10): the ticket's own `#   KEY [MARK]: title`
 # line is the truth — [DONE]/[DONT]/[STALE] close, [CRIT]/[HIGH]/[LOW] order the
 # list; topic READMEs are stale-able landing pages, never an index.  List
-# rows + in-page ticket keys carry hidden `U` spell targets (`todo <KEY>`) so
-# the pager's _uriAt click re-enters the view (asserted over --tlv, check.js).
+# rows carry hidden `O` spell targets (TODO-011: `ticket <KEY>`) so the pager's
+# _uriAt click re-enters the page view (asserted over --tlv, check.js).
 # The ticket tree is a FIXTURE under $TMP (never the live journal): URI-016 —
 # be.todoRoot() is <project root>/todo and the root is DETECTED by the cwd climb
 # (core/resolve_hash.js::projectRoot), so the fixture tickets live in the run
@@ -142,8 +145,8 @@ grep -q 'PUT-001' "$WORK/topic.out" && _fail "topic GET lists PUT-001"
 grep -q 'PUT-001' "$WORK/topicput.out" || _fail "topic PUT misses PUT-001"
 grep -q 'no open-ticket list' "$WORK/topicput.out" && _fail "README-fallback note survived the header-grep rewrite"
 
-# --- 2b. direct addressing ignores the open filter --------------------------
-"$BE" todo GET-003 --plain > "$WORK/closed.out" 2>&1 || _fail "jab todo GET-003 (closed) failed"
+# --- 2b. direct addressing ignores the open filter (TODO-011: `ticket`) -----
+"$BE" ticket GET-003 --plain > "$WORK/closed.out" 2>&1 || _fail "jab ticket GET-003 (closed) failed"
 grep -q 'closed sample ticket' "$WORK/closed.out" || _fail "closed GET-003 page did not render"
 
 # --- 2c. an ALL-CLOSED topic still answers `todo TOPIC` with a visible note -
@@ -154,25 +157,32 @@ grep -q 'no open tickets in todo/NIX/' "$WORK/nix.out" || _fail "all-closed topi
 "$BE" todo --plain > "$WORK/board2.out" 2>&1 || _fail "jab todo (2) failed"
 grep -q 'NIX' "$WORK/board2.out" && _fail "board lists the all-closed topic NIX"
 
-# --- 3. thin ticket page -----------------------------------------------------
-"$BE" todo GET-001 --plain > "$WORK/thin.out" 2>&1 || _fail "jab todo GET-001 failed"
+# --- 3. thin ticket page (TODO-011: the `ticket` view) ----------------------
+"$BE" ticket GET-001 --plain > "$WORK/thin.out" 2>&1 || _fail "jab ticket GET-001 failed"
 grep -q 'thin sample ticket' "$WORK/thin.out" || _fail "thin page body missing"
 grep -q 'fat twin' "$WORK/thin.out" || _fail "thin page body truncated"
 
 # --- 4. fat ticket page (KEY/README.mkd) ------------------------------------
-"$BE" todo GET-002 --plain > "$WORK/fat.out" 2>&1 || _fail "jab todo GET-002 failed"
+"$BE" ticket GET-002 --plain > "$WORK/fat.out" 2>&1 || _fail "jab ticket GET-002 failed"
 grep -q 'fat ticket lives at' "$WORK/fat.out" || _fail "fat page body missing"
 
-# --- 5. miss = ONE uniform TODONONE line, non-zero exit ---------------------
-if "$BE" todo GET-999 --plain > "$WORK/miss.out" 2>&1; then _fail "todo GET-999 exited 0"; fi
-grep -q 'todo: GET-999: TODONONE' "$WORK/miss.out" || _fail "miss lacks the uniform TODONONE line"
+# --- 5. a TOPIC miss = ONE uniform TODONONE line, non-zero exit -------------
+if "$BE" todo NOPE --plain > "$WORK/miss.out" 2>&1; then _fail "todo NOPE exited 0"; fi
+grep -q 'todo: NOPE: TODONONE' "$WORK/miss.out" || _fail "topic miss lacks the uniform TODONONE line"
+# TODO-011: a ticket ID is no longer a `todo` arg — plain words, pointing at
+# `ticket <KEY>` and at the topic list, and NEVER a bare code.
+if "$BE" todo GET-001 --plain > "$WORK/page.out" 2>&1; then _fail "todo GET-001 exited 0"; fi
+grep -q "write 'ticket GET-001' for the page" "$WORK/page.out" \
+    || _fail "todo GET-001 does not point at 'ticket GET-001': $(cat "$WORK/page.out")"
+grep -q "'todo GET' for the topic" "$WORK/page.out" || _fail "the refusal drops the topic pointer"
+grep -q 'TODONONE' "$WORK/page.out" && _fail "the page refusal leaked a bare code"
 
-# --- 6. click targets: board rows + in-page keys carry U `todo <KEY>` -------
+# --- 6. click targets: board rows carry O `ticket <KEY>` (TODO-011) --------
 "$BE" todo --tlv > "$WORK/board.tlv" 2>/dev/null || _fail "jab todo --tlv failed"
 [ -s "$WORK/board.tlv" ] || _fail "todo --tlv emitted ZERO bytes"
 "$JABC" "$_CASE/check.js" "$WORK/board.tlv" board >"$WORK/check1.out" 2>&1 \
     || { cat "$WORK/check1.out" >&2; _fail "board U-target assertions failed"; }
-"$BE" todo GET-001 --tlv > "$WORK/thin.tlv" 2>/dev/null || _fail "jab todo GET-001 --tlv failed"
+"$BE" ticket GET-001 --tlv > "$WORK/thin.tlv" 2>/dev/null || _fail "jab ticket GET-001 --tlv failed"
 "$JABC" "$_CASE/check.js" "$WORK/thin.tlv" page >"$WORK/check2.out" 2>&1 \
     || { cat "$WORK/check2.out" >&2; _fail "page U-target assertions failed"; }
 

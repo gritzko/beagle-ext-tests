@@ -104,8 +104,8 @@ if painted:
           find_button(lines, "//PIN-1", "[?]") is not None)
     check("NO [?] on the non-ticket //TRK-5 row",
           find_button(lines, "//TRK-5", "[?]") is None)
-    # WORK-010 fire [?]: press it, the pager must NAVIGATE to the `todo PIN-1`
-    # ticket page, whose body carries the PIN-1 title.  The page frame has no
+    # WORK-010 fire [?]: press it, the pager must NAVIGATE to the ticket page
+    # (TODO-011: `ticket PIN-1`), whose body carries the PIN-1 title.  The page frame has no
     # `//PIN-` row, so match the ESC-STRIPPED stream (SGR is cell-interspersed).
     def stripped_has(sub):
         return lambda o: sub in ESC_RE.sub(b"", o).decode("utf-8", "replace")
@@ -115,7 +115,7 @@ if painted:
         press(hc)
         fired = s.wait_for(stripped_has("PIN-1: pin sample ticket"), 10)
         s.absorb(0.6)
-        check("[?] click navigated to the todo PIN-1 ticket page", fired)
+        check("[?] click navigated to the ticket PIN-1 page", fired)
         os.write(fd, b"-"); s.absorb(0.8)                       # back to the forest
     # WORK-010 fire [±]: a real press NAVIGATES (the compact diff); back out.
     lines = frame_lines(s.out)

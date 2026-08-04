@@ -5,15 +5,16 @@
 //  LINE with that ONE key's filter replaced — never a `todo(key,value)` call.
 //
 //  argv[2] = captured `jab todo … --tlv` bytes (a file); argv[3] = mode:
-//    page — a rendered ticket page (`todo TST-001`): the mkd grammar's own `T`
+//    page — a rendered ticket page (TODO-011: `ticket TST-001`): the mkd grammar's own `T`
 //           token (`Now:`) is followed by an O carrying the whole arg line with
 //           `Now:*` in it, and the value token by the same line with
 //           `Now:OPEN`.  A page's arg line is the ticket ID, which carries its
 //           TOPIC — a page takes no filters, so the id resolves to `TST`.
 //    list — `todo TST Now:* Sev:*`: each inline value's O carries the WHOLE
 //           line with only ITS key rewritten (the other filter stays put, in
-//           place), and the key still carries its `todo <KEY>` page nav.
-//    uri  — `todo OTH-001`: a value carrying a colon (a `Rev:` branch URI) is
+//           place), and the key still carries its page nav — TODO-011:
+//           `ticket <KEY>`, since a KEY names a page, not a listing.
+//    uri  — `ticket OTH-001`: a value carrying a colon (a `Rev:` branch URI) is
 //           not expressible as a filter arg, so that half does NOT click — its
 //           key half still offers the `Rev:*` presence filter.
 //  In every mode the hidden spell bytes must NOT leak into the visible text.
@@ -90,7 +91,7 @@ if (mode === "page") {
   ok(drives("Who:", "todo TST Who:*"), "the `Who:` key half drives no presence filter");
   ok(drives("gritzko", "todo TST Who:gritzko"), "the `Who:` value half drives no whole-line filter");
 } else if (mode === "list") {
-  ok(drives("TST-002", "todo TST-002"), "a list row lost its `todo <KEY>` nav spell");
+  ok(drives("TST-002", "ticket TST-002"), "a list row lost its `ticket <KEY>` nav spell");
   //  ONE key is rewritten and the REST of the line is left alone, in place.
   ok(drives("OPEN", "todo TST Now:OPEN Sev:*"), "a `Now:` value click does not replace only Now:");
   ok(drives("HIGH", "todo TST Now:* Sev:HIGH"), "a `Sev:` value click does not replace only Sev:");

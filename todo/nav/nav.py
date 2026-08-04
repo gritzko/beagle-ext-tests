@@ -61,13 +61,15 @@ def bar(frame):
         if "h: help" in line: return line.strip()
     return ""
 def landed(frame, key, title):
-    """the frame IS that ticket's page: the bar names it and the body is it."""
-    return ("/: todo " + key) in bar(frame) and ("#   " + key + ": " + title) in frame
+    """the frame IS that ticket's page: the bar names it and the body is it.
+    TODO-011: the page is the `ticket` view now, so the bar must say so —
+    a `todo` answer that merely mentions the code can no longer pass."""
+    return ("/: ticket " + key) in bar(frame) and ("#   " + key + ": " + title) in frame
 
 #  --- 1.  the ticket-view meta block ------------------------------------------
 #  NAV-001 paints `Now: OPEN` on row 3, `See: NAV-002` on row 4 and
 #  `Zzz: NAV-003` on row 5; a key is columns 1-4, a value columns 6-13.
-pid, fd = start(["todo", "NAV-001"])
+pid, fd = start(["ticket", "NAV-001"])
 page = sip(fd)
 check("page-painted", "See: NAV-002" in page and "Zzz: NAV-003" in page, repr(page[:200]))
 
@@ -111,6 +113,19 @@ stop(pid, fd)
 check("board-inline-value-navigates", landed(f4, "NAV-002", "beta"),
       repr((bar(f4), f4[:200])))
 check("board-inline-value-is-not-a-filter", "See:NAV-002" not in f4, repr(f4[:200]))
+
+#  --- 3.  TODO-011: a topic list's KEY ROW click lands in `ticket` -----------
+#  `todo NAV` paints three rows; row 1 is `● NAV-001 ┄… alpha`, so screen row 2
+#  is NAV-001 and row 3 is NAV-002: `●` 1, ` ` 2, the key 3-9.  The pager is
+#  arg-blind, so a landing on the PAGE can only have driven the row's O spell.
+pid, fd = start(["todo", "NAV"])
+lst = sip(fd)
+check("list-painted", "NAV-002" in lst and "beta" in lst, repr(lst[:200]))
+press(fd, 3, 5)                                    # the NAV-002 key row
+f5 = sip(fd)
+stop(pid, fd)
+check("list-key-row-opens-the-ticket-view", landed(f5, "NAV-002", "beta"),
+      repr((bar(f5), f5[:200])))
 
 print("DONE" if fails == 0 else "FAILS=%d" % fails)
 sys.exit(1 if fails else 0)

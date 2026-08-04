@@ -2,7 +2,7 @@
 //  `todo` list rows, over a captured `jab todo … --tlv` stream.
 //
 //  argv: <tlv-file> KEY… -- ABSENTKEY…   Each KEY (an OPEN listed ticket) must
-//  sit on ONE row shaped  F:KEY  O:"todo KEY"  …  Y:"[done]"  O:"done KEY"  …\n
+//  sit on ONE row shaped  F:KEY  O:"ticket KEY" …  Y:"[done]"  O:"done KEY" …\n
 //  (BE-054: the nav is now a context-less O click spell, U reserved for real
 //  addresses; the BE-041 house scheme: nav FIRST so a title click still navigates, the
 //  hidden O spell RAW `done KEY`, nothing else).  Each ABSENTKEY (closed /
@@ -55,8 +55,9 @@ for (const h of hunks) {
 function assertRow(key) {
   let i = toks.findIndex(function (t) { return t.tag === "F" && t.text === key; });
   ok(i >= 0, "no F token for OPEN row " + key);
-  ok(toks[i + 1] && toks[i + 1].tag === "O" && toks[i + 1].text === "todo " + key,
-     key + ": the hidden O `todo " + key + "` nav must directly follow the key");
+  //  TODO-011: the key row's nav is the PAGE view `ticket <KEY>`.
+  ok(toks[i + 1] && toks[i + 1].tag === "O" && toks[i + 1].text === "ticket " + key,
+     key + ": the hidden O `ticket " + key + "` nav must directly follow the key");
   //  TODO-005: the single `[done]` Y label became a two-button PANEL — the ` ✔`
   //  (heavy check) and ` ✗` faces, each on its own class tag with its own hidden O.  A button
   //  face is followed DIRECTLY by its spell, and the spell now opens with the

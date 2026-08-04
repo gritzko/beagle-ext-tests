@@ -1,0 +1,15 @@
+ticket PAG-002
+#   PAG-002: fat parity ticket (dir layout)
+Now: OPEN
+Sev: HIGH
+Sub: PAG-001
+Rev: http://example.org/x
+
+A fat ticket lives at todo/PAG/PAG-002/README.mkd and mentions PAG-001
+and [PAG-003] and [W].
+
+##  Input
+ -  [/wiki/Sample] shortcut.
+
+[W]: ../../../wiki/Sample.mkd "a wiki page reflink"
+

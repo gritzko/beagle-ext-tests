@@ -1,0 +1,15 @@
+ticket PAG-001
+#   PAG-001: thin parity ticket
+Now: OPEN
+Sev: MED
+See: PAG-002
+Zzz: PAG-003
+
+Body mentions PAG-002 bare, and [PAG-003] as a bracketed key.
+
+##  Input
+ -  see [W] for the wiki page.
+ -  see [/wiki/Sample] for the shortcut form.
+
+[W]: ../../wiki/Sample.mkd "a wiki page reflink"
+

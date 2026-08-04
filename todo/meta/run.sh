@@ -179,12 +179,13 @@ _hasnt "$WORK/board.out" 'TST-001 \[OPEN\]' "the bare board shows an un-queried 
 _before "$WORK/board.out" 'TST-002' 'TST-001' "Sev: CRIT does not sort above HIGH"
 _before "$WORK/board.out" 'TST-001' 'TST-005' "Sev: HIGH does not sort above an unranked ticket"
 
-# --- 2. `todo TOPIC` obeys the same filter; the page ignores it entirely -----
+# --- 2. `todo TOPIC` obeys the same filter; the PAGE ignores it entirely -----
+# TODO-011: the page is `ticket <KEY>` now — a listing filters, a page never does.
 "$BE" todo TST --plain > "$WORK/topic.out" 2>&1 || _fail "jab todo TST failed"
 _has   "$WORK/topic.out" 'TST-001' "topic list misses an open ticket"
 _hasnt "$WORK/topic.out" 'TST-003' "topic list lists a Now: DONE ticket"
 _hasnt "$WORK/topic.out" 'OTH-001' "topic list leaks the other topic"
-"$BE" todo TST-003 --plain > "$WORK/page.out" 2>&1 || _fail "jab todo TST-003 failed"
+"$BE" ticket TST-003 --plain > "$WORK/page.out" 2>&1 || _fail "jab ticket TST-003 failed"
 _has "$WORK/page.out" 'closed by the pair' "direct addressing did not render a closed ticket"
 _has "$WORK/page.out" 'Now: DONE' "the page did not render its meta-pair block"
 
@@ -275,29 +276,37 @@ _refuses 'carries two colons'            Now:OPEN:DONE
 _refuses 'is not a meta key'             now:OPEN
 _refuses 'is a meta key with no value'   Now
 _refuses 'is not a ticket code, a topic or a Key:Value filter'  notakey
+# TODO-011: a ticket id is not a `todo` arg at all now — with or without a
+# filter it refuses in plain words, pointing at `ticket <KEY>` and at the topic.
 _refuses 'names one ticket page'         TST-001 Now:OPEN
+_refuses "write 'ticket TST-001' for the page"   TST-001
 _refuses 'one topic or one ticket id at a time'  TST OTH
 _hasnt "$WORK/refuse.out" 'TODONONE' "a plain-words refusal leaked a bare code"
-if "$BE" todo TST-999 --plain > "$WORK/miss.out" 2>&1; then _fail "todo TST-999 exited 0"; fi
-_has "$WORK/miss.out" 'todo: TST-999: TODONONE' "the missing-ticket line changed"
+# ...and a topic miss keeps the historic uniform line the BE-038 golden pins.
+if "$BE" todo NOPE --plain > "$WORK/miss.out" 2>&1; then _fail "todo NOPE exited 0"; fi
+_has "$WORK/miss.out" 'todo: NOPE: TODONONE' "the missing-topic line changed"
+# the `ticket` view's own miss is PLAIN WORDS, never a bare code (TODO-011).
+if "$BE" ticket TST-999 --plain > "$WORK/tmiss.out" 2>&1; then _fail "ticket TST-999 exited 0"; fi
+_has "$WORK/tmiss.out" 'there is no ticket TST-999' "the ticket miss line changed"
+_hasnt "$WORK/tmiss.out" 'TODONONE' "the ticket miss leaked a bare code"
 
 # --- 7. the click SPELLS carry the WHOLE arg line (the tlv the pager reads) -
-"$BE" todo TST-001 --tlv > "$WORK/page.tlv" 2>/dev/null || _fail "jab todo TST-001 --tlv failed"
-[ -s "$WORK/page.tlv" ] || _fail "todo TST-001 --tlv emitted ZERO bytes"
+"$BE" ticket TST-001 --tlv > "$WORK/page.tlv" 2>/dev/null || _fail "jab ticket TST-001 --tlv failed"
+[ -s "$WORK/page.tlv" ] || _fail "ticket TST-001 --tlv emitted ZERO bytes"
 "$JABC" "$_CASE/check.js" "$WORK/page.tlv" page >"$WORK/c1.out" 2>&1 \
     || { cat "$WORK/c1.out" >&2; _fail "page meta-pair spell assertions failed"; }
 "$BE" todo TST 'Now:*' 'Sev:*' --tlv > "$WORK/list.tlv" 2>/dev/null || _fail "jab todo TST Now:* Sev:* --tlv failed"
 "$JABC" "$_CASE/check.js" "$WORK/list.tlv" list >"$WORK/c2.out" 2>&1 \
     || { cat "$WORK/c2.out" >&2; _fail "list-row value spell assertions failed"; }
-"$BE" todo OTH-001 --tlv > "$WORK/uri.tlv" 2>/dev/null || _fail "jab todo OTH-001 --tlv failed"
+"$BE" ticket OTH-001 --tlv > "$WORK/uri.tlv" 2>/dev/null || _fail "jab ticket OTH-001 --tlv failed"
 "$JABC" "$_CASE/check.js" "$WORK/uri.tlv" uri >"$WORK/c3.out" 2>&1 \
     || { cat "$WORK/c3.out" >&2; _fail "un-expressible-value spell assertions failed"; }
 # an INDENTED block clicks exactly like a column-0 one, and a pair the SCOPE
 # rule rejects carries no click at all — one matcher answers render and index.
-"$BE" todo TST-009 --tlv > "$WORK/indent.tlv" 2>/dev/null || _fail "jab todo TST-009 --tlv failed"
+"$BE" ticket TST-009 --tlv > "$WORK/indent.tlv" 2>/dev/null || _fail "jab ticket TST-009 --tlv failed"
 "$JABC" "$_CASE/check.js" "$WORK/indent.tlv" indent >"$WORK/c4.out" 2>&1 \
     || { cat "$WORK/c4.out" >&2; _fail "indented meta-block spell assertions failed"; }
-"$BE" todo TST-010 --tlv > "$WORK/scope.tlv" 2>/dev/null || _fail "jab todo TST-010 --tlv failed"
+"$BE" ticket TST-010 --tlv > "$WORK/scope.tlv" 2>/dev/null || _fail "jab ticket TST-010 --tlv failed"
 "$JABC" "$_CASE/check.js" "$WORK/scope.tlv" scope >"$WORK/c5.out" 2>&1 \
     || { cat "$WORK/c5.out" >&2; _fail "out-of-scope pair spell assertions failed"; }
 

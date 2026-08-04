@@ -14,11 +14,15 @@
 # so the click was dead weight exactly where a jump is wanted.
 #
 # What the case pins:
-#   page  `See: NAV-002`  value click -> `todo NAV-002` (the target's PAGE)
-#   page  `Zzz: NAV-003`  value click -> `todo NAV-003` (an UNREGISTERED key:
+#   page  `See: NAV-002`  value click -> `ticket NAV-002` (the target's PAGE)
+#   page  `Zzz: NAV-003`  value click -> `ticket NAV-003` (an UNREGISTERED key:
 #                                        the VALUE's lexical class decides)
 #   page  `See:`          KEY   click -> `todo NAV See:*` (unchanged)
-#   board `[NAV-002]` inline value click -> `todo NAV-002`
+#   board `[NAV-002]` inline value click -> `ticket NAV-002`
+#   list  the `NAV-002` KEY row click  -> `ticket NAV-002`
+# TODO-011 split the one-ticket PAGE out of `todo` into its own `ticket` view,
+# so every KEY landing above is a `ticket` one; the KEY-half FILTER click and
+# the topic list stay `todo`.  This case is the pager ROUND-TRIP evidence.
 # Registered by the be/test glob as be-js-todo-nav — no CMakeLists edit.
 set -eu
 
@@ -85,7 +89,7 @@ printf 'seed\n' > a.txt
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"
 # the store must answer before the pty leg (a first sweep inside the pager
 # would still work, but a failure there would read as a click failure).
-"$BE" todo NAV-001 --plain >/dev/null 2>&1 || _fail "the ticket page does not render"
+"$BE" ticket NAV-001 --plain >/dev/null 2>&1 || _fail "the ticket page does not render"
 "$BE" todo NAV 'See:*' --plain >/dev/null 2>&1 || _fail "the inline-value board does not render"
 
 python3 "$_CASE/nav.py" "$JABC" "$WT" >"$WORK/out" 2>"$WORK/err" || {

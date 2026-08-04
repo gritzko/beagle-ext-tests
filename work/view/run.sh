@@ -148,7 +148,8 @@ mkdir -p "$META/work/PIN"
 printf '26718JG015\tget\tfile:%s/vend/ext/.be/?\n26718JG016\tget\t///vend/ext/#%s\n' \
     "$META" "$SHA2" > "$META/work/PIN/.be"
 # WORK-010 (ruling 2): a SUFFIXED ticket-named wt — a letter suffix (PIN-1b) and a
-# `-word` suffix (PIN-1-retry) — both resolve to the BASE ticket -> `//: todo PIN-1`.
+# `-word` suffix (PIN-1-retry) — both resolve to the BASE ticket key, and
+# TODO-011 makes that landing the PAGE view: `//: ticket PIN-1`.
 for sfx in 1b 1-retry; do
   mkdir -p "$META/work/PIN-$sfx"
   printf '26718JG015\tget\tfile:%s/vend/ext/.be/?\n26718JG016\tget\t///vend/ext/#%s\n' \

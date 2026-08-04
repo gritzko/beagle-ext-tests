@@ -150,8 +150,10 @@ check("two-key-address-bar", ok3, repr(b3))
 #  CLK-001's file line 2 is `Now: OPEN`, painted on screen row 3: `Now:` on
 #  columns 1-4, `OPEN` on 6-9.  The page's arg line is the ticket id, which
 #  carries its TOPIC — so a pair click opens `todo CLK <Key>:<value>`.
+#  TODO-011: the page is the `ticket` view now, and a FILTER click stays a
+#  `todo` spell wherever it is rendered — that cross-view landing is the point.
 for label, col, want in (("key", 2, "todo CLK Now:*"), ("value", 7, "todo CLK Now:OPEN")):
-    pid, fd = start(["todo", "CLK-001"])
+    pid, fd = start(["ticket", "CLK-001"])
     before = sip(fd)
     check("page-painted-" + label, "Now: OPEN" in before, repr(before[:160]))
     press(fd, 3, col)
