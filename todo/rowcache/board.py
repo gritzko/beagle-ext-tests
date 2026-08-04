@@ -196,7 +196,10 @@ if cell:
     check("the-~-click-STAGED-the-changed-file", isStaged("TIC-001", "src/f1.txt"),
           repr(staged("TIC-001")[:220]))
     check("…with-no-err-in-the-bar", "err:" not in f8, repr(f8[-120:]))
-    check("…and-the-row-grew-the-staged-tick", "✓" in half(rowof(f8, "TIC-001"), "[ i"),
+    #  CI-004: the commit ✓ is the HISTORY surface's last slot — it lights in the
+    #  `[ ≡` frame while ANY row is staged, not in the `[ i` staging frame (whose
+    #  last slot is the ` ∞` run button).
+    check("…and-the-row-grew-the-staged-tick", "✓" in half(rowof(f8, "TIC-001"), "[ ≡"),
           repr(rowof(f8, "TIC-001")))
 #  the `+` button: `put +` stages the untracked file of the SAME row
 cell = cellof(keys(":todo\r"), "TIC-001", "+")
