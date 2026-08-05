@@ -117,6 +117,12 @@ if (TEST be-js-bro-ci)
     set_tests_properties(be-js-bro-ci PROPERTIES TIMEOUT 60)
 endif()
 
+#  BRO-046 the IDLE mapping census: a pty pager session that sits untouched for
+#  a settle + a multi-second window while /proc/<pid>/maps is sampled.
+if (TEST be-js-bro-vmaidle)
+    set_tests_properties(be-js-bro-vmaidle PROPERTIES TIMEOUT 60)
+endif()
+
 #  BRO-034 the LOADING bar: a pty pager session over a few-thousand-file tree
 #  (planted, then a real `grep` run so the yellow bar is caught mid-load): 60 s.
 if (TEST be-js-bro-load)
