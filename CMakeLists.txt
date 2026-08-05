@@ -97,6 +97,12 @@ if (TEST be-js-bro-cache)
     set_tests_properties(be-js-bro-cache PROPERTIES TIMEOUT 60)
 endif()
 
+#  CODE-030 pty spell-drive session (a seeded worktree, then a pager launch, a
+#  typed `:` spell and a real mouse click, each with a settle wait): 60 s.
+if (TEST be-js-bro-spelldrive)
+    set_tests_properties(be-js-bro-spelldrive PROPERTIES TIMEOUT 60)
+endif()
+
 #  TODO-006: the board's per-block ROW CACHE — a seeded project + three
 #  store-backed worktree clones, a resident driver, then a live pty pager board
 #  (the click/BACKSPACE gesture, a post, settle waits).  Same 60 s as the other
@@ -124,7 +130,7 @@ endif()
 # the live shard" — NOT landed-suite material, so they are intentionally omitted.
 foreach(_unit store store_resolve ulog ingest packlog packsalvage patchband wire wire_stream wirepush
         submount submountstamp branch uri checkout_guard submount_guard stage_guard resolve_confine
-        statusfast wtlog_track wtlog_con registry metaidx mtimeidx cache ci wtwalk)
+        statusfast wtlog_track wtlog_con registry metaidx mtimeidx cache ci wtwalk acyclic)
     add_test(NAME be-js-unit-${_unit}
         COMMAND "${JAB_BIN}" "${CMAKE_CURRENT_SOURCE_DIR}/${_unit}.js"
         WORKING_DIRECTORY "${BE_TEST_TMP}")
