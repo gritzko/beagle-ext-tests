@@ -117,6 +117,12 @@ if (TEST be-js-bro-ci)
     set_tests_properties(be-js-bro-ci PROPERTIES TIMEOUT 60)
 endif()
 
+#  BRO-034 the LOADING bar: a pty pager session over a few-thousand-file tree
+#  (planted, then a real `grep` run so the yellow bar is caught mid-load): 60 s.
+if (TEST be-js-bro-load)
+    set_tests_properties(be-js-bro-load PROPERTIES TIMEOUT 60)
+endif()
+
 #  CI-004 the board ` ∞` + the `ci` VIEW: a pty session that watches a real
 #  background job's log tail grow, settle and stop ticking.
 if (TEST be-js-todo-ci)
