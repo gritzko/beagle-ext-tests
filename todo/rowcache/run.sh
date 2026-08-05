@@ -91,6 +91,9 @@ _tic TIC-003 'no worktree at all' TIC
 _tic BUG-001 'a bug that owns a worktree' BUG
 printf '#   BUG-002: a bug with no wt but a Rep:\nNow: OPEN\nRep: ///be\n\nbody\n' \
     > "$WT/todo/BUG/BUG-002.mkd"
+# The plant must land on ONE mtime: metaidx re-lexes files with mtime >=
+# max-seen, so a tick straddling these writes makes render 2 lex fewer files.
+find "$WT/todo" -exec touch -r "$WT/todo/TIC/TIC-001.mkd" {} +
 
 # JAB_STATS=1 turns on the CFOLD-001 object-read counters the driver reads.
 JAB_STATS=1 "$BE" "$_CASE/drive.js" "$WT" "$TMP/$$/jsrc" "$BE" \

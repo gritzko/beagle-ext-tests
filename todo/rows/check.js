@@ -85,18 +85,22 @@ function plant(abs, body) {
 const BOARD = root + "/todo", WORK = root + "/work";
 //  TIC: the order / wt topic.  Numbering runs AGAINST the priority order so a
 //  numeric sort cannot pass for a priority one.
+//  The TIC heads carry the INDENTED block real [/wiki/StrictMark] pages write
+//  (four spaces); FAM below keeps the unindented form — both are legal, and a
+//  fixture that only ever wrote column 0 hid the `^Key:` anchor bug in pageHead.
 function tic(n, head, meta) { plant(BOARD + "/TIC/TIC-" + n + ".mkd", head + meta + "\nbody\n"); }
-tic("001", "#   TIC-001: unmarked, reads MED\n", "Now: OPEN\n");
-tic("002", "#   TIC-002 [CRIT]: sorts first\n", "Sev: CRIT\nNow: OPEN\n");
-tic("003", "#   TIC-003 [LOW]: sorts last\n", "Sev: LOW\nNow: OPEN\n");
-tic("004", "#   TIC-004 [HIGH]: sorts second\n", "Sev: HIGH\nNow: OPEN\n");
+tic("001", "#   TIC-001: unmarked, reads MED\n", "    Now: OPEN\n");
+tic("002", "#   TIC-002 [CRIT]: sorts first\n", "    Sev: CRIT\n    Now: OPEN\n");
+tic("003", "#   TIC-003 [LOW]: sorts last\n", "    Sev: LOW\n    Now: OPEN\n");
+tic("004", "#   TIC-004 [HIGH]: sorts second\n", "    Sev: HIGH\n    Now: OPEN\n");
 //  A `Sev:` line NOT directly under the header (a body line) must NOT count.
 tic("005", "#   TIC-005: the pair run stops at the first non-pair line\n",
-    "Now: OPEN\n\nSev: CRIT\n");
-tic("006", "#   TIC-006 [DONE]: closed by the legacy mark\n", "Now: DONE\n");
+    "    Now: OPEN\n\n    Sev: CRIT\n");
+tic("006", "#   TIC-006 [DONE]: closed by the legacy mark\n", "    Now: DONE\n");
 //  TODO-005 [go]: a wt-LESS ticket carrying `Rep:` — the repo it relates to, a
 //  (usually relative) repo URI — is the ONE creating action on the board.
-tic("007", "#   TIC-007: carries Rep:, offers the mint button\n", "Now: OPEN\nRep: ///be\n");
+tic("007", "#   TIC-007: carries Rep:, offers the mint button\n",
+    "    Now: OPEN\n    Rep: ///be\n");
 
 //  FAM: the `Sub:` family topic — one parent, two kids, one grandkid, one
 //  cross-topic Sub:, one closed-parent Sub:, and a two-node CYCLE.  The closed
@@ -543,7 +547,9 @@ ok(lineOf(gopg, "TIC-007").indexOf("[go]") > 0, "10: … inside dim frame bracke
 eq(slot({ cells: gorow }, "go"), btnOf("go"),
    "10: … as a live button — Shocking Orange over its pale wash");
 const gsp = gorow.filter(function (c) { return c.tag === "O"; }).map(function (c) { return c.text; });
-ok(gsp.indexOf(paint("go") + " work TIC-007 ///be") >= 0,
+//  the spell is `fork` (verbs/fork/fork.js) — `work` is the read-only forest
+//  view and takes NO arg, so the old expectation named a spell that died WORKNONE.
+ok(gsp.indexOf(paint("go") + " fork TIC-007 ///be") >= 0,
    "10: … minting the wt-MINT spell, context-LESS (the wt does not exist yet)");
 //  the region keeps its width, so every title still lands at ONE column.
 eq(titleCol(gopg, "TIC-007"), titleCol(gopg, "TIC-003"),

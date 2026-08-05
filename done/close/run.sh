@@ -110,6 +110,29 @@ EOF
 cat > "$META/todo/FIX/FIX-0011.mkd" <<'EOF'
 #   FIX-0011: prefix-key neighbour
 EOF
+# INDENT (ruling 2026-08-03): a meta pair stands at column 0 or at exactly four
+# spaces, and an EDIT KEEPS the indent it found.  FIX-008 carries the indented
+# block (rewrite in place, four spaces), FIX-009 the column-0 one (stays at 0),
+# FIX-010 an indented block with NO `Now:` yet (the fresh pair joins at the
+# block's own indent).  Live tickets are indented, so this is the common case.
+cat > "$META/todo/FIX/FIX-008.mkd" <<'EOF'
+#   FIX-008: indented pair block
+
+    Now: OPEN
+    Sev: HIGH
+
+Body.
+EOF
+cat > "$META/todo/FIX/FIX-009.mkd" <<'EOF'
+#   FIX-009: column-0 pair block
+Now: OPEN
+Sev: MED
+EOF
+cat > "$META/todo/FIX/FIX-010.mkd" <<'EOF'
+#   FIX-010: indented block carrying no Now: yet
+
+    Sev: LOW
+EOF
 # --- seed the worktree the loop runs from ------------------------------------
 cd "$WT"
 printf 'seed\n' > a.txt
@@ -123,10 +146,11 @@ printf 'seed\n' > a.txt
     || _fail "form-1 header not flipped: $(head -n 1 "$META/todo/FIX/FIX-001.mkd")"
 # the page BODY survives byte-for-byte APART from the `Now:` pair TODO-005 adds
 # directly under the header (the ruled state pair — inserted when the head
-# carries none, changed in place when it does).
+# carries none, changed in place when it does).  INDENT: a page with no pair
+# block yet gets the house default, four spaces ([/meta/todo] ruling 2026-08-03).
 tail -n +2 "$META/todo/FIX/FIX-001.mkd" > "$WORK/body.got"
 cat > "$WORK/body.want" <<'EOF'
-Now: DONE
+    Now: DONE
 
 Body line mentioning FIX-001 must survive the header flip untouched.
 
@@ -176,7 +200,7 @@ grep -q 'done FIX-004' "$WORK/multi.out" || _fail "no confirmation row for FIX-0
 # so a page carrying only the legacy [DONE] mark is NOT yet fully closed — the
 # first run adds `Now: DONE`, and only the run after that is the no-op.
 "$BE" done FIX-003 --plain > "$WORK/closed.out" 2>&1 || _fail "jab done FIX-003 (closed) failed"
-[ "$(sed -n 2p "$META/todo/FIX/FIX-003.mkd")" = 'Now: DONE' ] \
+[ "$(sed -n 2p "$META/todo/FIX/FIX-003.mkd")" = '    Now: DONE' ] \
     || _fail "legacy-marked page did not gain its Now: pair: $(sed -n 2p "$META/todo/FIX/FIX-003.mkd")"
 cp "$META/todo/FIX/FIX-003.mkd" "$WORK/fix3.before"
 cp "$META/todo/README.mkd" "$WORK/board.before"
@@ -229,5 +253,26 @@ grep -qE '^[[:space:]]*-[[:space:]]+\[?FIX-006\b' "$META/todo/FIX/README.mkd" \
     || _fail "[OPEN] header not flipped: $(head -n 1 "$META/todo/FIX/FIX-007.mkd")"
 grep -q 'done FIX-007 \[DONE\]: open-mark sample' "$WORK/open.out" \
     || _fail "no confirmation row for FIX-007: $(cat "$WORK/open.out")"
+
+# --- 7. the pair EDIT keeps the indent it found -------------------------------
+# Ruling 2026-08-03: a meta pair is at column 0 or at exactly four spaces; the
+# rewrite happens WHERE IT STANDS, so an indented `Now:` stays indented and a
+# column-0 one stays at column 0.  Read off the ONE metaidx grammar, so the pair
+# `done` rewrites is the pair the index and the board read.
+"$BE" done FIX-008 FIX-009 FIX-010 --plain > "$WORK/ind.out" 2>&1 \
+    || _fail "jab done FIX-008 FIX-009 FIX-010 failed: $(cat "$WORK/ind.out")"
+[ "$(sed -n 3p "$META/todo/FIX/FIX-008.mkd")" = '    Now: DONE' ] \
+    || _fail "indented Now: lost its indent: [$(sed -n 3p "$META/todo/FIX/FIX-008.mkd")]"
+[ "$(sed -n 4p "$META/todo/FIX/FIX-008.mkd")" = '    Sev: HIGH' ] \
+    || _fail "FIX-008 sibling pair disturbed: [$(sed -n 4p "$META/todo/FIX/FIX-008.mkd")]"
+[ "$(sed -n 2p "$META/todo/FIX/FIX-009.mkd")" = 'Now: DONE' ] \
+    || _fail "column-0 Now: gained an indent: [$(sed -n 2p "$META/todo/FIX/FIX-009.mkd")]"
+[ "$(sed -n 3p "$META/todo/FIX/FIX-010.mkd")" = '    Now: DONE' ] \
+    || _fail "fresh pair did not join the indented block: [$(sed -n 3p "$META/todo/FIX/FIX-010.mkd")]"
+[ "$(sed -n 4p "$META/todo/FIX/FIX-010.mkd")" = '    Sev: LOW' ] \
+    || _fail "FIX-010 block not kept contiguous: [$(sed -n 4p "$META/todo/FIX/FIX-010.mkd")]"
+# and the board reads the closure back off the pair (no row for a closed ticket)
+"$BE" todo FIX --plain > "$WORK/board.after" 2>&1 || _fail "jab todo FIX --plain failed"
+grep -q 'FIX-008' "$WORK/board.after" && _fail "FIX-008 still boards as open after close"
 
 echo "PASS [done/$NAME]"

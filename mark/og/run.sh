@@ -42,8 +42,14 @@ printf 'example.test\n' > "$SRC/html/CNAME"
 printf '<link rel="stylesheet" href="/assets/css/style.css">\n' > "$SRC/html/head.html"
 # The post: a `##` opener (the exact case the old H1-only metaOf missed), a
 # reference-style FIRST image whose refdef carries a #fragment, then prose.
+# The head block (indented meta pairs + a byline) is NOT prose: it must not
+# become the description, as `Now: OPEN Rep: ///be/` did on every real ticket.
 cat > "$SRC/blog/post.mkd" <<'EOF'
 ##  Hello OG World
+    Now: OPEN
+    Rep: ///be/
+
+    -- gritzko
 
 ![Darwin's sketch][1]
 This is the intro paragraph with a [link][g] and *emphasis*.
@@ -78,6 +84,11 @@ grep -q '<meta property="og:description" content="This is the intro paragraph' "
 # only the FIRST paragraph is the description — the second must not leak into it.
 grep 'property="og:description"' "$PAGE" | grep -qi 'second paragraph' \
     && _fail "og:description leaked the second paragraph"
+# …nor the head block: the meta pairs and the byline are not prose.
+grep 'property="og:description"' "$PAGE" | grep -q 'Now: OPEN' \
+    && _fail "og:description leaked the head meta pairs"
+grep 'property="og:description"' "$PAGE" | grep -q '\-\- gritzko' \
+    && _fail "og:description leaked the byline"
 
 FEED="$SRC/html/feed.rss"
 [ -f "$FEED" ] || _fail "rss did not write html/feed.rss"
