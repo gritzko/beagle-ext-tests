@@ -18,7 +18,7 @@
 W=$(new_wt g)
 cd "$W"
 
-_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@" >/dev/null 2>&1; }
+_jab() { rm -f .be/*/*.keeper.idx 2>/dev/null; "$BE" "$@" >/dev/null 2>&1; }
 _tip() { "$JABC" refs 2>/dev/null | sed -n 's/^cur: *//p'; }
 cq()  { grep -q "48;5;$1" "$WORK/j.color" || _fail "$2 (expected 256-bg $1)"; }
 

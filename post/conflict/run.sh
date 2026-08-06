@@ -36,7 +36,7 @@ EOF
 
 # TEST-003: the rolling `.keeper.idx` indexes only the latest keeper, so drop it
 # before each origin op or the t0 fork point both branches need reads MISSING.
-_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+_jab() { rm -f .be/*/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
 _orgbranch() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^branch: *?//p'; }
 _ci() {   # _ci MSG FILE... — stage + commit, then republish the branch ref.
     _msg=$1; shift
@@ -65,7 +65,7 @@ printf 'a\nY\nc\n' > f.txt
 _ci 't1 line2=Y' f.txt
 cd "$_opwd"
 ORG_TIP=$(_orgtip "$ORG")
-rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
 
 # --- 1. a live `con` row refuses the post, before any store write -----------
 mkdir "$WORK/c"; ( cd "$WORK/c" && "$BE" get "file://$ORG/.be#$ORG_TIP" >/dev/null 2>&1 ) \

@@ -18,7 +18,7 @@ WORKD=$(rs_work_root "$PROJ")            # $PROJ/work — where `//NAME` resolve
 
 cd "$PROJ"
 printf 'a\nb\nc\nd\ne\n' > f.txt
-rm -f .be/*.keeper.idx 2>/dev/null
+rm -f .be/*/*.keeper.idx 2>/dev/null
 "$BE" post 't0' >/dev/null 2>&1 || _fail "origin bootstrap failed"
 # DIS-073 wave: a bare post no longer advances any ref (unrelated red wave,
 # untouched here) — mint an EXPLICIT `?trunk` label so the clones below have
@@ -28,7 +28,7 @@ cd "$WORK"
 
 # Two secondary worktrees UNDER work/ (store-backed clones off PROJ, mirrors
 # tree-uri's W1/W2) so `//X`/`//Y` resolve to them.
-_proj_jab() { _d=$1; shift; rm -f "$PROJ"/.be/*.keeper.idx 2>/dev/null; ( cd "$_d" && "$BE" "$@" ); }
+_proj_jab() { _d=$1; shift; rm -f "$PROJ"/.be/*/*.keeper.idx 2>/dev/null; ( cd "$_d" && "$BE" "$@" ); }
 mkdir -p "$WORKD/X" "$WORKD/Y"
 _proj_jab "$WORKD/X" get "file://$PROJ/.be?trunk" >/dev/null 2>&1 || _fail "X clone failed"
 _proj_jab "$WORKD/Y" get "file://$PROJ/.be?trunk" >/dev/null 2>&1 || _fail "Y clone failed"
@@ -42,7 +42,7 @@ _proj_jab "$WORKD/X" post 'x1 line3' >/dev/null 2>&1 || _fail "X post failed"
 # never touched f.txt).  Not `file:../X` — a bare scheme-less nav authority.
 # BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
 # today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
-rm -f "$PROJ"/.be/*.keeper.idx 2>/dev/null
+rm -f "$PROJ"/.be/*/*.keeper.idx 2>/dev/null
 ( cd "$WORKD/Y" && "$JABC" patch '//X' ) >"$WORK/js.out" 2>"$WORK/js.err" \
     || _fail "tree-nav patch failed: $(cat "$WORK/js.err")"
 

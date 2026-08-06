@@ -95,10 +95,14 @@ FSHA=$(_sha40 "$WORK/foreign/.be/wtlog" 1)
 
 # Trunk + branch refs ([/wiki/Store]: branches are ref rows): ext trunk -> SHA2,
 # `feature` pinned at SHA1; deep/foreign trunks at their tips (get needs a trunk).
+# GET-060: a store's SHARD dir — `.be/<title>/`, where the packs and the `refs`
+# log live (RULING 2: there is no flat store, `.be/` holds shards only).  Read
+# off disk, so a fixture never has to spell the title itself.
+_shard() { dirname "$(ls "$1"/.be/*/*.keeper 2>/dev/null | head -1)"; }
 printf '26718JF48j\tpost\t?#%s\n26718JF49f\tpost\t?#%s\n26718JF49g\tpost\t?feature#%s\n' \
-    "$SHA1" "$SHA2" "$SHA1" > "$META/vend/ext/.be/refs"
-printf '26718JF49h\tpost\t?#%s\n' "$DSHA" > "$META/vend/ext/deep/.be/refs"
-printf '26718JF49i\tpost\t?#%s\n' "$FSHA" > "$WORK/foreign/.be/refs"
+    "$SHA1" "$SHA2" "$SHA1" > "$(_shard "$META/vend/ext")/refs"
+printf '26718JF49h\tpost\t?#%s\n' "$DSHA" > "$(_shard "$META/vend/ext/deep")/refs"
+printf '26718JF49i\tpost\t?#%s\n' "$FSHA" > "$(_shard "$WORK/foreign")/refs"
 
 # --- the five work/ worktrees -----------------------------------------------
 # TRK-5: a REAL trunk clone (row0 anchor + `get ?#<sha>`), in sync with trunk.

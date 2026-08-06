@@ -29,7 +29,7 @@ dirty_patch() {
     ORG="$WORK/org"; mkdir -p "$ORG/.be"
     _opwd=$(pwd); cd "$ORG"; build; cd "$_opwd"
     _f1=$F1
-    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
     #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref
     #  needed — a bare post never mints one).
     _ORGTIP=$(_orgtip "$ORG")

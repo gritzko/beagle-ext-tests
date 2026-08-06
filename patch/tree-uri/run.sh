@@ -23,7 +23,7 @@ cd "$_opwd"
 
 #  two SECONDARY worktrees off the ONE origin store (TEST-003: drop the origin's
 #  rolling keeper.idx before each op so every commit stays visible)
-_org_jab() { _d=$1; shift; rm -f "$ORG"/.be/*.keeper.idx; ( cd "$_d" && "$BE" "$@" ); }
+_org_jab() { _d=$1; shift; rm -f "$ORG"/.be/*/*.keeper.idx; ( cd "$_d" && "$BE" "$@" ); }
 #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref needed
 #  — a bare post never mints one).
 ORG_TIP=$(_orgtip "$ORG")
@@ -44,7 +44,7 @@ _org_jab "$W1" put f.txt >/dev/null 2>&1 || _fail "w1 put failed"
 _org_jab "$W1" post 't1 line1' >/dev/null 2>&1 || _fail "w1 post failed"
 
 #  THE REPRO: a relative `file:<path>` tree URI absorbs w2's cur tip into w1
-rm -f "$ORG"/.be/*.keeper.idx
+rm -f "$ORG"/.be/*/*.keeper.idx
 # PATCH spec 2026-07-17: RED until the bang-less `?<sha>` row + `?<br>!`-less
 # refusal help text land
 ( cd "$W1" && "$JABC" patch 'file:../w2' ) >"$WORK/js.out" 2>"$WORK/js.err" \

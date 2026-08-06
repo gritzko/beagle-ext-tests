@@ -60,7 +60,7 @@ pass() { echo "PASS [$NAME]"; }
 # The store's rolling `.keeper.idx` run indexes only the LATEST keeper, so an
 # earlier commit's object (the t0 FORK POINT both branches need) reads MISSING
 # after a 2nd post; drop the stale idx before each op to force a full re-index.
-_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+_jab() { rm -f .be/*/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
 # DIS-076: a bare post never moves a ref (uniform ruling) — the ONLY tip a
 # worktree has is its own wtlog cur; ask jab (`refs` cur:), never grep .be/refs.
 _orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
@@ -150,7 +150,7 @@ patch_parity() {
     #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
     #  TEST-003: drop the origin's stale keeper.idx so the clone sees EVERY commit
     #  (the rolling idx indexes only the latest keeper — the t0 fork point is hid).
-    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
     #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref
     #  needed — a bare post never mints one).
     _ORGTIP=$(_orgtip "$ORG")
@@ -193,7 +193,7 @@ patch_js_golden() {
 
     #  JAB-003 native oracle retired: clone ONLY the JS worktree, run jab patch.
     #  TEST-003: drop the origin's stale keeper.idx so the clone sees every commit.
-    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
     #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur.
     _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"

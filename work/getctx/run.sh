@@ -62,8 +62,12 @@ EOF
 SHA1=$(_sha40 "$META/vend/ext/.be/wtlog" 1)          # ext one
 SHA2=$(_sha40 "$META/vend/ext/.be/wtlog" 2)          # ext two
 [ -n "$SHA1" ] && [ -n "$SHA2" ] || _fail "sha capture"
+# GET-060: a store's SHARD dir — `.be/<title>/`, where the packs and the `refs`
+# log live (RULING 2: there is no flat store, `.be/` holds shards only).  Read
+# off disk, so a fixture never has to spell the title itself.
+_shard() { dirname "$(ls "$1"/.be/*/*.keeper 2>/dev/null | head -1)"; }
 printf '26718JF48j\tpost\t?#%s\n26718JF49f\tpost\t?#%s\n' \
-    "$SHA1" "$SHA2" > "$META/vend/ext/.be/refs"
+    "$SHA1" "$SHA2" > "$(_shard "$META/vend/ext")/refs"
 
 # PIN-1/PIN-2: track the vend/ext WORKTREE (URI-shaped), based at SHA1 (behind).
 for P in PIN-1 PIN-2; do

@@ -58,7 +58,7 @@ echo "  case1 ok: fresh clone round-trips ($REMOTE)"
 # The trunk tip (last `#<40hex>` refs row).  Build want+flush+have+done pkt-lines
 # and drive `jab upload-pack` on stdin; the served pack must carry ZERO objects
 # (the client already has everything reachable from the want).
-TIP=$(od -An -c "$SRC/.be/refs" 2>/dev/null | tr -d ' \n' \
+TIP=$(od -An -c "$SRC"/.be/*/refs 2>/dev/null | tr -d ' \n' \
       | grep -oE '#[0-9a-f]{40}' | tail -1 | tr -d '#')
 [ -n "$TIP" ] || _fail "could not read source trunk tip"
 _pktline() { printf '%04x%s\n' $(( ${#1} + 5 )) "$1"; }   # +4 hdr +1 newline

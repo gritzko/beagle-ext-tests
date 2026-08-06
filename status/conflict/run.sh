@@ -39,7 +39,7 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 _fail() { echo "FAIL [status/$NAME] $*" >&2; exit 1; }
 # jab is ASAN — drop the rolling keeper.idx before each op so an earlier commit's
 # fork-point object stays visible after a later post (patchcase.sh idiom).
-_jab() { rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
+_jab() { rm -f "$WT"/.be/*/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
 # BRO-030: quad default — f.txt's WT (4th quad) char, or empty if no row.
 # Conflict spells the wt char `!`, an ordinary edit `v` (track/base/patch same).
 _bucket() { ( cd "$WT" && "$JABC" status --plain 2>/dev/null ) \

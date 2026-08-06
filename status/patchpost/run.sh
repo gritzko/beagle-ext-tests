@@ -42,7 +42,7 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 _fail() { echo "FAIL [status/$NAME] $*" >&2; exit 1; }
 # jab is ASAN — drop the rolling keeper.idx before each op so an earlier commit's
 # fork-point object stays visible after a later post (patchcase.sh idiom).
-_jab() { rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
+_jab() { rm -f "$WT"/.be/*/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
 _tip() { "$JABC" "$_ROOT/put/tipsha.js" "$WT"; }
 # the quad rows, date-stripped to `<quad4> <path>` (header + summary dropped).
 _rows() { ( cd "$WT" && "$JABC" status --plain 2>/dev/null ) \
@@ -114,8 +114,8 @@ echo "ok   POST-post: consumed patch clears the column + summary segment"
 WT2="$WORK/plain"
 build_wt "$WT2" 0
 printf 'a2\n' > "$WT2/fileA.txt"
-( rm -f "$WT2"/.be/*.keeper.idx 2>/dev/null || true; cd "$WT2" && "$BE" put fileA.txt >/dev/null 2>&1 ) || _fail "plain stage"
-( rm -f "$WT2"/.be/*.keeper.idx 2>/dev/null || true; cd "$WT2" && "$BE" post 'plain commit' >/dev/null 2>&1 ) || _fail "plain post"
+( rm -f "$WT2"/.be/*/*.keeper.idx 2>/dev/null || true; cd "$WT2" && "$BE" put fileA.txt >/dev/null 2>&1 ) || _fail "plain stage"
+( rm -f "$WT2"/.be/*/*.keeper.idx 2>/dev/null || true; cd "$WT2" && "$BE" post 'plain commit' >/dev/null 2>&1 ) || _fail "plain post"
 WT_SAVE=$WT; WT=$WT2; _rows > "$WORK/plain.rows"; WT=$WT_SAVE
 # same quad rows (paths + quads), ignoring the differing commit-row sha/subject.
 _norm() { sed -E 's/\?[0-9a-f]+#.*$/?COMMIT/'; }

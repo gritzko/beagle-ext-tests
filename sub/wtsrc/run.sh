@@ -20,8 +20,9 @@
 . "$(dirname "$0")/../lib/subcase.sh"
 
 # --- build a project-less colocated primary store (the REAL store) ----------
-# TEST-003: jab is single-shard project-less — refs live at .be/refs, the clone
-# URI is `file:<store>/.be?/` (no project name).  PROJ kept only for legacy args.
+# TEST-003: jab names no project, so the clone URI is `file:<store>/.be?/`;
+# GET-060 RULING 2: its store still holds a SHARD (`.be/<title>/`), never flat.
+# PROJ kept only for legacy args.
 STORE="$WORK/widget"
 PROJ="widget"
 rm -rf "$STORE"

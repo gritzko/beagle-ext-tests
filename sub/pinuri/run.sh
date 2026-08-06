@@ -12,7 +12,9 @@
 sc_build_parent     # par -> vendor/sub (gitlink + .gitmodules committed)
 
 # refs snapshot helper: the sub's shard is the SUBSTORE (local-source reuse).
-_refs() { [ -f "$SUBSTORE/.be/refs" ] && od -An -c "$SUBSTORE/.be/refs" | tr -d ' \n' || printf 'norefs'; }
+# GET-060 RULING 2: a store's refs log lives IN its shard (`.be/<title>/refs`).
+_refs() { _rf=$(ls "$SUBSTORE"/.be/*/refs 2>/dev/null | head -1)
+          [ -n "$_rf" ] && od -An -c "$_rf" | tr -d ' \n' || printf 'norefs'; }
 
 T1="$WORK/t1"
 rc=$(sc_jget "$T1" "file://$PARSTORE/.be")

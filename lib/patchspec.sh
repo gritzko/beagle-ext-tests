@@ -38,7 +38,7 @@ pass() { echo "PASS [$NAME]"; }
 
 #  TEST-003 jab-only DAG seeding (the patchcase.sh idioms).  The rolling
 #  keeper.idx indexes only the LATEST keeper — drop it before each op.
-_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+_jab() { rm -f .be/*/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
 #  DIS-076: a bare post never moves a ref — the wt's OWN cur is the only tip.
 _orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
 _orgbranch() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^branch: *?//p'; }
@@ -71,7 +71,7 @@ ps_patch_row() { ps_patch_rows "$1" | tail -1; }
 
 #  ps_clone DST — clone a JS worktree of $ORG pinned at ORG's own cur tip.
 ps_clone() {
-    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
     _t=$(_orgtip "$ORG")
     mkdir -p "$1"
     ( cd "$1" && "$BE" get "file://$ORG/.be#$_t" >/dev/null 2>&1 ) \

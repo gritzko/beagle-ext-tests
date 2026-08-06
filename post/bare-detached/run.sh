@@ -61,7 +61,7 @@ EOF
 
 # The rolling keeper.idx indexes only the LATEST keeper (the test/post/
 # patch-absorb note); drop the stale idx before ops that read older commits.
-_fresh() { rm -f "$1"/.be/*.keeper.idx "$1"/.be/*/*.keeper.idx 2>/dev/null || true; }
+_fresh() { rm -f "$1"/.be/*/*.keeper.idx "$1"/.be/*/*.keeper.idx 2>/dev/null || true; }
 
 # ===== fixture: a clean wt DETACHED at c1 (trunk ref parked at c2) ===========
 A="$WORKD/A"; mkdir -p "$A/.be"

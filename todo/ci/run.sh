@@ -63,7 +63,11 @@ printf 'seed\n' > a.txt
 # The clone resolves the store's TRUNK ref, which a bare `post` does not write.
 SEED=$(grep -o '[0-9a-f]\{40\}' "$WT/.be/wtlog" | sed -n 1p)
 [ -n "$SEED" ] || _fail "seed sha capture"
-printf '26718JF48j\tpost\t?#%s\n' "$SEED" > "$WT/.be/refs"
+# GET-060: a store's SHARD dir — `.be/<title>/`, where the packs and the `refs`
+# log live (RULING 2: there is no flat store, `.be/` holds shards only).  Read
+# off disk, so a fixture never has to spell the title itself.
+_shard() { dirname "$(ls "$1"/.be/*/*.keeper 2>/dev/null | head -1)"; }
+printf '26718JF48j\tpost\t?#%s\n' "$SEED" > "$(_shard "$WT")/refs"
 mkdir -p "$WT/work/CIB-001"
 ( cd "$WT/work/CIB-001" && "$BE" get "file:$WT/.be?" ) >/dev/null 2>&1 \
     || _fail "CIB-001 worktree clone"

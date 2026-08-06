@@ -78,7 +78,11 @@ printf 'seed\n' > a.txt
 "$BE" post 'seed commit' >/dev/null 2>&1 || _fail "seed post"
 SEED=$(grep -o '[0-9a-f]\{40\}' "$WT/.be/wtlog" | tail -1)
 [ -n "$SEED" ] || _fail "seed sha capture"
-printf '26718JF48j\tpost\t?#%s\n' "$SEED" > "$WT/.be/refs"
+# GET-060: a store's SHARD dir — `.be/<title>/`, where the packs and the `refs`
+# log live (RULING 2: there is no flat store, `.be/` holds shards only).  Read
+# off disk, so a fixture never has to spell the title itself.
+_shard() { dirname "$(ls "$1"/.be/*/*.keeper 2>/dev/null | head -1)"; }
+printf '26718JF48j\tpost\t?#%s\n' "$SEED" > "$(_shard "$WT")/refs"
 ( cd "$WT/sub" && printf 's2\n' > f.txt && "$BE" post 's2' ) \
     >/dev/null 2>&1 || _fail "sub s2"
 

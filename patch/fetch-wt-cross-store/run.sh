@@ -20,7 +20,7 @@ printf 'a\nb\nc\n' > f.txt
 _boot 't0'
 _fork feat
 #  TEST-003 rolling-idx quirk: drop s1's stale keeper.idx before each op.
-_s1_jab() { _d=$1; shift; rm -f "$S1"/.be/*.keeper.idx; ( cd "$_d" && "$BE" "$@" ); }
+_s1_jab() { _d=$1; shift; rm -f "$S1"/.be/*/*.keeper.idx; ( cd "$_d" && "$BE" "$@" ); }
 #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur (no ref needed
 #  — a bare post never mints one).
 S1_TIP=$(_orgtip "$S1")
@@ -39,11 +39,11 @@ printf 'a\nb\nc\n' > f.txt
 _boot 't0'
 printf 'A\nb\nc\n' > f.txt
 _ci 'b1 edit line 1' f.txt
-NLOGS=$(ls "$B"/.be/*.keeper | wc -l)
-KBYTES=$(cat "$B"/.be/*.keeper | wc -c)   # JS-117: append = same logs, more bytes
+NLOGS=$(ls "$B"/.be/*/*.keeper | wc -l)
+KBYTES=$(cat "$B"/.be/*/*.keeper | wc -c)   # JS-117: append = same logs, more bytes
 
 #  TEST-003 rolling-idx quirk: drop stale keeper.idx in BOTH stores pre-op.
-rm -f "$S1"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
+rm -f "$S1"/.be/*/*.keeper.idx "$B"/.be/*/*.keeper.idx
 
 # BRO-030: golden pins the DERIVED patch col (..vv); WHOLE `?<sha>!` renders ...v
 # today — refOf/patchTheirs drops the `!`-suffixed theirs sha (suspected reporter bug).
@@ -57,11 +57,11 @@ rm -f "$S1"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
     echo "=== fetched ==="
     #  JS-117: the fetch tail-APPENDS to the existing sub-threshold log — the
     #  landing proof is byte growth with an UNCHANGED keeper-log count.
-    if [ "$(cat "$B"/.be/*.keeper | wc -c)" -gt "$KBYTES" ] \
-       && [ "$(ls "$B"/.be/*.keeper | wc -l)" -eq "$NLOGS" ]; then
+    if [ "$(cat "$B"/.be/*/*.keeper | wc -c)" -gt "$KBYTES" ] \
+       && [ "$(ls "$B"/.be/*/*.keeper | wc -l)" -eq "$NLOGS" ]; then
         echo "objects appended to b's shard log"
     else
-        echo "NO tail-append (logs $(ls "$B"/.be/*.keeper | wc -l)/$NLOGS)"
+        echo "NO tail-append (logs $(ls "$B"/.be/*/*.keeper | wc -l)/$NLOGS)"
     fi
     echo "=== patch row ==="
     grep -a "$(printf '\tpatch\t')" "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'

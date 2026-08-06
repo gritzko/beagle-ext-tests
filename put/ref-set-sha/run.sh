@@ -10,11 +10,11 @@
 . "$(dirname "$0")/../putcase.sh"
 
 # refs-row counter: count `post`/`delete` rows in a side's refs ulog.  TEST-003:
-# jab repos are unnamed single-shard — refs live at .be/refs, not a named subshard.
+# GET-060 RULING 2: there is no flat store — a repo's refs log lives in its
+# shard, `.be/<title>/refs`, whether the shard was named by a clone or defaulted.
 _nrefs() {
     _sh=$(ls -d "$1"/.be/*/ 2>/dev/null | grep -v '\.be/\.' | head -1)
     if [ -n "${_sh:-}" ] && [ -f "$_sh/refs" ]; then _rf="$_sh/refs"
-    elif [ -f "$1/.be/refs" ]; then _rf="$1/.be/refs"
     else echo 0; return; fi
     awk 'BEGIN{RS="\t";n=0} $0=="post"||$0=="delete"{n++} END{print n}' "$_rf"
 }

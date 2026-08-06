@@ -31,7 +31,7 @@ build() {
 
 ORG="$WORK/org"; mkdir -p "$ORG/.be"
 _opwd=$(pwd); cd "$ORG"; build; cd "$_opwd"
-rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
 _ORGTIP=$(_orgtip "$ORG")
 
 #  quad-default run (flagless): quad rows ARE the per-file report.

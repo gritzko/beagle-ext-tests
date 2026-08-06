@@ -54,7 +54,7 @@ mkdir -p "$WORK/proj/.be" "$WORK/A" "$WORK/B"
 printf 'one\n' > "$WORK/proj/O.txt"
 ( cd "$WORK/proj" && "$BE" post 'c0' && "$BE" put '?trunk' ) >/dev/null 2>&1 \
     || _fail "seed proj + ?trunk"
-_projclone() { rm -f "$WORK"/proj/.be/*.keeper.idx 2>/dev/null || true
+_projclone() { rm -f "$WORK"/proj/.be/*/*.keeper.idx 2>/dev/null || true
                ( cd "$1" && "$BE" get "file://$WORK/proj/.be?trunk" ); }
 _projclone "$WORK/A" >/dev/null 2>&1 || _fail "clone A"
 _projclone "$WORK/B" >/dev/null 2>&1 || _fail "clone B"

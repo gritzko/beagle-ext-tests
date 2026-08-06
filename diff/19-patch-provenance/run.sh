@@ -24,7 +24,7 @@ cd "$W"
 
 #  Local DAG helpers (18-patch-base shapes): the rolling `.keeper.idx` indexes
 #  only the LATEST keeper, so drop it per op or the fork point reads MISSING.
-_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@" >/dev/null 2>&1; }
+_jab() { rm -f .be/*/*.keeper.idx 2>/dev/null; "$BE" "$@" >/dev/null 2>&1; }
 _tip() { "$JABC" refs 2>/dev/null | sed -n 's/^cur: *//p'; }
 #  wash asserts over the last diff_eq's $WORK/j.color.
 cq()  { grep -q "48;5;$1" "$WORK/j.color" || _fail "$2 (expected 256-bg $1)"; }

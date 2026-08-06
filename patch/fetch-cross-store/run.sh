@@ -32,12 +32,13 @@ printf 'a\nb\nc\n' > f.txt
 _boot 't0'
 printf 'A\nb\nc\n' > f.txt
 _ci 'b1 edit line 1' f.txt
-#  A jab-seeded primary is a FLAT single-shard store: the shard IS `.be`.
-NLOGS=$(ls "$B"/.be/*.keeper | wc -l)
-KBYTES=$(cat "$B"/.be/*.keeper | wc -c)   # JS-117: append = same logs, more bytes
+#  GET-060 RULING 2: a jab-seeded primary is SHARDED like any other store —
+#  its packs live in `.be/<title>/`, never directly in `.be`.
+NLOGS=$(ls "$B"/.be/*/*.keeper | wc -l)
+KBYTES=$(cat "$B"/.be/*/*.keeper | wc -c)   # JS-117: append = same logs, more bytes
 
 #  TEST-003 rolling-idx quirk: drop stale keeper.idx in BOTH stores pre-op.
-rm -f "$A"/.be/*.keeper.idx "$B"/.be/*.keeper.idx
+rm -f "$A"/.be/*/*.keeper.idx "$B"/.be/*/*.keeper.idx
 
 #  The fetch leg: patch the TRANSPORT uri of a from b's wt.
 # PATCH spec 2026-07-17: RED until the bang-less `?<sha>` recorded row lands
@@ -58,11 +59,11 @@ _rows() { grep -ac "$(printf '\tpatch\t')" "$B/.be/wtlog" 2>/dev/null || true; }
     echo "=== fetched ==="
     #  JS-117: the fetch tail-APPENDS to the existing sub-threshold log — the
     #  landing proof is byte growth with an UNCHANGED keeper-log count.
-    if [ "$(cat "$B"/.be/*.keeper | wc -c)" -gt "$KBYTES" ] \
-       && [ "$(ls "$B"/.be/*.keeper | wc -l)" -eq "$NLOGS" ]; then
+    if [ "$(cat "$B"/.be/*/*.keeper | wc -c)" -gt "$KBYTES" ] \
+       && [ "$(ls "$B"/.be/*/*.keeper | wc -l)" -eq "$NLOGS" ]; then
         echo "objects appended to b's shard log"
     else
-        echo "NO tail-append (logs $(ls "$B"/.be/*.keeper | wc -l)/$NLOGS)"
+        echo "NO tail-append (logs $(ls "$B"/.be/*/*.keeper | wc -l)/$NLOGS)"
     fi
     echo "=== patch row ==="
     grep -a "$(printf '\tpatch\t')" "$B/.be/wtlog" | tail -1 | sed -E 's/^[^\t]*\t/T\t/'

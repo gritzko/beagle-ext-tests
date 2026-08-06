@@ -78,8 +78,12 @@ echo "ok   1. clone @ old pin ($SUBTIP0); source advanced: sub tip1 ($SUBTIP1), 
 #    while cur/wt sit behind it at the OLD pin.  The advanced sub objects
 #    (SUBTIP1) already live in the shared $SUBSTORE the sub mount reads.
 # ============================================================================
-for _f in "$PARSTORE/.be"/*.keeper "$PARSTORE/.be"/*.keeper.idx; do
-    [ -f "$_f" ] && cp "$_f" "$PARCOPY/.be/$(basename "$_f")"
+#  GET-060: packs live in `.be/<shard>/`, so copy shard-for-shard.
+for _f in "$PARSTORE/.be"/*/*.keeper "$PARSTORE/.be"/*/*.keeper.idx; do
+    [ -f "$_f" ] || continue
+    _sh=$(basename "$(dirname "$_f")")
+    mkdir -p "$PARCOPY/.be/$_sh"
+    cp "$_f" "$PARCOPY/.be/$_sh/$(basename "$_f")"
 done
 # cur/wt still at the OLD pin (trunk gitlink SUBTIP0, no advanced file on disk).
 PIN0B=$(sc_gitlink_pin "$T1" "$SUBPATH")

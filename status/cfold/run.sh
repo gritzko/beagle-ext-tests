@@ -64,7 +64,7 @@ build() {
 ORG="$WORK/org"; mkdir -p "$ORG/.be"
 _opwd=$(pwd); cd "$ORG"; build; cd "$_opwd"
 [ -n "${SHALLOW:-}" ] && [ -n "${DEEP:-}" ] || _fail "builder did not export SHALLOW/DEEP"
-rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
 
 #  _clone WTDIR TIP — clone pinned at TIP, absorb the SAME `patch #F1`.
 _clone() {

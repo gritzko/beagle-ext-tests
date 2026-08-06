@@ -42,7 +42,7 @@ build() {
 stacked_patch() {
     ORG="$WORK/org"; mkdir -p "$ORG/.be"
     _opwd=$(pwd); cd "$ORG"; build; cd "$_opwd"
-    rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+    rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
     #  DIS-076: default clone = the WORKTREE, pinned at its OWN cur.
     _ORGTIP=$(_orgtip "$ORG")
     JS="$WORK/js"; mkdir -p "$JS"

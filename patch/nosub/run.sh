@@ -63,8 +63,12 @@ sc_is40 "$THEIRS" "theirs"
 [ "$THEIRS" != "$PARTIP0" ] || _fail "parent did not advance"
 
 #  Seed THEIRS' objects into the frozen copy (packs only; refs/wtlog untouched).
-for _f in "$PARSTORE/.be"/*.keeper "$PARSTORE/.be"/*.keeper.idx; do
-    [ -f "$_f" ] && cp "$_f" "$PARCOPY/.be/$(basename "$_f")"
+#  GET-060: packs live in `.be/<shard>/`, so copy shard-for-shard.
+for _f in "$PARSTORE/.be"/*/*.keeper "$PARSTORE/.be"/*/*.keeper.idx; do
+    [ -f "$_f" ] || continue
+    _sh=$(basename "$(dirname "$_f")")
+    mkdir -p "$PARCOPY/.be/$_sh"
+    cp "$_f" "$PARCOPY/.be/$_sh/$(basename "$_f")"
 done
 echo "ok   fixture: clones @ old pin, THEIRS ($THEIRS) seeded"
 

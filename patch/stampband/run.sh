@@ -44,7 +44,7 @@ build() {
 
 ORG="$WORK/org"; mkdir -p "$ORG/.be"
 _opwd=$(pwd); cd "$ORG"; build; cd "$_opwd"
-rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null
+rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null
 _ORGTIP=$(_orgtip "$ORG")
 JS="$WORK/js"; mkdir -p "$JS"
 ( cd "$JS" && "$BE" get "file://$ORG/.be#$_ORGTIP" >/dev/null 2>&1 ) || _fail "JS clone failed"

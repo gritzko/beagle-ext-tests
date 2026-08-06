@@ -24,12 +24,11 @@ _cur()    { ( cd "$1" && "$JABC" refs ) | sed -n 's/^cur: *//p'; }
 _branch() { ( cd "$1" && "$JABC" refs ) | sed -n 's/^branch: *//p'; }
 # dumprows emits via io.log (stderr) with blank spacer lines — fold 2>&1, count
 # non-blank via awk (always exit 0, set -e-safe).  TEST-003: jab repos are
-# unnamed single-shard — refs live at .be/refs when no named subshard exists.
+# GET-060 RULING 2: refs live in the shard, `.be/<title>/refs` — never flat.
 _count()   { awk 'NF{n++} END{print n+0}'; }
 _refdump() {
     _sh=$(ls -d "$1"/.be/*/ 2>/dev/null | grep -v '\.be/\.' | head -1)
     if [ -n "${_sh:-}" ] && [ -f "$_sh/refs" ]; then _rf="$_sh/refs"
-    elif [ -f "$1/.be/refs" ]; then _rf="$1/.be/refs"
     else return 0; fi
     "$JABC" "$_CASE/../dumprows.js" "$_rf" 2>&1
 }

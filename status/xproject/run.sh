@@ -68,9 +68,9 @@ EXT8=$(printf '%s' "$EXTC1" | cut -c1-8)
 # --- one shared store, three shards; orph gets NO trunk ref ------------------
 STORE="$WORK/store"
 mkdir -p "$STORE/.be/par" "$STORE/.be/ext" "$STORE/.be/orph"
-cp "$WORK/srcpar/.be/"*.keeper* "$STORE/.be/par/"
-cp "$WORK/srcext/.be/"*.keeper* "$STORE/.be/ext/"
-cp "$WORK/srcext/.be/"*.keeper* "$STORE/.be/orph/"
+cp "$WORK/srcpar/.be/"*/*.keeper* "$STORE/.be/par/"
+cp "$WORK/srcext/.be/"*/*.keeper* "$STORE/.be/ext/"
+cp "$WORK/srcext/.be/"*/*.keeper* "$STORE/.be/orph/"
 S1=$(awk -F'\t' 'NR==1{print $1}' "$WORK/srcpar/.be/wtlog")
 S2=$(awk -F'\t' 'NR==1{print $1}' "$WORK/srcext/.be/wtlog")
 printf '%s\tpost\t?#%s\n' "$S1" "$PARTIP" > "$STORE/.be/par/refs"

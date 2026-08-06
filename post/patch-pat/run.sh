@@ -42,7 +42,7 @@ _jstatus() { ( cd "$1" && "$JABC" status --plain 2>/dev/null ) \
 # keeper, so t0's object (the fork point) reads MISSING after a 2nd post; drop the
 # stale idx before each op.  Bootstrap post-alone, absolute `?feat`, switch back
 # to trunk by PINNING the saved t0 (bare `?` folds to the current branch).
-_jab() { rm -f "$ORG"/.be/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
+_jab() { rm -f "$ORG"/.be/*/*.keeper.idx 2>/dev/null; "$BE" "$@"; }
 # DIS-076: a bare post never mints a ref — the wt's OWN cur (jab refs) is the
 # only tip there is; never grep a `.be/refs` ULOG (that file no longer exists).
 _orgtip() { ( cd "$1" && "$JABC" refs 2>/dev/null ) | sed -n 's/^cur: *//p'; }
@@ -62,7 +62,7 @@ _build() {
       # ours: do NOT touch f.txt — only k.txt changes, so f.txt at ours == fork.
       printf 'keep+ours\n' > k.txt
       _jab put k.txt >/dev/null 2>&1; _jab post 't1' >/dev/null 2>&1
-      rm -f "$ORG"/.be/*.keeper.idx )           # let the clone see every commit
+      rm -f "$ORG"/.be/*/*.keeper.idx )           # let the clone see every commit
 }
 
 _build; F1=$(cat "$WORK/F1")

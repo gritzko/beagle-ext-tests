@@ -70,7 +70,7 @@ SCRATCH="$TMP/$$"; trap 'rc=$?; [ "$rc" = 0 ] && [ -n "$SCRATCH" ] && rm -rf "$S
 _fail() { echo "FAIL [status/$NAME] $*" >&2; exit 1; }
 # jab is ASAN — drop the rolling keeper.idx before each op so an earlier commit's
 # fork-point object stays visible after a later post (patchcase.sh idiom).
-_jab() { rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
+_jab() { rm -f "$WT"/.be/*/*.keeper.idx 2>/dev/null || true; ( cd "$WT" && "$BE" "$@" ); }
 
 # SKIP if the jab build lacks the tty binding (pre-JS-053: no pager at all).
 cat > "$WORK/ttyprobe.js" <<'EOF'
@@ -139,7 +139,7 @@ grep -Fq '[put]'  "$WORK/plain" && _fail "plain output leaks the [put] label"  |
 echo "     ok   plain-parity          (no button labels on the non-tty path)"
 
 # --- 2. the pty click -------------------------------------------------------
-rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true
+rm -f "$WT"/.be/*/*.keeper.idx 2>/dev/null || true
 python3 "$_CASE/okay.py" "$JABC" "$WT" >"$WORK/out" 2>"$WORK/err" || {
     echo "--- stderr ---"; cat "$WORK/err"
     echo "--- out ---";    cat "$WORK/out"; _fail "pty click checks failed"; }

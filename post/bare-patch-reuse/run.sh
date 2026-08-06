@@ -73,8 +73,8 @@ EOF
 }
 # The rolling keeper.idx indexes only the LATEST keeper (the test/post/
 # patch-absorb note); drop the stale idx in BOTH stores before old-object reads.
-_fresh() { rm -f "$ORG"/.be/*.keeper.idx "$ORG"/.be/*/*.keeper.idx \
-                 "$SRC"/.be/*.keeper.idx "$SRC"/.be/*/*.keeper.idx 2>/dev/null || true; }
+_fresh() { rm -f "$ORG"/.be/*/*.keeper.idx "$ORG"/.be/*/*.keeper.idx \
+                 "$SRC"/.be/*/*.keeper.idx 2>/dev/null || true; }
 
 # ===== fixture: the patch-absorb disjoint-line merge org =====================
 # org: trunk t0 (a..e), feat f1 edits line 4 (msg `f1` — THE absorbed message),

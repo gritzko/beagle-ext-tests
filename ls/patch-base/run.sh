@@ -18,7 +18,7 @@ cd "$W"
 
 #  Local DAG helpers (the patchcase.sh shapes): the rolling `.keeper.idx` indexes
 #  only the LATEST keeper, so drop it per op or the t0 fork point reads MISSING.
-_jab() { rm -f .be/*.keeper.idx 2>/dev/null; "$BE" "$@" >/dev/null 2>&1; }
+_jab() { rm -f .be/*/*.keeper.idx 2>/dev/null; "$BE" "$@" >/dev/null 2>&1; }
 _tip() { "$JABC" refs 2>/dev/null | sed -n 's/^cur: *//p'; }
 
 printf '1\n2\n3\n4\n' > keep.txt

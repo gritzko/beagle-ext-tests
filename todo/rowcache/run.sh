@@ -71,7 +71,7 @@ done
 mkdir -p "$WT/work"
 _clone() {
     mkdir -p "$WT/work/$1"
-    rm -f "$WT"/.be/*.keeper.idx 2>/dev/null || true
+    rm -f "$WT"/.be/*/*.keeper.idx 2>/dev/null || true
     ( cd "$WT/work/$1" && "$BE" get "file://$WT/.be?trunk" ) >/dev/null 2>&1 \
         || _fail "clone work/$1"
 }

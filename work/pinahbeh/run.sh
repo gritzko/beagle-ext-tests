@@ -54,8 +54,12 @@ SSHA=$(_sha40 "$META/sub/.be/wtlog" 1)           # sub tip == the pin
 ASHA=$(_sha40 "$META/alt/.be/wtlog" 1)           # alt tip (unpinned)
 [ -n "$SSHA" ] && [ -n "$ASHA" ] || _fail "sub/alt sha capture"
 # Trunks so the `?`-anchored tracker `.be` rows resolve a store.
-printf '26718JK01a\tpost\t?#%s\n' "$SSHA" > "$META/sub/.be/refs"
-printf '26718JK01b\tpost\t?#%s\n' "$ASHA" > "$META/alt/.be/refs"
+# GET-060: a store's SHARD dir — `.be/<title>/`, where the packs and the `refs`
+# log live (RULING 2: there is no flat store, `.be/` holds shards only).  Read
+# off disk, so a fixture never has to spell the title itself.
+_shard() { dirname "$(ls "$1"/.be/*/*.keeper 2>/dev/null | head -1)"; }
+printf '26718JK01a\tpost\t?#%s\n' "$SSHA" > "$(_shard "$META/sub")/refs"
+printf '26718JK01b\tpost\t?#%s\n' "$ASHA" > "$(_shard "$META/alt")/refs"
 
 # COMMIT the de-jure gitlink pin `sub@SSHA` into META's baseline tree: put the
 # .gitmodules blob, seed the gitlink-bump wtlog row (jab has no CLI spelling for
@@ -83,7 +87,7 @@ grep -qE "put[[:space:]]+sub#[0-9a-f]{40}" "$META/.be/wtlog" \
     >/dev/null 2>&1 || _fail "advance sub"
 S2SHA=$(_sha40 "$META/sub/.be/wtlog" 2)
 [ -n "$S2SHA" ] && [ "$S2SHA" != "$SSHA" ] || _fail "sub did not advance past the pin"
-printf '26718JK01a\tpost\t?#%s\n' "$S2SHA" > "$META/sub/.be/refs"
+printf '26718JK01a\tpost\t?#%s\n' "$S2SHA" > "$(_shard "$META/sub")/refs"
 
 # --- the tracker worktrees (hand-written .be redirects, the test/work/view idiom)
 # PINW tracks the slashLESS gitlink pin `///sub#SSHA` -> hangs under META, ahbeh
